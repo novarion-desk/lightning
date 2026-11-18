@@ -103,5 +103,57 @@ service cloud.firestore {
         allow delete: if isTeacherOfSession();
       }
     }
+
+    // ---------------------------------------------------------------
+    // Zeitstrahl CH: Themen der Lehrperson (Freigabe per Link mit geheimer ID)
+    // ---------------------------------------------------------------
+    match /zeitstrahlTopics/{tid} {
+      allow get: if resource.data.shared == true
+        || (isAccount() && resource.data.ownerUid == request.auth.uid);
+      allow list: if isAccount() && resource.data.ownerUid == request.auth.uid;
+      allow create: if isAccount()
+        && tid.matches('^[A-Za-z0-9]{16,40}$')
+        && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if isAccount()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == request.auth.uid;
+      allow delete: if isAccount() && resource.data.ownerUid == request.auth.uid;
+    }
+
+    // Zeitstrahl CH: Abgabe-Aufträge (Dokument-ID = 4-stelliger Code)
+    match /zeitstrahlTasks/{code} {
+      allow get: if true;
+      allow list: if isAccount() && resource.data.ownerUid == request.auth.uid;
+      allow create: if isAccount()
+        && code.matches('^[0-9]{4}$')
+        && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if isAccount()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == request.auth.uid;
+      allow delete: if isAccount() && resource.data.ownerUid == request.auth.uid;
+
+      // Abgaben: Dokument-ID = geheimer Zufallsschlüssel des Schülergeräts
+      match /submissions/{sid} {
+        function task() {
+          return get(/databases/$(database)/documents/zeitstrahlTasks/$(code)).data;
+        }
+        function isTaskOwner() {
+          return isAccount() && task().ownerUid == request.auth.uid;
+        }
+        function validSubmission() {
+          let d = request.resource.data;
+          return d.keys().hasOnly(['name', 'topic', 'updatedAt'])
+            && d.name is string && d.name.size() > 0 && d.name.size() <= 40
+            && d.topic is map
+            && d.updatedAt == request.time;
+        }
+        allow get: if true;
+        allow list: if isTaskOwner();
+        allow create, update: if sid.matches('^[A-Za-z0-9]{20,40}$')
+          && task().open == true
+          && validSubmission();
+        allow delete: if isTaskOwner();
+      }
+    }
   }
 }
