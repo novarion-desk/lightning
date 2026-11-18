@@ -11,7 +11,9 @@ die Schüler/innen scannen den QR-Code (ohne Login) und antworten mit dem Handy 
 |---|---|---|
 | Lehrperson | `./` | Lehrpersonen-Konto (gleiches Firebase-Konto wie die anderen Apps) |
 | Schüler/innen | `./?code=1234` oder Code eingeben | keines (geheimer Geräteschlüssel) |
-| Beamer | `./?beamer=1234` | Lehrpersonen-Konto |
+| Beamer (2. Gerät) | `./?beamer=1234` | Lehrpersonen-Konto |
+| Projektionsmodus | Knopf «📽️ Projektionsmodus» im Dashboard – Tablet zeigt nur QR, Frage und anonyme Ergebnisse, mit Steuerleiste | – |
+| Demo | `./?demo` | keines – nichts wird gespeichert, simulierte Klasse |
 
 ## Fragetypen
 

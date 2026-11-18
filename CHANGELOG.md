@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.1 – 18.11.2026
+- Projektionsmodus: Tablet zeigt beim Spiegeln nur QR-Code, Frage und anonyme Ergebnisse; Steuerleiste ohne Namen (Ergebnisse, Sperren, +30s, Spotlight per Tipp auf eine Karte).
+- Demo-Version `?demo`: ohne Login, nichts wird gespeichert, simulierte Schülerantworten, Beispielklasse und Vorlagen.
+
 ## v1 – 18.11.2026
 - Erste Version (Grundlage mit Gemini erstellt, überarbeitet).
 - Firestore statt Realtime Database, im gemeinsamen Projekt «Unterrichtscockpit».

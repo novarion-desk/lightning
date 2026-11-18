@@ -49,8 +49,13 @@
     </div>
   </header>
 
+  <!-- DEMO-HINWEIS -->
+  <div id="demo-banner" class="hidden bg-amber-50 border-b border-amber-200 px-4 py-2.5 text-xs sm:text-sm text-amber-900">
+    <div class="max-w-7xl mx-auto"><strong>Demo:</strong> Nichts wird gespeichert, die Schülerantworten werden simuliert. Mit «Teilnehmen» oben kannst du die Schüleransicht auf diesem Gerät ausprobieren.</div>
+  </div>
+
   <!-- MAIN CONTAINER -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
+  <main id="app-main" class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
 
     <!-- LADEN -->
     <section id="view-loading" class="pt-16 text-center text-sm text-slate-400">Lade…</section>
@@ -218,8 +223,11 @@
               </div>
               <h2 id="live-question-title" class="text-lg sm:text-xl font-bold text-slate-900 mt-1">Frage...</h2>
               <div class="flex flex-wrap gap-2 mt-2">
-                <button onclick="openBeamerWindow()" class="text-xs bg-white border border-slate-300 hover:bg-slate-50 px-3 py-1.5 rounded-lg font-medium">
-                  🖥️ Beamer-Ansicht öffnen
+                <button onclick="enterProjectionMode()" class="text-xs bg-indigo-600 text-white hover:bg-indigo-700 px-3 py-1.5 rounded-lg font-semibold">
+                  📽️ Projektionsmodus
+                </button>
+                <button onclick="openBeamerWindow()" id="btn-open-beamer" class="text-xs bg-white border border-slate-300 hover:bg-slate-50 px-3 py-1.5 rounded-lg font-medium">
+                  🖥️ Beamer-Ansicht (2. Gerät)
                 </button>
                 <button onclick="copyStudentLink()" class="text-xs bg-white border border-slate-300 hover:bg-slate-50 px-3 py-1.5 rounded-lg font-medium">
                   🔗 Schüler-Link kopieren
@@ -362,7 +370,7 @@
       </div>
 
       <!-- SPOTLIGHT MODUS (1 ausgewählte Antwort gross & anonym) -->
-      <div id="beamer-spotlight-box" class="hidden card p-8 sm:p-12 border-2 border-amber-400 bg-amber-50/30 space-y-4">
+      <div id="beamer-spotlight-box" onclick="if (projectionOn) clearSpotlight()" class="hidden card p-8 sm:p-12 border-2 border-amber-400 bg-amber-50/30 space-y-4">
         <div class="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-800 bg-amber-100 px-3 py-1 rounded-full">
           ⭐ Fokus-Antwort zur gemeinsamen Besprechung (anonym)
         </div>
@@ -388,6 +396,19 @@
     </section>
 
   </main>
+
+  <!-- STEUERLEISTE PROJEKTIONSMODUS (ohne Namen) -->
+  <div id="projection-bar" class="hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-slate-200 px-3 py-2.5 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-center gap-2">
+      <span id="pj-status" class="text-xs font-semibold text-slate-500 px-2"></span>
+      <button onclick="toggleBeamerResults()" id="pj-results" class="px-3 py-2 rounded-xl border border-indigo-300 bg-white text-indigo-700 text-xs sm:text-sm font-semibold">👁️ Ergebnisse zeigen</button>
+      <button onclick="clearSpotlight()" id="pj-spotlight" class="hidden px-3 py-2 rounded-xl bg-amber-500 text-white text-xs sm:text-sm font-semibold">⭐ Spotlight beenden</button>
+      <button onclick="toggleInputLock()" id="pj-lock" class="px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-medium">🔓 Eingabe offen</button>
+      <button onclick="addTimerSeconds(30)" class="px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-medium">⏱️ +30s</button>
+      <button onclick="exitProjectionMode()" class="px-3 py-2 rounded-xl bg-slate-900 text-white text-xs sm:text-sm font-semibold">✕ Zurück zum Dashboard</button>
+    </div>
+    <p id="pj-hint" class="text-center text-[11px] text-slate-400 mt-1">Tipp: Auf eine Antwortkarte tippen, um sie als Spotlight gross zu zeigen.</p>
+  </div>
 
   <!-- TOAST -->
   <div id="toast" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] bg-slate-900 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg max-w-[90vw] text-center"></div>
@@ -446,10 +467,27 @@
       messagingSenderId: "274439019701",
       appId: "1:274439019701:web:b90892c5745657e39972fc"
     };
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
-    const FV = firebase.firestore.FieldValue;
+    const IS_DEMO = new URLSearchParams(location.search).has('demo');
+    const DEMO_USER = { uid: 'demo', isAnonymous: false, email: 'demo' };
+    let auth, db, FV;
+    if (IS_DEMO) {
+      // Demo: alles nur im Arbeitsspeicher dieses Tabs, kein Firebase, kein Login
+      const fake = createFakeDb();
+      db = fake.db;
+      FV = { serverTimestamp: () => fake.SERVER_TS };
+      auth = {
+        onAuthStateChanged: (cb) => setTimeout(() => cb(DEMO_USER), 0),
+        signOut: async () => {},
+        setPersistence: async () => {},
+        signInWithEmailAndPassword: async () => {},
+        sendPasswordResetEmail: async () => {}
+      };
+    } else {
+      firebase.initializeApp(firebaseConfig);
+      auth = firebase.auth();
+      db = firebase.firestore();
+      FV = firebase.firestore.FieldValue;
+    }
 
     const SESSIONS = 'lightningSessions';          // öffentliche Session-Daten (Frage, Namensliste der Klasse)
     const TEACHERS = 'lightningTeachers';          // privat pro Lehrperson: Klassen, Vorlagen, Lösungen
@@ -505,8 +543,9 @@
     function renderHeader() {
       const teacher = isTeacherUser(currentUser);
       document.getElementById('btn-classes').classList.toggle('hidden', !teacher || mode !== 'teacher');
-      document.getElementById('btn-logout').classList.toggle('hidden', !teacher);
+      document.getElementById('btn-logout').classList.toggle('hidden', !teacher || IS_DEMO);
       document.getElementById('header-actions').classList.toggle('hidden', mode === 'beamer');
+      document.getElementById('demo-banner').classList.toggle('hidden', !IS_DEMO);
     }
 
     auth.onAuthStateChanged((user) => {
@@ -522,6 +561,7 @@
           showView('view-teacher');
           if (teacherDataFor !== currentUser.uid) {
             teacherDataFor = currentUser.uid;
+            if (IS_DEMO) seedDemoData();
             startTeacherData();
             cleanupOldSessions();
             resumeActiveSession();
@@ -802,8 +842,9 @@
         if (form.type === 'order') {
           await teacherRef().collection('solutions').doc(code).set({ order: form.options, createdAt: FV.serverTimestamp() });
         }
-        localStorage.setItem('lightning_activeSession_' + currentUser.uid, code);
+        if (!IS_DEMO) localStorage.setItem('lightning_activeSession_' + currentUser.uid, code);
         showTeacherLiveDashboard(code);
+        if (IS_DEMO) startDemoBots(code, form);
       } catch (e) {
         toast('Session konnte nicht gestartet werden. Bitte nochmals versuchen.');
       } finally {
@@ -830,7 +871,7 @@
       document.getElementById('teacher-setup').classList.add('hidden');
       document.getElementById('teacher-live').classList.remove('hidden');
       document.getElementById('live-room-code').textContent = code;
-      renderQR('qr-teacher', `${getBaseUrl()}?code=${code}`);
+      renderQR('qr-teacher', studentLink(code));
 
       liveUnsubs.push(sessionRef(code).onSnapshot((snap) => {
         if (!snap.exists) { backToSetup(); return; }
@@ -863,7 +904,8 @@
       updateBeamerButtonUI(data.showOnBeamer);
       updateLockButtonUI(isInputClosed(data));
       document.getElementById('btn-clear-spotlight').classList.toggle('hidden', !data.spotlightId);
-      startCountdown('teacher-timer-badge', data, () => updateLockButtonUI(isInputClosed(data)));
+      startCountdown('teacher-timer-badge', data, () => { updateLockButtonUI(isInputClosed(data)); renderProjectionBar(); });
+      if (projectionOn) startCountdown('beamer-timer-badge', data);
       renderLiveResponses();
     }
 
@@ -871,6 +913,77 @@
       if (!currentSessionData) return;
       renderMissingStudents(currentSessionData, currentResponses);
       renderTeacherResponses(currentSessionData, currentResponses);
+      syncProjection();
+    }
+
+    // =========================================================================
+    // 6b. PROJEKTIONSMODUS (Tablet wird gespiegelt: nur Beamer-Inhalte, keine Namen)
+    // =========================================================================
+    let projectionOn = false;
+
+    function enterProjectionMode() {
+      if (!currentRoomCode) return;
+      projectionOn = true;
+      document.getElementById('beamer-code').textContent = currentRoomCode;
+      renderQR('qr-beamer', studentLink(currentRoomCode));
+      document.getElementById('app-header').classList.add('hidden');
+      document.getElementById('demo-banner').classList.add('hidden');
+      document.getElementById('projection-bar').classList.remove('hidden');
+      document.getElementById('app-main').classList.add('pb-32');
+      showView('view-beamer');
+      if (currentSessionData) startCountdown('beamer-timer-badge', currentSessionData);
+      syncProjection();
+      window.scrollTo(0, 0);
+      try { document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
+    }
+
+    function exitProjectionMode() {
+      if (!projectionOn) return;
+      projectionOn = false;
+      clearInterval(timers['beamer-timer-badge']);
+      document.getElementById('app-header').classList.remove('hidden');
+      document.getElementById('projection-bar').classList.add('hidden');
+      document.getElementById('app-main').classList.remove('pb-32');
+      try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {}
+      renderHeader();
+      showView('view-teacher');
+    }
+
+    function syncProjection() {
+      if (!projectionOn || !currentSessionData) return;
+      beamerSession = currentSessionData;
+      beamerResponses = Object.fromEntries(currentResponses.map(r => [r.id, r]));
+      beamerSolution = currentSolution;
+      renderBeamer();
+      renderProjectionBar();
+    }
+
+    function renderProjectionBar() {
+      if (!projectionOn || !currentSessionData) return;
+      const d = currentSessionData;
+      const roster = Array.isArray(d.roster) ? d.roster : null;
+      let status = `${currentResponses.length} Antworten`;
+      if (roster && roster.length) {
+        const names = new Set(currentResponses.map(r => (r.name || '').trim().toLowerCase()));
+        status = `${roster.filter(n => names.has(n.toLowerCase())).length} / ${roster.length} abgegeben`;
+      }
+      document.getElementById('pj-status').textContent = status;
+      const res = document.getElementById('pj-results');
+      res.textContent = d.showOnBeamer ? '🙈 Ergebnisse ausblenden' : '👁️ Ergebnisse zeigen';
+      res.classList.toggle('bg-indigo-600', !!d.showOnBeamer);
+      res.classList.toggle('text-white', !!d.showOnBeamer);
+      res.classList.toggle('bg-white', !d.showOnBeamer);
+      res.classList.toggle('text-indigo-700', !d.showOnBeamer);
+      document.getElementById('pj-spotlight').classList.toggle('hidden', !d.spotlightId);
+      const closed = isInputClosed(d);
+      const lock = document.getElementById('pj-lock');
+      lock.textContent = closed ? '🔒 Gesperrt – öffnen' : '🔓 Eingabe sperren';
+      lock.classList.toggle('bg-amber-100', closed);
+      lock.classList.toggle('border-amber-300', closed);
+    }
+
+    function studentLink(code) {
+      return IS_DEMO ? `${getBaseUrl()}?demo` : `${getBaseUrl()}?code=${code}`;
     }
 
     function renderMissingStudents(data, responses) {
@@ -1090,12 +1203,13 @@
 
     function openBeamerWindow() {
       if (!currentRoomCode) return;
+      if (IS_DEMO) { toast('In der Demo gibt es nur den Projektionsmodus.'); enterProjectionMode(); return; }
       window.open(`${getBaseUrl()}?beamer=${currentRoomCode}`, '_blank');
     }
 
     function copyStudentLink() {
       if (!currentRoomCode) return;
-      const url = `${getBaseUrl()}?code=${currentRoomCode}`;
+      const url = studentLink(currentRoomCode);
       navigator.clipboard.writeText(url).then(() => toast('Schüler-Link kopiert')).catch(() => prompt('Link kopieren:', url));
     }
 
@@ -1133,6 +1247,8 @@
     }
 
     function backToSetup() {
+      exitProjectionMode();
+      stopDemoBots();
       stopLive();
       currentRoomCode = null;
       currentSessionData = null;
@@ -1356,7 +1472,9 @@
 
       studentUnsub = sessionRef(code).onSnapshot((snap) => {
         if (!snap.exists) {
-          showStudentClosed('Code nicht gefunden', 'Prüfe den Code an der Wandtafel und versuche es nochmals.');
+          showStudentClosed('Code nicht gefunden', IS_DEMO
+            ? 'In der Demo gibt es keine Verbindung zwischen Geräten. Starte die Frage auf diesem Gerät unter «Lehrperson» und wechsle dann zu «Teilnehmen».'
+            : 'Prüfe den Code an der Wandtafel und versuche es nochmals.');
           return;
         }
         const data = snap.data({ serverTimestamps: 'estimate' });
@@ -1663,12 +1781,13 @@
         summary.classList.add('hidden');
       }
 
-      cards.innerHTML = entries.map(item => {
+      cards.innerHTML = Object.entries(beamerResponses).map(([id, item]) => {
         if (data.type === 'mc' || data.type === 'order') return '';
         if (data.type === 'ampel' && !item.comment) return '';
         const text = data.type === 'ampel' ? item.comment : item.answer;
         const border = item.mark === 'good' ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 bg-white';
-        return `<div class="rounded-2xl border-2 ${border} p-5 text-lg font-medium text-slate-900 shadow-sm break-words whitespace-pre-wrap">${escapeHTML(text)}</div>`;
+        const click = projectionOn ? ` onclick="toggleSpotlight('${id}')" role="button"` : '';
+        return `<div${click} class="rounded-2xl border-2 ${border} p-5 text-lg font-medium text-slate-900 shadow-sm break-words whitespace-pre-wrap ${projectionOn ? 'cursor-pointer hover:border-amber-400' : ''}">${escapeHTML(text)}</div>`;
       }).join('');
     }
 
@@ -1744,6 +1863,160 @@
 
     function escapeHTML(str) {
       return String(str ?? '').replace(/[&<>"']/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s]));
+    }
+
+    // =========================================================================
+    // 12. DEMO-MODUS (?demo): Datenbank nur im Arbeitsspeicher + simulierte Klasse
+    // =========================================================================
+    function createFakeDb() {
+      const store = new Map();          // Pfad -> Daten
+      const listeners = new Set();
+      const SERVER_TS = { __serverTs: true };
+      let autoCounter = 0;
+      const mkTs = (ms) => ({ __fakeTs: true, toMillis: () => ms });
+      const parentOf = (path) => path.split('/').slice(0, -1).join('/');
+      const autoId = () => 'd' + Date.now().toString(36) + (autoCounter++).toString(36) + Math.random().toString(36).slice(2, 8);
+
+      function clone(v) {
+        if (v === SERVER_TS) return mkTs(Date.now());
+        if (v && v.__fakeTs) return v;
+        if (Array.isArray(v)) return v.map(clone);
+        if (v && typeof v === 'object') {
+          const o = {};
+          for (const k of Object.keys(v)) o[k] = clone(v[k]);
+          return o;
+        }
+        return v;
+      }
+      function docSnap(path) {
+        const d = store.get(path);
+        return { id: path.split('/').pop(), exists: d !== undefined, ref: docRef(path), data: () => (d === undefined ? undefined : clone(d)) };
+      }
+      function colSnap(path, filter) {
+        const docs = [...store.keys()].filter(k => parentOf(k) === path).map(docSnap).filter(sn => !filter || filter(sn.data()));
+        return { docs, size: docs.length, empty: docs.length === 0, forEach: (f) => docs.forEach(f) };
+      }
+      function notify(path) {
+        setTimeout(() => {
+          for (const l of [...listeners]) {
+            if (l.type === 'doc' && l.path === path) l.cb(docSnap(path));
+            if (l.type === 'col' && l.path === parentOf(path)) l.cb(colSnap(l.path));
+          }
+        }, 0);
+      }
+      function docRef(path) {
+        return {
+          id: path.split('/').pop(),
+          path,
+          collection: (name) => colRef(path + '/' + name),
+          get: async () => docSnap(path),
+          set: async (data, opts) => {
+            store.set(path, opts && opts.merge ? { ...(store.get(path) || {}), ...clone(data) } : clone(data));
+            notify(path);
+          },
+          update: async (fields) => {
+            if (!store.has(path)) { const e = new Error('not-found'); e.code = 'not-found'; throw e; }
+            store.set(path, { ...store.get(path), ...clone(fields) });
+            notify(path);
+          },
+          delete: async () => { store.delete(path); notify(path); },
+          onSnapshot: (cb) => {
+            const l = { type: 'doc', path, cb };
+            listeners.add(l);
+            setTimeout(() => listeners.has(l) && cb(docSnap(path)), 0);
+            return () => listeners.delete(l);
+          }
+        };
+      }
+      function colRef(path) {
+        return {
+          doc: (id) => docRef(path + '/' + (id || autoId())),
+          add: async (data) => { const r = docRef(path + '/' + autoId()); await r.set(data); return r; },
+          get: async () => colSnap(path),
+          where: (field, op, value) => ({ get: async () => colSnap(path, d => d && d[field] === value) }),
+          onSnapshot: (cb) => {
+            const l = { type: 'col', path, cb };
+            listeners.add(l);
+            setTimeout(() => listeners.has(l) && cb(colSnap(path)), 0);
+            return () => listeners.delete(l);
+          }
+        };
+      }
+      const fakeDb = {
+        collection: (name) => colRef(name),
+        runTransaction: async (fn) => fn({ get: (ref) => ref.get(), set: (ref, data) => { ref.set(data); } }),
+        batch: () => {
+          const ops = [];
+          return {
+            delete: (ref) => ops.push(() => ref.delete()),
+            set: (ref, data) => ops.push(() => ref.set(data)),
+            commit: async () => { for (const op of ops) await op(); }
+          };
+        }
+      };
+      return { db: fakeDb, SERVER_TS };
+    }
+
+    const DEMO_NAMES = ['Lena', 'Noah', 'Mia', 'Luca', 'Sara', 'Elias', 'Lara', 'Jan', 'Emma', 'Tim', 'Nina', 'Leon', 'Alina', 'David'];
+
+    function seedDemoData() {
+      const t = teacherRef();
+      t.collection('classes').doc('demo2a').set({ name: 'Demo 2A', students: DEMO_NAMES });
+      [
+        { type: 'mc', question: 'Welches Signalwort passt zum Present Perfect?', options: ['yesterday', 'since 2022', 'last week', 'ago'], initialText: '' },
+        { type: 'fix', question: 'Setze die fehlenden Kommas.', options: [], initialText: 'Obwohl es regnete ging sie ohne Schirm aus dem Haus weil sie es eilig hatte.' },
+        { type: 'ampel', question: 'Wie sicher fühlst du dich beim Present Perfect?', options: [], initialText: '' },
+        { type: 'order', question: 'Bringe die Schritte einer Bewerbung in die richtige Reihenfolge.', options: ['Lehrstelle suchen', 'Schnupperlehre machen', 'Bewerbung schreiben', 'Vorstellungsgespräch', 'Lehrvertrag unterschreiben'], initialText: '' },
+        { type: 'text', question: 'Schreibe einen korrekten Satz im Present Perfect mit «never».', options: [], initialText: '' }
+      ].forEach((tpl, i) => t.collection('templates').doc('demo' + i).set({ ...tpl, createdAt: Date.now() - i * 1000 }));
+    }
+
+    let demoBotTimers = [];
+    function stopDemoBots() {
+      demoBotTimers.forEach(clearTimeout);
+      demoBotTimers = [];
+    }
+
+    function demoAnswerFor(form) {
+      const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+      if (form.type === 'mc') {
+        // meist die zweite Option (oft die richtige), sonst zufällig
+        return { answer: Math.random() < 0.6 && form.options[1] ? form.options[1] : pick(form.options), comment: '' };
+      }
+      if (form.type === 'ampel') {
+        const answer = pick(['1', '1', '2', '2', '2', '3', '3', '4']);
+        const comments = ['', '', 'Wann since und wann for?', 'Die unregelmässigen Verben', 'Unterschied zum Past Simple', ''];
+        return { answer, comment: answer === '1' ? '' : pick(comments) };
+      }
+      if (form.type === 'order') {
+        const items = Math.random() < 0.55 ? [...form.options] : shuffle(form.options);
+        return { answer: items.join(ORDER_SEP), comment: '' };
+      }
+      if (form.type === 'fix') {
+        const base = form.initialText || '';
+        const variants = [base, base.replace(/ (weil|obwohl|dass|als|wenn|ging)\b/gi, ', $1').replace(/^, /, ''), base.replace(/ (weil|dass|wenn)\b/gi, ', $1')];
+        return { answer: pick(variants) || base, comment: '' };
+      }
+      return { answer: pick(['I have never been to London.', 'I never have eaten sushi.', 'She has never seen snow.', 'We have never played golf.', 'I have never went to Paris.', 'He has never met a famous person.']), comment: '' };
+    }
+
+    function startDemoBots(code, form) {
+      stopDemoBots();
+      const roster = (currentSessionData && currentSessionData.roster) || null;
+      const classId = document.getElementById('select-session-class').value;
+      const names = shuffle(roster || (cachedClasses[classId] && cachedClasses[classId].students) || DEMO_NAMES.slice(0, 8));
+      // etwa 80 % antworten, die übrigen «fehlen» noch
+      const count = Math.max(1, Math.round(names.length * 0.8));
+      names.slice(0, count).forEach((name, i) => {
+        const delay = 1500 + i * (900 + Math.random() * 1400);
+        demoBotTimers.push(setTimeout(async () => {
+          const snap = await sessionRef(code).get();
+          const d = snap.exists ? snap.data() : null;
+          if (!d || isInputClosed(d)) return;   // gleiche Regel wie in der echten Datenbank
+          const { answer, comment } = demoAnswerFor(form);
+          sessionRef(code).collection('responses').doc('bot' + i + newDeviceId().slice(0, 18)).set({ name, answer, comment, updatedAt: FV.serverTimestamp(), mark: 'none' });
+        }, delay));
+      });
     }
 
     if ('serviceWorker' in navigator) {
