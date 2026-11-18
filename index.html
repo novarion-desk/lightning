@@ -1,0 +1,1758 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Lightning – Live-Checks & Exit-Tickets</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="theme-color" content="#4f46e5" />
+  <link rel="stylesheet" href="vendor/app.css" />
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif; background-color: #f8fafc; color: #0f172a; }
+    .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .btn-primary { background-color: #4f46e5; color: #ffffff; font-weight: 600; border-radius: 0.75rem; transition: all 0.15s; }
+    .btn-primary:hover { background-color: #4338ca; }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .pill-active { background-color: #eef2ff; border-color: #4f46e5; color: #4338ca; font-weight: 600; }
+    #qr-teacher svg, #qr-beamer svg { display: block; width: 100%; height: 100%; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- TOP BAR -->
+  <header id="app-header" class="bg-white border-b border-slate-200 px-4 py-3 sticky top-0 z-20">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-2">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">⚡</div>
+        <div class="min-w-0">
+          <h1 class="font-bold text-slate-900 leading-tight text-base sm:text-lg">Lightning</h1>
+          <p class="text-xs text-slate-500 hidden sm:block">Warm-up, Zwischencheck & Exit-Ticket</p>
+        </div>
+      </div>
+      <div id="header-actions" class="flex items-center gap-2 flex-wrap justify-end">
+        <button onclick="openClassModal()" id="btn-classes" class="hidden text-xs sm:text-sm px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-medium">
+          👥 Klassen
+        </button>
+        <button onclick="switchRole('teacher')" id="nav-teacher" class="text-xs sm:text-sm px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-medium">
+          Lehrperson
+        </button>
+        <button onclick="switchRole('student')" id="nav-student" class="text-xs sm:text-sm px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-medium">
+          Teilnehmen
+        </button>
+        <button onclick="logoutTeacher()" id="btn-logout" title="Abmelden" class="hidden text-xs sm:text-sm px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-medium text-slate-500">
+          ⎋ Abmelden
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
+
+    <!-- LADEN -->
+    <section id="view-loading" class="pt-16 text-center text-sm text-slate-400">Lade…</section>
+
+    <!-- ========================================== -->
+    <!-- 0. LOGIN LEHRPERSON                        -->
+    <!-- ========================================== -->
+    <section id="view-login" class="hidden max-w-sm mx-auto pt-4">
+      <form onsubmit="handleTeacherLogin(event)" class="card p-6 space-y-4">
+        <div>
+          <h2 class="text-lg font-bold text-slate-900">Anmelden</h2>
+          <p id="login-hint" class="text-sm text-slate-500 mt-1">Melde dich mit deinem Lehrpersonen-Konto an. Klassenlisten und Vorlagen sind nur für dich sichtbar.</p>
+        </div>
+        <input type="email" id="login-email" autocomplete="username" required placeholder="E-Mail" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <input type="password" id="login-password" autocomplete="current-password" required placeholder="Passwort" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <div id="login-error" class="hidden text-sm bg-rose-50 border border-rose-200 text-rose-800 rounded-xl p-3"></div>
+        <div id="login-info" class="hidden text-sm bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-3"></div>
+        <button type="submit" id="login-submit" class="btn-primary w-full py-3 text-base">Anmelden</button>
+        <div class="flex items-center justify-between text-xs">
+          <button type="button" onclick="handlePasswordReset()" class="text-indigo-600 hover:underline">Passwort vergessen?</button>
+          <button type="button" onclick="switchRole('student')" class="text-slate-500 hover:underline">Schüler/in? → Teilnehmen</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- 1. LEHRER-COCKPIT (TABLET / LAPTOP)        -->
+    <!-- ========================================== -->
+    <section id="view-teacher" class="hidden space-y-6">
+
+      <!-- NEUE FRAGE STARTEN -->
+      <div id="teacher-setup" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 card p-5 sm:p-6 space-y-5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-lg font-bold text-slate-900">Neue Live-Frage starten</h2>
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="clearForm()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-semibold">
+                ↺ Leeren
+              </button>
+              <button type="button" onclick="openImportModal()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-semibold">
+                📋 KI-Import
+              </button>
+            </div>
+          </div>
+
+          <!-- 1. Fragetyp wählen (5 Modi) -->
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">1. Fragetyp wählen</label>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+              <button type="button" onclick="selectType('text')" id="type-text" class="type-btn pill-active border border-slate-200 rounded-xl p-2.5 text-left transition">
+                <div class="font-semibold text-xs sm:text-sm">✍️ Kurzantwort</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Satz, Begriff</div>
+              </button>
+              <button type="button" onclick="selectType('mc')" id="type-mc" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
+                <div class="font-semibold text-xs sm:text-sm">📊 Multiple Choice</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">2–4 Optionen</div>
+              </button>
+              <button type="button" onclick="selectType('ampel')" id="type-ampel" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
+                <div class="font-semibold text-xs sm:text-sm">🚦 Ampel</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">1–4 + Rückfrage</div>
+              </button>
+              <button type="button" onclick="selectType('fix')" id="type-fix" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
+                <div class="font-semibold text-xs sm:text-sm">🛠️ Satz-Korrektur</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Komma / Fehler</div>
+              </button>
+              <button type="button" onclick="selectType('order')" id="type-order" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
+                <div class="font-semibold text-xs sm:text-sm">🔢 Reihenfolge</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Sortieren</div>
+              </button>
+            </div>
+          </div>
+
+          <!-- 2. Fragestellung -->
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">2. Frage oder Arbeitsauftrag</label>
+            <textarea id="input-question" rows="2" maxlength="500" placeholder="z. B. Schreibe einen korrekten Satz im Present Perfect mit 'never'." class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+          </div>
+
+          <!-- Zusatzfeld: Multiple Choice -->
+          <div id="mc-options-box" class="hidden space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Antwortmöglichkeiten (leere Felder werden ignoriert)</label>
+            <input type="text" id="mc-opt-0" maxlength="200" placeholder="Option A" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+            <input type="text" id="mc-opt-1" maxlength="200" placeholder="Option B" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+            <input type="text" id="mc-opt-2" maxlength="200" placeholder="Option C (optional)" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+            <input type="text" id="mc-opt-3" maxlength="200" placeholder="Option D (optional)" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+          </div>
+
+          <!-- Zusatzfeld: Satz-Korrektur -->
+          <div id="fix-sentence-box" class="hidden space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Fehlerhafter Ausgangssatz (wird bei den Schülern vorausgefüllt)</label>
+            <textarea id="fix-initial-text" rows="2" maxlength="500" placeholder="z. B. Obwohl es regnete ging sie ohne Schirm aus dem Haus weil sie es eilig hatte." class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white"></textarea>
+          </div>
+
+          <!-- Zusatzfeld: Reihenfolge -->
+          <div id="order-items-box" class="hidden space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Elemente in der RICHTIGEN Reihenfolge eingeben (werden für Schüler gemischt)</label>
+            <input type="text" id="order-item-0" maxlength="200" placeholder="1. Erstes Ereignis / Schritt" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+            <input type="text" id="order-item-1" maxlength="200" placeholder="2. Zweites Ereignis / Schritt" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+            <input type="text" id="order-item-2" maxlength="200" placeholder="3. Drittes Ereignis / Schritt" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+            <input type="text" id="order-item-3" maxlength="200" placeholder="4. Viertes Ereignis / Schritt (optional)" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+            <input type="text" id="order-item-4" maxlength="200" placeholder="5. Fünftes Ereignis / Schritt (optional)" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+          </div>
+
+          <!-- 3. Klasse & Countdown -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">3. Klasse verknüpfen (optional)</label>
+              <select id="select-session-class" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm bg-white">
+                <option value="">Ohne Klassenliste (freie Namenseingabe)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">4. Start-Countdown (optional)</label>
+              <select id="select-session-timer" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm bg-white">
+                <option value="0">Kein Zeitlimit (manuell beenden)</option>
+                <option value="30">30 Sekunden</option>
+                <option value="60">60 Sekunden</option>
+                <option value="90">90 Sekunden</option>
+                <option value="120">2 Minuten</option>
+                <option value="180">3 Minuten</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Aktionen -->
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+            <button type="button" onclick="saveTemplate()" class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50">
+              ☁️ Als Vorlage speichern
+            </button>
+            <button type="button" id="btn-start-session" onclick="startSession()" class="btn-primary px-6 py-3 text-base shadow-sm flex items-center gap-2">
+              <span>⚡ Live-Session starten</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- VORLAGEN-BIBLIOTHEK -->
+        <div class="card p-5 sm:p-6 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="font-bold text-slate-900">Vorlagen-Bibliothek</h3>
+              <span id="template-count" class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">0</span>
+            </div>
+            <p class="text-xs text-slate-500 mb-4">Synchronisiert zwischen deinen Geräten.</p>
+            <div id="template-list" class="space-y-2 max-h-[26rem] overflow-y-auto pr-1">
+              <div class="text-xs text-slate-400 italic">Noch keine Vorlagen gespeichert.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AKTIVE SESSION (LIVE-DASHBOARD) -->
+      <div id="teacher-live" class="hidden space-y-5">
+        <!-- Steuerungsleiste -->
+        <div class="card p-5 flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-indigo-200 bg-indigo-50/40">
+          <div class="flex items-start sm:items-center gap-4">
+            <div id="qr-teacher" class="bg-white p-2 rounded-xl border border-slate-200 shrink-0 w-24 h-24"></div>
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Live
+                </span>
+                <span class="text-xs text-slate-500">Code: <strong id="live-room-code" class="text-slate-900 text-base font-mono">----</strong></span>
+                <span id="live-class-badge" class="hidden text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-semibold"></span>
+                <span id="teacher-timer-badge" class="hidden text-xs bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-full font-mono font-bold">⏱️ 00:00</span>
+              </div>
+              <h2 id="live-question-title" class="text-lg sm:text-xl font-bold text-slate-900 mt-1">Frage...</h2>
+              <div class="flex flex-wrap gap-2 mt-2">
+                <button onclick="openBeamerWindow()" class="text-xs bg-white border border-slate-300 hover:bg-slate-50 px-3 py-1.5 rounded-lg font-medium">
+                  🖥️ Beamer-Ansicht öffnen
+                </button>
+                <button onclick="copyStudentLink()" class="text-xs bg-white border border-slate-300 hover:bg-slate-50 px-3 py-1.5 rounded-lg font-medium">
+                  🔗 Schüler-Link kopieren
+                </button>
+                <button onclick="addTimerSeconds(30)" class="text-xs bg-white border border-slate-300 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg font-medium">
+                  ⏱️ +30s
+                </button>
+                <button onclick="toggleInputLock()" id="btn-lock-input" class="text-xs bg-white border border-slate-300 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg font-medium">
+                  🔓 Eingabe offen
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="toggleBeamerResults()" id="btn-toggle-beamer" class="px-3.5 py-2.5 rounded-xl border border-indigo-300 bg-white text-indigo-700 text-xs sm:text-sm font-semibold hover:bg-indigo-50">
+              👁️ Beamer-Ergebnisse: AUS
+            </button>
+            <button onclick="clearSpotlight()" id="btn-clear-spotlight" class="hidden px-3.5 py-2.5 rounded-xl bg-amber-500 text-white text-xs sm:text-sm font-semibold hover:bg-amber-600">
+              ⭐ Spotlight beenden
+            </button>
+            <button onclick="exportCSV()" class="px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 text-xs sm:text-sm font-medium hover:bg-slate-50">
+              📥 CSV
+            </button>
+            <button onclick="endSession()" class="px-4 py-2.5 rounded-xl bg-rose-600 text-white text-xs sm:text-sm font-semibold hover:bg-rose-700">
+              Beenden
+            </button>
+          </div>
+        </div>
+
+        <!-- Klassen-Statusleiste (wer fehlt noch?) -->
+        <div id="missing-students-bar" class="hidden card p-4 bg-white border-slate-200">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Abgabestatus Klasse <span id="missing-class-name"></span></span>
+            <span id="missing-counter-text" class="text-xs font-bold text-indigo-700">0 / 0 abgegeben</span>
+          </div>
+          <div id="missing-students-pills" class="flex flex-wrap gap-1.5"></div>
+        </div>
+
+        <!-- Auswertung Header -->
+        <div class="flex items-center justify-between">
+          <h3 class="font-bold text-slate-900 text-base">Eingegangene Antworten (<span id="response-counter">0</span>)</h3>
+          <button onclick="toggleNamesTeacher()" id="btn-teacher-names" class="text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-white font-medium">
+            Namen sichtbar
+          </button>
+        </div>
+
+        <!-- Zusammenfassung (für MC, Ampel & Reihenfolge) -->
+        <div id="live-summary-box" class="hidden card p-5 space-y-3"></div>
+
+        <!-- Einzelne Schülerkarten -->
+        <div id="live-responses-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5"></div>
+
+        <p class="text-xs text-slate-400 text-center pt-2">Antworten werden 24 Stunden nach Start der Session automatisch gelöscht. Exportiere sie vorher als CSV, wenn du sie behalten willst.</p>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- 2. SCHÜLER-ANSICHT (HANDY / IPAD)          -->
+    <!-- ========================================== -->
+    <section id="view-student" class="hidden max-w-md mx-auto space-y-5 pt-2">
+      <!-- Code-Eingabe -->
+      <div id="student-join-box" class="card p-6 space-y-4">
+        <h2 class="text-lg font-bold text-slate-900">Session beitreten</h2>
+        <p class="text-sm text-slate-500">Gib den 4-stelligen Code von der Wandtafel ein.</p>
+        <input type="text" id="join-code-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="z. B. 4829" onkeydown="if(event.key==='Enter')joinRoomByInput()" class="w-full text-center text-2xl font-mono tracking-widest rounded-xl border border-slate-300 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <button onclick="joinRoomByInput()" class="btn-primary w-full py-3 text-base">Weiter</button>
+      </div>
+
+      <!-- Antwortformular -->
+      <div id="student-answer-box" class="hidden card p-6 space-y-5">
+        <div class="flex items-center justify-between text-xs text-slate-500">
+          <span>Raum <strong id="student-room-label" class="font-mono text-slate-800">----</strong></span>
+          <span id="student-timer-pill" class="hidden bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-full font-mono font-bold">⏱️ 00:00</span>
+          <button onclick="leaveStudentRoom()" class="text-indigo-600 hover:underline">Raum wechseln</button>
+        </div>
+
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Auftrag / Frage</p>
+          <h2 id="student-question-text" class="text-base sm:text-lg font-bold text-slate-900">Lade Frage...</h2>
+        </div>
+
+        <!-- Namenswahl (Dropdown wenn Klasse verknüpft, sonst Textfeld) -->
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Dein Name</label>
+          <select id="student-name-select" class="hidden w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-base bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="">-- Bitte deinen Namen wählen --</option>
+          </select>
+          <input type="text" id="student-name" maxlength="40" placeholder="Vorname eingeben" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+
+        <!-- Dynamischer Antwortbereich -->
+        <div id="student-input-area" class="space-y-3"></div>
+
+        <!-- Sperr-Hinweis -->
+        <div id="student-locked-banner" class="hidden bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3.5 text-sm text-center font-medium">
+          ⏱️ Die Eingabe ist gesperrt.
+        </div>
+
+        <button onclick="submitStudentAnswer()" id="btn-student-submit" class="btn-primary w-full py-3.5 text-base shadow-sm">
+          Antwort absenden
+        </button>
+
+        <div id="student-sent-banner" class="hidden bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-3.5 text-sm text-center font-medium">
+          ✓ Deine Antwort wurde übermittelt. Du kannst sie anpassen, solange die Eingabe offen ist.
+        </div>
+
+        <button onclick="handOverDevice()" id="btn-handover" class="hidden w-full text-sm py-2.5 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-50 font-medium">
+          👋 Gerät an nächste Person weitergeben
+        </button>
+      </div>
+
+      <div id="student-closed-box" class="hidden card p-6 text-center space-y-3">
+        <div class="text-3xl">🔒</div>
+        <h2 id="student-closed-title" class="text-lg font-bold text-slate-900">Session beendet</h2>
+        <p id="student-closed-text" class="text-sm text-slate-500">Diese Umfrage wurde von der Lehrperson geschlossen.</p>
+        <button onclick="leaveStudentRoom()" class="px-4 py-2 rounded-xl border border-slate-300 text-sm font-medium">Neuen Code eingeben</button>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- 3. BEAMER-ANSICHT (ANONYMISIERT & SPOTLIGHT)-->
+    <!-- ========================================== -->
+    <section id="view-beamer" class="hidden space-y-6">
+      <!-- Kopfbereich -->
+      <div class="card p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 border-indigo-200">
+        <div class="space-y-3 flex-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-sm font-bold">
+              <span>⚡ Code: <span id="beamer-code" class="font-mono text-lg">----</span></span>
+            </span>
+            <span id="beamer-timer-badge" class="hidden bg-amber-100 text-amber-900 px-3.5 py-1 rounded-full font-mono text-lg font-extrabold">
+              ⏱️ 00:00
+            </span>
+          </div>
+          <h2 id="beamer-question" class="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-snug">Warte auf Frage...</h2>
+          <p class="text-base text-slate-500">Eingegangene Antworten: <strong id="beamer-count" class="text-slate-900">0</strong></p>
+        </div>
+        <div id="qr-beamer" class="bg-white p-3 rounded-2xl border-2 border-slate-200 shrink-0 w-44 h-44"></div>
+      </div>
+
+      <!-- SPOTLIGHT MODUS (1 ausgewählte Antwort gross & anonym) -->
+      <div id="beamer-spotlight-box" class="hidden card p-8 sm:p-12 border-2 border-amber-400 bg-amber-50/30 space-y-4">
+        <div class="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-800 bg-amber-100 px-3 py-1 rounded-full">
+          ⭐ Fokus-Antwort zur gemeinsamen Besprechung (anonym)
+        </div>
+        <div id="beamer-spotlight-original" class="hidden text-base text-slate-500 line-through bg-white p-3 rounded-xl border border-slate-200"></div>
+        <p id="beamer-spotlight-text" class="text-2xl sm:text-4xl font-bold text-slate-900 leading-relaxed break-words"></p>
+      </div>
+
+      <!-- Standard Beamer-Ergebnisse -->
+      <div id="beamer-normal-area">
+        <div id="beamer-results-hidden" class="card p-10 text-center text-slate-400">
+          <p class="text-lg font-medium">Die Ergebnisse sind noch ausgeblendet.</p>
+        </div>
+
+        <div id="beamer-results-visible" class="hidden space-y-6">
+          <div id="beamer-summary" class="hidden card p-6 space-y-4"></div>
+          <div id="beamer-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </div>
+      </div>
+
+      <div id="beamer-closed" class="hidden card p-10 text-center text-slate-500">
+        <p class="text-lg font-medium">Diese Session ist beendet.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- TOAST -->
+  <div id="toast" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] bg-slate-900 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg max-w-[90vw] text-center"></div>
+
+  <!-- MODAL: KLASSENLISTEN VERWALTEN -->
+  <div id="class-modal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <h3 id="class-modal-title" class="font-bold text-lg text-slate-900">Klassenlisten verwalten</h3>
+        <button onclick="closeClassModal()" class="text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+      <p class="text-xs text-slate-600">Nur für dich sichtbar. Bitte nur Vornamen oder Kürzel eintragen. So siehst du live, wer noch nicht abgegeben hat.</p>
+      <div class="space-y-2.5">
+        <input type="text" id="new-class-name" maxlength="30" placeholder="Klassenname (z. B. 2A)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+        <textarea id="new-class-students" rows="5" placeholder="Vornamen (ein Name pro Zeile oder mit Komma getrennt)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"></textarea>
+        <div class="flex items-center gap-2">
+          <button onclick="saveClassList()" id="btn-save-class" class="btn-primary px-4 py-2 text-sm">Klasse speichern</button>
+          <button onclick="resetClassForm()" id="btn-cancel-class-edit" class="hidden px-4 py-2 rounded-xl border border-slate-300 text-sm">Abbrechen</button>
+        </div>
+      </div>
+      <div id="saved-classes-list" class="space-y-2 max-h-52 overflow-y-auto pt-2 border-t border-slate-100"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: KI-SCHNELLIMPORT -->
+  <div id="import-modal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-lg text-slate-900">KI-Schnellimport</h3>
+        <button onclick="closeImportModal()" class="text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+      <p class="text-xs text-slate-600">Füge eine Frage direkt im Format <code>Typ | Frage | Option 1 | Option 2 ...</code> oder als JSON ein. Typen: <code>text</code>, <code>mc</code>, <code>ampel</code>, <code>fix</code>, <code>order</code>.</p>
+      <textarea id="import-raw-text" rows="5" placeholder='mc | Welches Signalwort passt zum Present Perfect? | yesterday | since 2022 | last week | ago' class="w-full font-mono text-xs rounded-xl border border-slate-300 p-3"></textarea>
+      <div class="flex justify-end gap-2">
+        <button onclick="closeImportModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-sm">Abbrechen</button>
+        <button onclick="processQuickImport()" class="btn-primary px-4 py-2 text-sm">In Formular laden</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BIBLIOTHEKEN (lokal im Repo, keine fremden Server) -->
+  <script src="vendor/firebase-app-compat.js"></script>
+  <script src="vendor/firebase-auth-compat.js"></script>
+  <script src="vendor/firebase-firestore-compat.js"></script>
+  <script src="vendor/qrcode.js"></script>
+
+  <script>
+    // =========================================================================
+    // 1. FIREBASE
+    // =========================================================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyBHHhgjAvY0D0trm2IMxauhFp-ssw9ooz4",
+      authDomain: "zufallsgenerator-209f3.firebaseapp.com",
+      projectId: "zufallsgenerator-209f3",
+      storageBucket: "zufallsgenerator-209f3.firebasestorage.app",
+      messagingSenderId: "274439019701",
+      appId: "1:274439019701:web:b90892c5745657e39972fc"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    const FV = firebase.firestore.FieldValue;
+
+    const SESSIONS = 'lightningSessions';          // öffentliche Session-Daten (Frage, Namensliste der Klasse)
+    const TEACHERS = 'lightningTeachers';          // privat pro Lehrperson: Klassen, Vorlagen, Lösungen
+    const SESSION_MAX_AGE_MS = 24 * 3600 * 1000;   // danach automatisch gelöscht
+
+    // =========================================================================
+    // 2. APP STATE & ROUTING
+    // =========================================================================
+    const params = new URLSearchParams(window.location.search);
+    const paramCode = (params.get('code') || '').trim();
+    const paramBeamer = (params.get('beamer') || '').trim();
+
+    let mode = paramBeamer ? 'beamer' : (paramCode ? 'student' : 'teacher');
+    let currentUser = null;
+    let teacherDataFor = null;        // uid, für den Klassen/Vorlagen geladen sind
+    let teacherUnsubs = [];
+    let liveUnsubs = [];
+    let studentUnsub = null;
+    let pendingStudentCode = paramCode || null;
+    let signingInAnon = false;
+
+    let currentQuestionType = 'text';
+    let currentRoomCode = null;       // Lehrperson: laufende Session
+    let currentSessionData = null;
+    let currentResponses = [];
+    let currentSolution = null;       // korrekte Reihenfolge (nur Lehrperson)
+    let showNamesInTeacherView = true;
+    let cachedClasses = {};
+    let cachedTemplates = [];
+    let editingClassId = null;
+
+    // Schüler-State
+    let studentRoomCode = null;
+    let studentSession = null;
+    let studentHasSubmitted = false;
+    let selectedMcIndex = null;
+    let selectedAmpelValue = null;
+    let studentOrderItems = [];
+
+    const timers = {};
+
+    const isTeacherUser = (u) => !!u && !u.isAnonymous;
+    const teacherRef = () => db.collection(TEACHERS).doc(currentUser.uid);
+    const sessionRef = (code) => db.collection(SESSIONS).doc(code);
+
+    function showView(id) {
+      ['view-loading', 'view-login', 'view-teacher', 'view-student', 'view-beamer'].forEach(v =>
+        document.getElementById(v).classList.toggle('hidden', v !== id));
+      document.getElementById('nav-teacher').classList.toggle('pill-active', id === 'view-teacher' || id === 'view-login');
+      document.getElementById('nav-student').classList.toggle('pill-active', id === 'view-student');
+    }
+
+    function renderHeader() {
+      const teacher = isTeacherUser(currentUser);
+      document.getElementById('btn-classes').classList.toggle('hidden', !teacher || mode !== 'teacher');
+      document.getElementById('btn-logout').classList.toggle('hidden', !teacher);
+      document.getElementById('header-actions').classList.toggle('hidden', mode === 'beamer');
+    }
+
+    auth.onAuthStateChanged((user) => {
+      currentUser = user;
+      if (!isTeacherUser(user)) stopTeacherData();
+      route();
+    });
+
+    function route() {
+      renderHeader();
+      if (mode === 'teacher') {
+        if (isTeacherUser(currentUser)) {
+          showView('view-teacher');
+          if (teacherDataFor !== currentUser.uid) {
+            teacherDataFor = currentUser.uid;
+            startTeacherData();
+            cleanupOldSessions();
+            resumeActiveSession();
+          }
+        } else {
+          document.getElementById('login-hint').textContent = 'Melde dich mit deinem Lehrpersonen-Konto an. Klassenlisten und Vorlagen sind nur für dich sichtbar.';
+          showView('view-login');
+        }
+      } else if (mode === 'beamer') {
+        if (isTeacherUser(currentUser)) {
+          showView('view-beamer');
+          if (teacherDataFor !== currentUser.uid + ':beamer') {
+            teacherDataFor = currentUser.uid + ':beamer';
+            initBeamerView(paramBeamer);
+          }
+        } else {
+          document.getElementById('login-hint').textContent = 'Die Beamer-Ansicht ist nur für die Lehrperson. Bitte anmelden.';
+          showView('view-login');
+        }
+      } else if (mode === 'student') {
+        showView('view-student');
+        if (!currentUser) {
+          ensureAnonymousUser();
+          return;
+        }
+        if (pendingStudentCode) {
+          const c = pendingStudentCode;
+          pendingStudentCode = null;
+          connectStudentToRoom(c);
+        }
+      }
+    }
+
+    function switchRole(role) {
+      if (mode === 'beamer') return;
+      mode = role;
+      route();
+    }
+
+    function ensureAnonymousUser() {
+      if (currentUser || signingInAnon) return;
+      signingInAnon = true;
+      auth.signInAnonymously()
+        .catch(() => toast('Verbindung fehlgeschlagen. Bitte Seite neu laden.'))
+        .finally(() => { signingInAnon = false; });
+    }
+
+    // =========================================================================
+    // 3. LOGIN LEHRPERSON
+    // =========================================================================
+    async function handleTeacherLogin(event) {
+      event.preventDefault();
+      const email = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
+      const err = document.getElementById('login-error');
+      const btn = document.getElementById('login-submit');
+      err.classList.add('hidden');
+      document.getElementById('login-info').classList.add('hidden');
+      btn.disabled = true; btn.textContent = 'Anmelden…';
+      try {
+        await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+        // Ein anonymes Schüler-Login auf diesem Gerät wird durch das Lehrpersonen-Login ersetzt
+        await auth.signInWithEmailAndPassword(email, password);
+        document.getElementById('login-password').value = '';
+      } catch (e) {
+        err.textContent = 'Anmeldung fehlgeschlagen: Bitte E-Mail und Passwort prüfen.';
+        err.classList.remove('hidden');
+      } finally {
+        btn.disabled = false; btn.textContent = 'Anmelden';
+      }
+    }
+
+    async function handlePasswordReset() {
+      const email = document.getElementById('login-email').value.trim();
+      const err = document.getElementById('login-error');
+      const info = document.getElementById('login-info');
+      err.classList.add('hidden'); info.classList.add('hidden');
+      if (!email) {
+        err.textContent = 'Bitte zuerst oben die E-Mail-Adresse eingeben.';
+        err.classList.remove('hidden');
+        return;
+      }
+      try {
+        await auth.sendPasswordResetEmail(email);
+        info.textContent = 'Falls ein Konto existiert, wurde eine E-Mail zum Zurücksetzen verschickt.';
+        info.classList.remove('hidden');
+      } catch (e) {
+        err.textContent = 'E-Mail konnte nicht verschickt werden.';
+        err.classList.remove('hidden');
+      }
+    }
+
+    async function logoutTeacher() {
+      if (currentRoomCode && !confirm('Es läuft noch eine Session. Trotzdem abmelden? Die Session läuft weiter.')) return;
+      stopLive();
+      stopTeacherData();
+      teacherDataFor = null;
+      await auth.signOut();
+      mode = 'teacher';
+      route();
+    }
+
+    // =========================================================================
+    // 4. LEHRPERSON: DATEN (KLASSEN, VORLAGEN), AUFRÄUMEN, FORTSETZEN
+    // =========================================================================
+    function startTeacherData() {
+      stopTeacherData();
+      teacherUnsubs.push(teacherRef().collection('classes').onSnapshot((snap) => {
+        cachedClasses = {};
+        snap.forEach(d => { cachedClasses[d.id] = d.data(); });
+        renderClassDropdowns();
+        renderSavedClassesModal();
+      }, () => toast('Klassen konnten nicht geladen werden.')));
+      teacherUnsubs.push(teacherRef().collection('templates').onSnapshot((snap) => {
+        cachedTemplates = snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) }));
+        cachedTemplates.sort((a, b) => tsMillis(b.createdAt) - tsMillis(a.createdAt));
+        renderTemplates();
+      }, () => toast('Vorlagen konnten nicht geladen werden.')));
+    }
+
+    function stopTeacherData() {
+      teacherUnsubs.forEach(u => u());
+      teacherUnsubs = [];
+      cachedClasses = {};
+      cachedTemplates = [];
+    }
+
+    async function cleanupOldSessions() {
+      try {
+        const uid = currentUser.uid;
+        const qs = await db.collection(SESSIONS).where('ownerUid', '==', uid).get();
+        const cutoff = Date.now() - SESSION_MAX_AGE_MS;
+        for (const d of qs.docs) {
+          const created = tsMillis(d.data().createdAt);
+          if (created && created < cutoff) await deleteSessionCompletely(d.id);
+        }
+      } catch (e) { /* nächster Versuch beim nächsten Login */ }
+    }
+
+    async function deleteSessionCompletely(code) {
+      const rs = await sessionRef(code).collection('responses').get();
+      const batch = db.batch();
+      rs.forEach(r => batch.delete(r.ref));
+      batch.delete(sessionRef(code));
+      batch.delete(teacherRef().collection('solutions').doc(code));
+      await batch.commit();
+    }
+
+    async function resumeActiveSession() {
+      const key = 'lightning_activeSession_' + currentUser.uid;
+      const code = localStorage.getItem(key);
+      if (!code) return;
+      try {
+        const snap = await sessionRef(code).get();
+        const d = snap.exists ? snap.data() : null;
+        if (d && d.ownerUid === currentUser.uid && d.active) {
+          showTeacherLiveDashboard(code);
+          toast('Laufende Session ' + code + ' fortgesetzt.');
+        } else {
+          localStorage.removeItem(key);
+        }
+      } catch (e) { localStorage.removeItem(key); }
+    }
+
+    // =========================================================================
+    // 5. LEHRPERSON: FRAGE ERSTELLEN & SESSION STARTEN
+    // =========================================================================
+    function selectType(type) {
+      currentQuestionType = type;
+      document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('pill-active'));
+      document.getElementById('type-' + type).classList.add('pill-active');
+      document.getElementById('mc-options-box').classList.toggle('hidden', type !== 'mc');
+      document.getElementById('fix-sentence-box').classList.toggle('hidden', type !== 'fix');
+      document.getElementById('order-items-box').classList.toggle('hidden', type !== 'order');
+    }
+
+    function clearForm() {
+      document.getElementById('input-question').value = '';
+      document.getElementById('fix-initial-text').value = '';
+      for (let i = 0; i < 4; i++) document.getElementById('mc-opt-' + i).value = '';
+      for (let i = 0; i < 5; i++) document.getElementById('order-item-' + i).value = '';
+    }
+
+    function generateRoomCode() {
+      return Math.floor(1000 + Math.random() * 9000).toString();
+    }
+
+    function getBaseUrl() {
+      return window.location.origin + window.location.pathname;
+    }
+
+    function collectFormData() {
+      const qText = document.getElementById('input-question').value.trim();
+      let options = [];
+      let initialText = '';
+      if (currentQuestionType === 'mc') {
+        for (let i = 0; i < 4; i++) {
+          const val = document.getElementById('mc-opt-' + i).value.trim();
+          if (val) options.push(val);
+        }
+      } else if (currentQuestionType === 'fix') {
+        initialText = document.getElementById('fix-initial-text').value.trim();
+      } else if (currentQuestionType === 'order') {
+        for (let i = 0; i < 5; i++) {
+          const val = document.getElementById('order-item-' + i).value.trim();
+          if (val) options.push(val);
+        }
+      }
+      return { type: currentQuestionType, question: qText, options, initialText };
+    }
+
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    // Mischen, aber nie schon in der richtigen Reihenfolge
+    function shuffleDifferent(arr) {
+      if (arr.length < 2) return [...arr];
+      let a = shuffle(arr);
+      for (let i = 0; i < 20 && a.join('\u0001') === arr.join('\u0001'); i++) a = shuffle(arr);
+      return a;
+    }
+
+    async function startSession() {
+      const form = collectFormData();
+      if (!form.question) return toast('Bitte gib zuerst eine Frage ein.');
+      if (form.type === 'mc' && form.options.length < 2) return toast('Bitte mindestens 2 Antwortmöglichkeiten eingeben.');
+      if (form.type === 'mc' && new Set(form.options).size !== form.options.length) return toast('Die Antwortmöglichkeiten müssen verschieden sein.');
+      if (form.type === 'fix' && !form.initialText) return toast('Bitte gib den fehlerhaften Ausgangssatz ein.');
+      if (form.type === 'order' && form.options.length < 3) return toast('Bitte mindestens 3 Elemente zum Sortieren eingeben.');
+
+      const classId = document.getElementById('select-session-class').value;
+      const cls = classId ? cachedClasses[classId] : null;
+      const timerSec = parseInt(document.getElementById('select-session-timer').value, 10) || 0;
+
+      const base = {
+        ownerUid: currentUser.uid,
+        type: form.type,
+        question: form.question,
+        // Bei «Reihenfolge» bekommen die Schüler nur die gemischten Elemente – die Lösung bleibt privat
+        options: form.type === 'order' ? shuffleDifferent(form.options) : (form.type === 'mc' ? form.options : []),
+        initialText: form.initialText,
+        roster: cls ? (cls.students || []) : null,
+        className: cls ? cls.name : null,
+        durationSec: timerSec,
+        startedAt: FV.serverTimestamp(),
+        locked: false,
+        active: true,
+        showOnBeamer: false,
+        spotlightId: null,
+        createdAt: FV.serverTimestamp()
+      };
+
+      const btn = document.getElementById('btn-start-session');
+      btn.disabled = true;
+      try {
+        let code = null;
+        for (let attempt = 0; attempt < 15 && !code; attempt++) {
+          const c = generateRoomCode();
+          try {
+            code = await db.runTransaction(async (tx) => {
+              const snap = await tx.get(sessionRef(c));
+              if (snap.exists) return null;          // Code belegt → neuen versuchen
+              tx.set(sessionRef(c), { ...base, code: c });
+              return c;
+            });
+          } catch (e) {
+            if (e.code !== 'permission-denied' && e.code !== 'aborted') throw e;
+          }
+        }
+        if (!code) throw new Error('Kein freier Code gefunden.');
+        if (form.type === 'order') {
+          await teacherRef().collection('solutions').doc(code).set({ order: form.options, createdAt: FV.serverTimestamp() });
+        }
+        localStorage.setItem('lightning_activeSession_' + currentUser.uid, code);
+        showTeacherLiveDashboard(code);
+      } catch (e) {
+        toast('Session konnte nicht gestartet werden. Bitte nochmals versuchen.');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // =========================================================================
+    // 6. LEHRPERSON: LIVE-DASHBOARD
+    // =========================================================================
+    function stopLive() {
+      liveUnsubs.forEach(u => u());
+      liveUnsubs = [];
+      clearInterval(timers['teacher-timer-badge']);
+    }
+
+    function showTeacherLiveDashboard(code) {
+      stopLive();
+      currentRoomCode = code;
+      currentSessionData = null;
+      currentResponses = [];
+      currentSolution = null;
+
+      document.getElementById('teacher-setup').classList.add('hidden');
+      document.getElementById('teacher-live').classList.remove('hidden');
+      document.getElementById('live-room-code').textContent = code;
+      renderQR('qr-teacher', `${getBaseUrl()}?code=${code}`);
+
+      liveUnsubs.push(sessionRef(code).onSnapshot((snap) => {
+        if (!snap.exists) { backToSetup(); return; }
+        currentSessionData = snap.data({ serverTimestamps: 'estimate' });
+        renderLiveSession();
+      }, () => toast('Verbindung zur Session unterbrochen.')));
+
+      liveUnsubs.push(sessionRef(code).collection('responses').onSnapshot((snap) => {
+        currentResponses = snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) }));
+        renderLiveResponses();
+      }, () => toast('Antworten konnten nicht geladen werden.')));
+
+      teacherRef().collection('solutions').doc(code).get().then((s) => {
+        currentSolution = s.exists ? (s.data().order || null) : null;
+        renderLiveResponses();
+      }).catch(() => {});
+    }
+
+    function renderLiveSession() {
+      const data = currentSessionData;
+      if (!data) return;
+      document.getElementById('live-question-title').textContent = data.question;
+      const classBadge = document.getElementById('live-class-badge');
+      if (data.className) {
+        classBadge.textContent = 'Klasse ' + data.className;
+        classBadge.classList.remove('hidden');
+      } else {
+        classBadge.classList.add('hidden');
+      }
+      updateBeamerButtonUI(data.showOnBeamer);
+      updateLockButtonUI(isInputClosed(data));
+      document.getElementById('btn-clear-spotlight').classList.toggle('hidden', !data.spotlightId);
+      startCountdown('teacher-timer-badge', data, () => updateLockButtonUI(isInputClosed(data)));
+      renderLiveResponses();
+    }
+
+    function renderLiveResponses() {
+      if (!currentSessionData) return;
+      renderMissingStudents(currentSessionData, currentResponses);
+      renderTeacherResponses(currentSessionData, currentResponses);
+    }
+
+    function renderMissingStudents(data, responses) {
+      const bar = document.getElementById('missing-students-bar');
+      const roster = Array.isArray(data.roster) ? data.roster : null;
+      if (!roster || roster.length === 0) {
+        bar.classList.add('hidden');
+        return;
+      }
+      bar.classList.remove('hidden');
+      const submittedNames = new Set(responses.map(r => (r.name || '').trim().toLowerCase()));
+      document.getElementById('missing-class-name').textContent = data.className || '';
+      const doneCount = roster.filter(n => submittedNames.has(n.toLowerCase())).length;
+      document.getElementById('missing-counter-text').textContent = `${doneCount} / ${roster.length} abgegeben`;
+      document.getElementById('missing-students-pills').innerHTML = roster.map(name => {
+        const isDone = submittedNames.has(name.toLowerCase());
+        const style = isDone
+          ? 'bg-emerald-100 text-emerald-800 border-emerald-200 line-through opacity-75'
+          : 'bg-rose-50 text-rose-800 border-rose-200 font-semibold';
+        return `<span class="text-xs px-2.5 py-1 rounded-full border ${style}">${escapeHTML(name)}</span>`;
+      }).join('');
+    }
+
+    const AMPEL_LABELS = { '1': '🟢 Alles klar', '2': '🟡 Meistens klar', '3': '🟠 Unsicher', '4': '🔴 Hilfe nötig' };
+    const ORDER_SEP = ' → ';
+
+    function renderTeacherResponses(data, responses) {
+      const entries = [...responses].sort((a, b) => tsMillis(b.updatedAt) - tsMillis(a.updatedAt));
+      document.getElementById('response-counter').textContent = entries.length;
+
+      const summaryBox = document.getElementById('live-summary-box');
+      if (data.type === 'mc' || data.type === 'ampel' || data.type === 'order') {
+        summaryBox.classList.remove('hidden');
+        summaryBox.innerHTML = buildSummaryHTML(data, entries, currentSolution);
+      } else {
+        summaryBox.classList.add('hidden');
+      }
+
+      const grid = document.getElementById('live-responses-grid');
+      if (entries.length === 0) {
+        grid.innerHTML = '<div class="col-span-full text-center py-8 text-sm text-slate-400">Warte auf erste Antworten der Klasse...</div>';
+        return;
+      }
+
+      const correctStr = (currentSolution || []).join(ORDER_SEP);
+      const statusColors = {
+        none: 'border-slate-200 bg-white',
+        good: 'border-emerald-400 bg-emerald-50/40',
+        warn: 'border-amber-400 bg-amber-50/40'
+      };
+
+      grid.innerHTML = entries.map(item => {
+        const isSpotlight = data.spotlightId === item.id;
+        const cardStyle = isSpotlight ? 'border-amber-500 ring-2 ring-amber-300 bg-amber-50/40' : (statusColors[item.mark] || statusColors.none);
+        const displayName = showNamesInTeacherView ? escapeHTML(item.name || 'Anonym') : '••••••••';
+
+        let answerDisplay = '';
+        if (data.type === 'ampel') {
+          answerDisplay = `<div class="font-semibold text-sm">${AMPEL_LABELS[item.answer] || escapeHTML(item.answer)}</div>`;
+          if (item.comment) answerDisplay += `<p class="text-sm text-slate-700 mt-1 bg-white/80 p-2 rounded-lg border border-slate-200">${escapeHTML(item.comment)}</p>`;
+        } else if (data.type === 'order') {
+          const known = !!currentSolution;
+          const isExact = known && item.answer === correctStr;
+          answerDisplay = `
+            ${known ? `<div class="text-xs font-bold mb-1 ${isExact ? 'text-emerald-700' : 'text-amber-700'}">${isExact ? '✓ Exakte Reihenfolge' : '△ Abweichung'}</div>` : ''}
+            <p class="text-sm text-slate-900 font-medium break-words">${escapeHTML(item.answer)}</p>`;
+        } else {
+          answerDisplay = `<p class="text-base text-slate-900 font-medium break-words whitespace-pre-wrap">${escapeHTML(item.answer)}</p>`;
+        }
+
+        return `
+          <div class="rounded-xl border p-4 flex flex-col justify-between gap-3 transition ${cardStyle}">
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-1.5">
+                <span class="text-xs font-bold text-indigo-700">${displayName}</span>
+                <div class="flex items-center gap-1">
+                  <button onclick="toggleSpotlight('${item.id}')" title="Auf Beamer hervorheben (Spotlight)" class="w-6 h-6 rounded hover:bg-amber-100 text-xs ${isSpotlight ? 'bg-amber-200' : ''}">⭐</button>
+                  <button onclick="markResponse('${item.id}', 'good')" title="Verstanden" class="w-6 h-6 rounded hover:bg-emerald-100 text-xs">✅</button>
+                  <button onclick="markResponse('${item.id}', 'warn')" title="Teilweise" class="w-6 h-6 rounded hover:bg-amber-100 text-xs">⚠️</button>
+                  <button onclick="deleteResponse('${item.id}')" title="Löschen" class="w-6 h-6 rounded hover:bg-rose-100 text-xs text-slate-400">✕</button>
+                </div>
+              </div>
+              ${answerDisplay}
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function buildSummaryHTML(data, entries, solution) {
+      const total = entries.length;
+      if (data.type === 'order') {
+        if (!solution) return '<div class="text-xs text-slate-500">Lösung nicht verfügbar.</div>';
+        const correctStr = solution.join(ORDER_SEP);
+        const exactCount = entries.filter(e => e.answer === correctStr).length;
+        const pct = total > 0 ? Math.round((exactCount / total) * 100) : 0;
+        return `
+          <div class="text-xs font-bold uppercase tracking-wider text-slate-500">Ziel-Reihenfolge: <span class="text-slate-900 normal-case">${escapeHTML(correctStr)}</span></div>
+          <div>
+            <div class="flex justify-between text-sm font-semibold mb-1">
+              <span>Komplett richtig sortiert</span>
+              <span>${exactCount} von ${total} (${pct}%)</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+              <div class="bg-emerald-600 h-3 rounded-full transition-all" style="width: ${pct}%"></div>
+            </div>
+          </div>`;
+      }
+
+      let buckets = [];
+      if (data.type === 'mc') {
+        buckets = (data.options || []).map(opt => ({ label: opt, count: entries.filter(e => e.answer === opt).length }));
+      } else if (data.type === 'ampel') {
+        buckets = ['1', '2', '3', '4'].map(k => ({ label: `${AMPEL_LABELS[k]} (${k})`, count: entries.filter(e => e.answer === k).length }));
+      }
+
+      return buckets.map(b => {
+        const pct = total > 0 ? Math.round((b.count / total) * 100) : 0;
+        return `
+          <div>
+            <div class="flex justify-between text-xs sm:text-sm font-medium mb-1">
+              <span>${escapeHTML(b.label)}</span>
+              <span>${b.count} (${pct}%)</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+              <div class="bg-indigo-600 h-3 rounded-full transition-all duration-300" style="width: ${pct}%"></div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function updateSession(fields) {
+      if (!currentRoomCode) return Promise.resolve();
+      return sessionRef(currentRoomCode).update(fields).catch(() => toast('Änderung konnte nicht gespeichert werden.'));
+    }
+
+    function toggleSpotlight(respId) {
+      if (!currentSessionData) return;
+      updateSession({ spotlightId: currentSessionData.spotlightId === respId ? null : respId });
+    }
+
+    function clearSpotlight() {
+      updateSession({ spotlightId: null });
+    }
+
+    function addTimerSeconds(sec) {
+      const d = currentSessionData;
+      if (!d) return;
+      const dl = deadlineMs(d);
+      if (dl && dl > Date.now()) {
+        updateSession({ durationSec: (d.durationSec || 0) + sec, locked: false });
+      } else {
+        updateSession({ durationSec: sec, startedAt: FV.serverTimestamp(), locked: false });
+      }
+    }
+
+    function toggleInputLock() {
+      const d = currentSessionData;
+      if (!d) return;
+      if (isInputClosed(d)) {
+        // Wieder öffnen: abgelaufenen Timer entfernen
+        updateSession({ locked: false, durationSec: isTimeUp(d) ? 0 : (d.durationSec || 0) });
+      } else {
+        updateSession({ locked: true });
+      }
+    }
+
+    function updateLockButtonUI(isLocked) {
+      const btn = document.getElementById('btn-lock-input');
+      if (isLocked) {
+        btn.textContent = '🔒 Eingabe gesperrt';
+        btn.classList.add('bg-amber-100', 'border-amber-300', 'text-amber-900');
+      } else {
+        btn.textContent = '🔓 Eingabe offen';
+        btn.classList.remove('bg-amber-100', 'border-amber-300', 'text-amber-900');
+      }
+    }
+
+    function markResponse(respId, mark) {
+      if (!currentRoomCode) return;
+      const current = currentResponses.find(r => r.id === respId);
+      const nextMark = current && current.mark === mark ? 'none' : mark;
+      sessionRef(currentRoomCode).collection('responses').doc(respId).update({ mark: nextMark })
+        .catch(() => toast('Markierung konnte nicht gespeichert werden.'));
+    }
+
+    function deleteResponse(respId) {
+      if (!currentRoomCode) return;
+      if (!confirm('Diese Antwort löschen?')) return;
+      if (currentSessionData && currentSessionData.spotlightId === respId) clearSpotlight();
+      sessionRef(currentRoomCode).collection('responses').doc(respId).delete()
+        .catch(() => toast('Antwort konnte nicht gelöscht werden.'));
+    }
+
+    function toggleBeamerResults() {
+      if (!currentSessionData) return;
+      updateSession({ showOnBeamer: !currentSessionData.showOnBeamer });
+    }
+
+    function updateBeamerButtonUI(isShown) {
+      const btn = document.getElementById('btn-toggle-beamer');
+      if (isShown) {
+        btn.textContent = '👁️ Beamer-Ergebnisse: AN';
+        btn.classList.add('bg-indigo-600', 'text-white');
+        btn.classList.remove('bg-white', 'text-indigo-700');
+      } else {
+        btn.textContent = '👁️ Beamer-Ergebnisse: AUS';
+        btn.classList.remove('bg-indigo-600', 'text-white');
+        btn.classList.add('bg-white', 'text-indigo-700');
+      }
+    }
+
+    function toggleNamesTeacher() {
+      showNamesInTeacherView = !showNamesInTeacherView;
+      document.getElementById('btn-teacher-names').textContent = showNamesInTeacherView ? 'Namen sichtbar' : 'Namen verborgen';
+      renderLiveResponses();
+    }
+
+    function openBeamerWindow() {
+      if (!currentRoomCode) return;
+      window.open(`${getBaseUrl()}?beamer=${currentRoomCode}`, '_blank');
+    }
+
+    function copyStudentLink() {
+      if (!currentRoomCode) return;
+      const url = `${getBaseUrl()}?code=${currentRoomCode}`;
+      navigator.clipboard.writeText(url).then(() => toast('Schüler-Link kopiert')).catch(() => prompt('Link kopieren:', url));
+    }
+
+    function exportCSV() {
+      if (!currentResponses.length) return toast('Keine Antworten vorhanden.');
+      const q = (s) => `"${String(s || '').replace(/"/g, '""')}"`;
+      const markLabels = { good: 'Verstanden', warn: 'Teilweise', none: '' };
+      const rows = [['Name', 'Antwort', 'Zusatzkommentar', 'Markierung', 'Zeit'].map(q).join(';')];
+      const sorted = [...currentResponses].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
+      sorted.forEach(r => {
+        const answer = currentSessionData && currentSessionData.type === 'ampel' ? (AMPEL_LABELS[r.answer] || r.answer) : r.answer;
+        const t = tsMillis(r.updatedAt) ? new Date(tsMillis(r.updatedAt)).toLocaleTimeString('de-CH') : '';
+        rows.push([r.name, answer, r.comment, markLabels[r.mark] || '', t].map(q).join(';'));
+      });
+      // BOM, damit Excel Umlaute korrekt anzeigt
+      const blob = new Blob(['﻿' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `lightning_${currentRoomCode}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    async function endSession() {
+      if (!currentRoomCode) return;
+      if (!confirm('Session beenden? Die Antworten bleiben noch 24 Stunden gespeichert und werden dann automatisch gelöscht. Exportiere sie vorher als CSV, wenn du sie brauchst.')) return;
+      const code = currentRoomCode;
+      await updateSession({ active: false });
+      localStorage.removeItem('lightning_activeSession_' + currentUser.uid);
+      backToSetup();
+      toast('Session ' + code + ' beendet.');
+    }
+
+    function backToSetup() {
+      stopLive();
+      currentRoomCode = null;
+      currentSessionData = null;
+      currentResponses = [];
+      currentSolution = null;
+      document.getElementById('teacher-live').classList.add('hidden');
+      document.getElementById('teacher-setup').classList.remove('hidden');
+    }
+
+    // =========================================================================
+    // 7. VORLAGEN & KI-IMPORT
+    // =========================================================================
+    function saveTemplate() {
+      const form = collectFormData();
+      if (!form.question) return toast('Bitte zuerst eine Frage eingeben.');
+      teacherRef().collection('templates').add({ ...form, createdAt: FV.serverTimestamp() })
+        .then(() => toast('Vorlage gespeichert'))
+        .catch(() => toast('Vorlage konnte nicht gespeichert werden.'));
+    }
+
+    const TYPE_LABELS = { text: 'Kurzantwort', mc: 'Multiple Choice', ampel: 'Ampel', fix: 'Satz-Korrektur', order: 'Reihenfolge' };
+
+    function renderTemplates() {
+      document.getElementById('template-count').textContent = cachedTemplates.length;
+      const list = document.getElementById('template-list');
+      if (cachedTemplates.length === 0) {
+        list.innerHTML = '<div class="text-xs text-slate-400 italic">Noch keine Vorlagen gespeichert.</div>';
+        return;
+      }
+      list.innerHTML = cachedTemplates.map(t => `
+        <div class="p-3 rounded-xl border border-slate-200 hover:border-indigo-300 bg-slate-50/60 flex items-start justify-between gap-2">
+          <button onclick="applyTemplate('${t.id}')" class="text-left flex-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-600">${escapeHTML(TYPE_LABELS[t.type] || t.type)}</span>
+            <p class="text-xs font-medium text-slate-800 line-clamp-2 mt-0.5">${escapeHTML(t.question)}</p>
+          </button>
+          <button onclick="deleteTemplate('${t.id}')" class="text-xs text-slate-400 hover:text-rose-600 px-1">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function applyTemplate(id) {
+      const tpl = cachedTemplates.find(t => t.id === id);
+      if (!tpl) return;
+      clearForm();
+      selectType(TYPE_LABELS[tpl.type] ? tpl.type : 'text');
+      document.getElementById('input-question').value = tpl.question || '';
+      if (tpl.type === 'mc') {
+        for (let i = 0; i < 4; i++) document.getElementById('mc-opt-' + i).value = (tpl.options && tpl.options[i]) || '';
+      } else if (tpl.type === 'fix') {
+        document.getElementById('fix-initial-text').value = tpl.initialText || '';
+      } else if (tpl.type === 'order') {
+        for (let i = 0; i < 5; i++) document.getElementById('order-item-' + i).value = (tpl.options && tpl.options[i]) || '';
+      }
+    }
+
+    function deleteTemplate(id) {
+      if (!confirm('Vorlage löschen?')) return;
+      teacherRef().collection('templates').doc(id).delete().catch(() => toast('Vorlage konnte nicht gelöscht werden.'));
+    }
+
+    function openImportModal() { document.getElementById('import-modal').classList.remove('hidden'); }
+    function closeImportModal() { document.getElementById('import-modal').classList.add('hidden'); }
+
+    function fillOptions(type, opts) {
+      const prefix = type === 'order' ? 'order-item-' : 'mc-opt-';
+      opts.forEach((o, idx) => {
+        const el = document.getElementById(prefix + idx);
+        if (el) el.value = String(o);
+      });
+    }
+
+    function processQuickImport() {
+      const raw = document.getElementById('import-raw-text').value.trim();
+      if (!raw) return;
+      try {
+        let type, question, options = [], initialText = '';
+        if (raw.startsWith('{')) {
+          const obj = JSON.parse(raw);
+          type = String(obj.type || 'text').toLowerCase();
+          question = obj.question || '';
+          initialText = obj.initialText || '';
+          options = Array.isArray(obj.options) ? obj.options : [];
+        } else {
+          // Pipe-Format: typ | frage | opt1 | opt2 ...
+          const parts = raw.split('|').map(s => s.trim()).filter(Boolean);
+          type = (parts[0] || '').toLowerCase();
+          question = parts[1] || '';
+          if (type === 'fix') initialText = parts[2] || '';
+          else options = parts.slice(2);
+        }
+        if (!TYPE_LABELS[type]) type = 'text';
+        clearForm();
+        selectType(type);
+        document.getElementById('input-question').value = question;
+        if (type === 'fix') document.getElementById('fix-initial-text').value = initialText;
+        if (type === 'mc' || type === 'order') fillOptions(type, options);
+        document.getElementById('import-raw-text').value = '';
+        closeImportModal();
+      } catch (e) {
+        toast('Format konnte nicht gelesen werden.');
+      }
+    }
+
+    // =========================================================================
+    // 8. KLASSENLISTEN (PRIVAT PRO LEHRPERSON)
+    // =========================================================================
+    function openClassModal() {
+      resetClassForm();
+      renderSavedClassesModal();
+      document.getElementById('class-modal').classList.remove('hidden');
+    }
+    function closeClassModal() { document.getElementById('class-modal').classList.add('hidden'); }
+
+    function resetClassForm() {
+      editingClassId = null;
+      document.getElementById('new-class-name').value = '';
+      document.getElementById('new-class-students').value = '';
+      document.getElementById('btn-save-class').textContent = 'Klasse speichern';
+      document.getElementById('btn-cancel-class-edit').classList.add('hidden');
+    }
+
+    function editClassList(id) {
+      const cls = cachedClasses[id];
+      if (!cls) return;
+      editingClassId = id;
+      document.getElementById('new-class-name').value = cls.name || '';
+      document.getElementById('new-class-students').value = (cls.students || []).join('\n');
+      document.getElementById('btn-save-class').textContent = 'Änderungen speichern';
+      document.getElementById('btn-cancel-class-edit').classList.remove('hidden');
+    }
+
+    function saveClassList() {
+      const name = document.getElementById('new-class-name').value.trim();
+      const rawStudents = document.getElementById('new-class-students').value.trim();
+      if (!name || !rawStudents) return toast('Bitte Klassenname und Schülernamen eingeben.');
+      const seen = new Set();
+      const students = rawStudents.split(/[\n,;]+/).map(s => s.trim().slice(0, 40)).filter(s => {
+        if (!s || seen.has(s.toLowerCase())) return false;
+        seen.add(s.toLowerCase());
+        return true;
+      });
+      const col = teacherRef().collection('classes');
+      const ref = editingClassId ? col.doc(editingClassId) : col.doc();
+      ref.set({ name, students, updatedAt: FV.serverTimestamp() }).then(() => {
+        toast(`Klasse ${name} gespeichert (${students.length} SuS)`);
+        resetClassForm();
+      }).catch(() => toast('Klasse konnte nicht gespeichert werden.'));
+    }
+
+    function deleteClassList(id) {
+      const cls = cachedClasses[id];
+      if (!confirm(`Klasse ${cls ? cls.name : ''} löschen?`)) return;
+      teacherRef().collection('classes').doc(id).delete().catch(() => toast('Klasse konnte nicht gelöscht werden.'));
+      if (editingClassId === id) resetClassForm();
+    }
+
+    function sortedClassEntries() {
+      return Object.entries(cachedClasses).sort((a, b) => (a[1].name || '').localeCompare(b[1].name || '', 'de', { numeric: true }));
+    }
+
+    function renderSavedClassesModal() {
+      const box = document.getElementById('saved-classes-list');
+      const entries = sortedClassEntries();
+      if (entries.length === 0) {
+        box.innerHTML = '<p class="text-xs text-slate-400 italic">Keine Klassen hinterlegt.</p>';
+        return;
+      }
+      box.innerHTML = entries.map(([id, cls]) => `
+        <div class="flex items-center justify-between gap-2 text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+          <span><strong>${escapeHTML(cls.name)}</strong> (${(cls.students || []).length} SuS)</span>
+          <span class="flex items-center gap-3">
+            <button onclick="editClassList('${id}')" class="text-indigo-600 hover:underline">Bearbeiten</button>
+            <button onclick="deleteClassList('${id}')" class="text-rose-600 hover:underline">Löschen</button>
+          </span>
+        </div>
+      `).join('');
+    }
+
+    function renderClassDropdowns() {
+      const sel = document.getElementById('select-session-class');
+      const currentVal = sel.value;
+      sel.innerHTML = '<option value="">Ohne Klassenliste (freie Namenseingabe)</option>' +
+        sortedClassEntries().map(([id, cls]) => `<option value="${id}">Klasse ${escapeHTML(cls.name)} (${(cls.students || []).length} SuS)</option>`).join('');
+      if (cachedClasses[currentVal]) sel.value = currentVal;
+    }
+
+    // =========================================================================
+    // 9. SCHÜLER-LOGIK (OHNE SICHTBARES LOGIN)
+    // =========================================================================
+    function joinRoomByInput() {
+      const code = document.getElementById('join-code-input').value.trim();
+      if (!/^\d{4}$/.test(code)) return toast('Bitte 4-stelligen Code eingeben.');
+      if (!currentUser) {
+        pendingStudentCode = code;
+        ensureAnonymousUser();
+        return;
+      }
+      connectStudentToRoom(code);
+    }
+
+    function showStudentClosed(title, text) {
+      clearInterval(timers['student-timer-pill']);
+      document.getElementById('student-answer-box').classList.add('hidden');
+      document.getElementById('student-join-box').classList.add('hidden');
+      document.getElementById('student-closed-title').textContent = title;
+      document.getElementById('student-closed-text').textContent = text;
+      document.getElementById('student-closed-box').classList.remove('hidden');
+    }
+
+    function connectStudentToRoom(code) {
+      if (studentUnsub) { studentUnsub(); studentUnsub = null; }
+      studentRoomCode = code;
+      studentSession = null;
+      studentHasSubmitted = false;
+      const area = document.getElementById('student-input-area');
+      area.dataset.signature = '';
+      area.innerHTML = '';
+      document.getElementById('student-sent-banner').classList.add('hidden');
+      document.getElementById('btn-handover').classList.add('hidden');
+      document.getElementById('btn-student-submit').textContent = 'Antwort absenden';
+      document.getElementById('student-join-box').classList.add('hidden');
+      document.getElementById('student-closed-box').classList.add('hidden');
+      document.getElementById('student-answer-box').classList.remove('hidden');
+      document.getElementById('student-room-label').textContent = code;
+      document.getElementById('student-question-text').textContent = 'Lade Frage...';
+
+      studentUnsub = sessionRef(code).onSnapshot((snap) => {
+        if (!snap.exists) {
+          showStudentClosed('Code nicht gefunden', 'Prüfe den Code an der Wandtafel und versuche es nochmals.');
+          return;
+        }
+        const data = snap.data({ serverTimestamps: 'estimate' });
+        if (data.active === false) {
+          showStudentClosed('Session beendet', 'Diese Umfrage wurde von der Lehrperson geschlossen.');
+          return;
+        }
+        studentSession = data;
+        document.getElementById('student-closed-box').classList.add('hidden');
+        document.getElementById('student-answer-box').classList.remove('hidden');
+        document.getElementById('student-question-text').textContent = data.question;
+        setupStudentNameInput(data);
+        renderStudentInputFields(data);
+        startCountdown('student-timer-pill', data, () => updateStudentLockState());
+        updateStudentLockState();
+      }, () => {
+        showStudentClosed('Keine Verbindung', 'Die Session konnte nicht geladen werden. Bitte Seite neu laden.');
+      });
+
+      // Wurde auf diesem Gerät schon abgegeben? (z. B. nach Neuladen)
+      sessionRef(code).collection('responses').doc(currentUser.uid).get().then((s) => {
+        if (s.exists && studentRoomCode === code) {
+          studentHasSubmitted = true;
+          showSentState();
+        }
+      }).catch(() => {});
+    }
+
+    function setupStudentNameInput(data) {
+      const sel = document.getElementById('student-name-select');
+      const inp = document.getElementById('student-name');
+      const roster = Array.isArray(data.roster) && data.roster.length ? data.roster : null;
+      const saved = localStorage.getItem('lightning_student_name') || '';
+      if (roster) {
+        const sig = roster.join('\u0001');
+        if (sel.dataset.roster !== sig) {
+          const prev = sel.value || saved;
+          sel.dataset.roster = sig;
+          sel.innerHTML = '<option value="">-- Bitte deinen Namen wählen --</option>' +
+            roster.map(n => `<option value="${escapeHTML(n)}">${escapeHTML(n)}</option>`).join('');
+          if (prev && roster.includes(prev)) sel.value = prev;
+        }
+        sel.classList.remove('hidden');
+        inp.classList.add('hidden');
+      } else {
+        if (!inp.value && saved) inp.value = saved;
+        sel.classList.add('hidden');
+        inp.classList.remove('hidden');
+      }
+    }
+
+    function isStudentClosed() {
+      return !studentSession || isInputClosed(studentSession);
+    }
+
+    function updateStudentLockState() {
+      const locked = isStudentClosed();
+      document.getElementById('student-locked-banner').textContent =
+        studentSession && isTimeUp(studentSession) ? '⏱️ Die Zeit ist abgelaufen – Antworten sind gesperrt.' : '🔒 Die Eingabe ist gesperrt.';
+      document.getElementById('student-locked-banner').classList.toggle('hidden', !locked);
+      const btn = document.getElementById('btn-student-submit');
+      btn.disabled = locked;
+      btn.classList.toggle('opacity-40', locked);
+      btn.classList.toggle('cursor-not-allowed', locked);
+    }
+
+    function renderStudentInputFields(data) {
+      const area = document.getElementById('student-input-area');
+      const signature = JSON.stringify([data.type, data.question, data.initialText || '', data.options || []]);
+      if (area.dataset.signature === signature) return;
+      area.dataset.signature = signature;
+      area.dataset.type = data.type;
+      selectedMcIndex = null;
+      selectedAmpelValue = null;
+
+      if (data.type === 'text') {
+        area.innerHTML = `
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Deine Antwort</label>
+          <textarea id="student-text-answer" rows="3" maxlength="1000" placeholder="Antwort hier eintippen..." class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>`;
+      } else if (data.type === 'fix') {
+        area.innerHTML = `
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Korrigiere den Satz direkt im Feld</label>
+          <textarea id="student-text-answer" rows="3" maxlength="1000" class="w-full rounded-xl border-2 border-indigo-200 bg-indigo-50/20 px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500">${escapeHTML(data.initialText || '')}</textarea>`;
+      } else if (data.type === 'order') {
+        studentOrderItems = shuffle(data.options || []);
+        renderStudentOrderList();
+      } else if (data.type === 'mc') {
+        area.innerHTML = `<label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Wähle eine Antwort</label>` +
+          (data.options || []).map((opt, idx) => `
+            <button type="button" onclick="chooseMcOption(${idx})" id="stu-mc-${idx}" class="stu-mc-btn w-full text-left p-3.5 rounded-xl border border-slate-300 font-medium text-sm hover:bg-slate-50 transition">
+              ${escapeHTML(opt)}
+            </button>`).join('');
+      } else if (data.type === 'ampel') {
+        const choices = [
+          { val: '1', text: '🟢 Alles klar – ich habe es verstanden' },
+          { val: '2', text: '🟡 Meistens klar – kleine Unsicherheiten' },
+          { val: '3', text: '🟠 Noch unsicher – brauche Übung' },
+          { val: '4', text: '🔴 Unklar – bitte nochmals erklären' }
+        ];
+        area.innerHTML = `<label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Deine Einschätzung</label>` +
+          choices.map(c => `
+            <button type="button" onclick="chooseAmpel('${c.val}')" id="stu-ampel-${c.val}" class="stu-ampel-btn w-full text-left p-3 rounded-xl border border-slate-300 font-medium text-sm transition">
+              ${c.text}
+            </button>`).join('') +
+          `<div class="pt-2">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Was ist noch unklar? (optional)</label>
+            <input type="text" id="student-ampel-comment" maxlength="300" placeholder="Kurze Stichworte..." class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+          </div>`;
+      }
+    }
+
+    function renderStudentOrderList() {
+      const area = document.getElementById('student-input-area');
+      area.innerHTML = `<label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Bringe die Elemente in die richtige Reihenfolge</label>` +
+        studentOrderItems.map((item, idx) => `
+          <div class="flex items-center justify-between gap-2 p-3 rounded-xl border border-slate-300 bg-white">
+            <span class="text-sm font-medium text-slate-900"><strong class="text-indigo-600 mr-1.5">${idx + 1}.</strong> ${escapeHTML(item)}</span>
+            <div class="flex items-center gap-1 shrink-0">
+              <button type="button" onclick="moveOrderItem(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} class="px-2.5 py-1.5 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-xs font-bold">↑</button>
+              <button type="button" onclick="moveOrderItem(${idx}, 1)" ${idx === studentOrderItems.length - 1 ? 'disabled' : ''} class="px-2.5 py-1.5 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-xs font-bold">↓</button>
+            </div>
+          </div>`).join('');
+    }
+
+    function moveOrderItem(idx, dir) {
+      const target = idx + dir;
+      if (target < 0 || target >= studentOrderItems.length) return;
+      [studentOrderItems[idx], studentOrderItems[target]] = [studentOrderItems[target], studentOrderItems[idx]];
+      renderStudentOrderList();
+    }
+
+    function chooseMcOption(idx) {
+      selectedMcIndex = idx;
+      document.querySelectorAll('.stu-mc-btn').forEach(b => b.classList.remove('pill-active'));
+      document.getElementById('stu-mc-' + idx).classList.add('pill-active');
+    }
+
+    function chooseAmpel(val) {
+      selectedAmpelValue = val;
+      document.querySelectorAll('.stu-ampel-btn').forEach(b => b.classList.remove('pill-active'));
+      document.getElementById('stu-ampel-' + val).classList.add('pill-active');
+    }
+
+    function showSentState() {
+      document.getElementById('student-sent-banner').classList.remove('hidden');
+      document.getElementById('btn-student-submit').textContent = 'Antwort aktualisieren';
+      document.getElementById('btn-handover').classList.toggle('hidden', !(currentUser && currentUser.isAnonymous));
+    }
+
+    async function submitStudentAnswer() {
+      if (!studentSession || !studentRoomCode || !currentUser) return;
+      if (isStudentClosed()) return updateStudentLockState();
+      const sel = document.getElementById('student-name-select');
+      const name = (!sel.classList.contains('hidden') ? sel.value : document.getElementById('student-name').value).trim();
+      if (!name) return toast('Bitte gib deinen Namen an.');
+
+      let answer = '';
+      let comment = '';
+      const type = studentSession.type;
+      if (type === 'text' || type === 'fix') {
+        answer = document.getElementById('student-text-answer').value.trim();
+        if (!answer) return toast('Bitte gib eine Antwort ein.');
+      } else if (type === 'order') {
+        answer = studentOrderItems.join(ORDER_SEP);
+      } else if (type === 'mc') {
+        if (selectedMcIndex === null) return toast('Bitte wähle eine Option aus.');
+        answer = (studentSession.options || [])[selectedMcIndex] || '';
+      } else if (type === 'ampel') {
+        if (!selectedAmpelValue) return toast('Bitte wähle eine Stufe aus.');
+        answer = selectedAmpelValue;
+        comment = (document.getElementById('student-ampel-comment')?.value || '').trim();
+      }
+
+      localStorage.setItem('lightning_student_name', name);
+      const ref = sessionRef(studentRoomCode).collection('responses').doc(currentUser.uid);
+      const payload = { name, answer, comment, updatedAt: FV.serverTimestamp() };
+      const btn = document.getElementById('btn-student-submit');
+      btn.disabled = true;
+      try {
+        if (studentHasSubmitted) {
+          try { await ref.update(payload); }
+          catch (e) { await ref.set({ ...payload, mark: 'none' }); }   // z. B. von Lehrperson gelöscht
+        } else {
+          await ref.set({ ...payload, mark: 'none' });
+        }
+        studentHasSubmitted = true;
+        showSentState();
+      } catch (e) {
+        toast(e.code === 'permission-denied'
+          ? 'Abgabe nicht möglich: Die Eingabe ist gesperrt oder die Zeit ist abgelaufen.'
+          : 'Abgabe fehlgeschlagen. Bitte nochmals versuchen.');
+      } finally {
+        updateStudentLockState();
+      }
+    }
+
+    // Geteiltes Gerät: neue (unsichtbare) Identität für die nächste Person
+    async function handOverDevice() {
+      if (!currentUser || !currentUser.isAnonymous) return;
+      const code = studentRoomCode;
+      if (studentUnsub) { studentUnsub(); studentUnsub = null; }
+      localStorage.removeItem('lightning_student_name');
+      document.getElementById('student-name').value = '';
+      document.getElementById('student-name-select').value = '';
+      pendingStudentCode = code;
+      await auth.signOut();   // → onAuthStateChanged → neues anonymes Login → Raum wird neu geöffnet
+    }
+
+    function leaveStudentRoom() {
+      clearInterval(timers['student-timer-pill']);
+      if (studentUnsub) { studentUnsub(); studentUnsub = null; }
+      studentRoomCode = null;
+      studentSession = null;
+      document.getElementById('student-answer-box').classList.add('hidden');
+      document.getElementById('student-closed-box').classList.add('hidden');
+      document.getElementById('student-join-box').classList.remove('hidden');
+      document.getElementById('student-sent-banner').classList.add('hidden');
+      document.getElementById('btn-handover').classList.add('hidden');
+      document.getElementById('join-code-input').value = '';
+      if (paramCode) history.replaceState(null, '', getBaseUrl());
+    }
+
+    // =========================================================================
+    // 10. BEAMER-ANSICHT (ANONYMISIERT & SPOTLIGHT)
+    // =========================================================================
+    let beamerSession = null;
+    let beamerResponses = {};
+    let beamerSolution = null;
+
+    function initBeamerView(code) {
+      document.getElementById('beamer-code').textContent = code;
+      renderQR('qr-beamer', `${getBaseUrl()}?code=${code}`);
+
+      sessionRef(code).onSnapshot((snap) => {
+        if (!snap.exists) { beamerSession = null; renderBeamer(); return; }
+        beamerSession = snap.data({ serverTimestamps: 'estimate' });
+        startCountdown('beamer-timer-badge', beamerSession);
+        renderBeamer();
+      }, () => toast('Keine Berechtigung für diese Session.'));
+
+      sessionRef(code).collection('responses').onSnapshot((snap) => {
+        beamerResponses = {};
+        snap.forEach(d => { beamerResponses[d.id] = d.data(); });
+        renderBeamer();
+      }, () => {});
+
+      db.collection(TEACHERS).doc(currentUser.uid).collection('solutions').doc(code).get()
+        .then(s => { beamerSolution = s.exists ? s.data().order : null; renderBeamer(); })
+        .catch(() => {});
+    }
+
+    function renderBeamer() {
+      const data = beamerSession;
+      const closed = !data || data.active === false;
+      document.getElementById('beamer-closed').classList.toggle('hidden', !closed);
+      document.getElementById('beamer-spotlight-box').classList.toggle('hidden', true);
+      document.getElementById('beamer-normal-area').classList.toggle('hidden', closed);
+      if (!data) {
+        document.getElementById('beamer-question').textContent = 'Session nicht gefunden';
+        return;
+      }
+      document.getElementById('beamer-question').textContent = data.question;
+      const entries = Object.values(beamerResponses);
+      document.getElementById('beamer-count').textContent = entries.length;
+      if (closed) return;
+
+      // Spotlight hat Vorrang
+      const spotlightBox = document.getElementById('beamer-spotlight-box');
+      const normalArea = document.getElementById('beamer-normal-area');
+      if (data.spotlightId && beamerResponses[data.spotlightId]) {
+        const item = beamerResponses[data.spotlightId];
+        spotlightBox.classList.remove('hidden');
+        normalArea.classList.add('hidden');
+        const origBox = document.getElementById('beamer-spotlight-original');
+        if (data.type === 'fix' && data.initialText) {
+          origBox.textContent = 'Ausgangssatz: ' + data.initialText;
+          origBox.classList.remove('hidden');
+        } else {
+          origBox.classList.add('hidden');
+        }
+        const answer = data.type === 'ampel' ? (AMPEL_LABELS[item.answer] || item.answer) : item.answer;
+        document.getElementById('beamer-spotlight-text').textContent = item.comment ? `${answer} – «${item.comment}»` : answer;
+        return;
+      }
+      spotlightBox.classList.add('hidden');
+      normalArea.classList.remove('hidden');
+
+      const hiddenBox = document.getElementById('beamer-results-hidden');
+      const visibleBox = document.getElementById('beamer-results-visible');
+      if (!data.showOnBeamer) {
+        hiddenBox.classList.remove('hidden');
+        visibleBox.classList.add('hidden');
+        return;
+      }
+      hiddenBox.classList.add('hidden');
+      visibleBox.classList.remove('hidden');
+
+      const summary = document.getElementById('beamer-summary');
+      const cards = document.getElementById('beamer-cards');
+      if (data.type === 'mc' || data.type === 'ampel' || data.type === 'order') {
+        summary.classList.remove('hidden');
+        summary.innerHTML = buildSummaryHTML(data, entries, beamerSolution);
+      } else {
+        summary.classList.add('hidden');
+      }
+
+      cards.innerHTML = entries.map(item => {
+        if (data.type === 'mc' || data.type === 'order') return '';
+        if (data.type === 'ampel' && !item.comment) return '';
+        const text = data.type === 'ampel' ? item.comment : item.answer;
+        const border = item.mark === 'good' ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 bg-white';
+        return `<div class="rounded-2xl border-2 ${border} p-5 text-lg font-medium text-slate-900 shadow-sm break-words whitespace-pre-wrap">${escapeHTML(text)}</div>`;
+      }).join('');
+    }
+
+    // =========================================================================
+    // 11. TIMER & HELFER
+    // =========================================================================
+    function tsMillis(t) {
+      if (!t) return 0;
+      if (typeof t === 'number') return t;
+      if (typeof t.toMillis === 'function') return t.toMillis();
+      return 0;
+    }
+
+    // Ende des Zeitfensters (Serverzeit des Starts + Dauer). 0 = kein Zeitlimit.
+    function deadlineMs(d) {
+      if (!d || !d.durationSec || d.durationSec <= 0) return 0;
+      const start = tsMillis(d.startedAt);
+      return start ? start + d.durationSec * 1000 : 0;
+    }
+    function isTimeUp(d) {
+      const dl = deadlineMs(d);
+      return !!dl && Date.now() >= dl;
+    }
+    function isInputClosed(d) {
+      return !!d && (d.locked === true || d.active === false || isTimeUp(d));
+    }
+
+    function startCountdown(badgeId, data, onExpire) {
+      clearInterval(timers[badgeId]);
+      const badge = document.getElementById(badgeId);
+      const dl = deadlineMs(data);
+      if (!dl) {
+        badge.classList.add('hidden');
+        return;
+      }
+      badge.classList.remove('hidden');
+      let fired = false;
+      const tick = () => {
+        const diff = Math.max(0, Math.ceil((dl - Date.now()) / 1000));
+        const min = String(Math.floor(diff / 60)).padStart(2, '0');
+        const sec = String(diff % 60).padStart(2, '0');
+        badge.textContent = diff > 0 ? `⏱️ ${min}:${sec}` : '⏱️ Zeit abgelaufen';
+        if (diff <= 0 && !fired) {
+          fired = true;
+          clearInterval(timers[badgeId]);
+          if (typeof onExpire === 'function') onExpire();
+        }
+      };
+      tick();
+      timers[badgeId] = setInterval(tick, 500);
+    }
+
+    function renderQR(elId, text) {
+      const box = document.getElementById(elId);
+      try {
+        const qr = qrcode(0, 'M');
+        qr.addData(text);
+        qr.make();
+        box.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+      } catch (e) {
+        box.textContent = '';
+      }
+    }
+
+    let toastTimer = null;
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.add('hidden'), 3500);
+    }
+
+    function escapeHTML(str) {
+      return String(str ?? '').replace(/[&<>"']/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s]));
+    }
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    }
+  </script>
+</body>
+</html>
