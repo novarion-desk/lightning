@@ -469,7 +469,6 @@
     let liveUnsubs = [];
     let studentUnsub = null;
     let pendingStudentCode = paramCode || null;
-    let signingInAnon = false;
 
     let currentQuestionType = 'text';
     let currentRoomCode = null;       // Lehrperson: laufende Session
@@ -488,6 +487,7 @@
     let selectedMcIndex = null;
     let selectedAmpelValue = null;
     let studentOrderItems = [];
+    let deviceId = getDeviceId();   // geheimer Zufallsschlüssel dieses Geräts (Schüler brauchen kein Login)
 
     const timers = {};
 
@@ -543,10 +543,6 @@
         }
       } else if (mode === 'student') {
         showView('view-student');
-        if (!currentUser) {
-          ensureAnonymousUser();
-          return;
-        }
         if (pendingStudentCode) {
           const c = pendingStudentCode;
           pendingStudentCode = null;
@@ -561,12 +557,18 @@
       route();
     }
 
-    function ensureAnonymousUser() {
-      if (currentUser || signingInAnon) return;
-      signingInAnon = true;
-      auth.signInAnonymously()
-        .catch(() => toast('Verbindung fehlgeschlagen. Bitte Seite neu laden.'))
-        .finally(() => { signingInAnon = false; });
+    function newDeviceId() {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      const bytes = crypto.getRandomValues(new Uint8Array(28));
+      return Array.from(bytes, b => chars[b % chars.length]).join('');
+    }
+    function getDeviceId() {
+      let id = localStorage.getItem('lightning_device_id');
+      if (!id || !/^[A-Za-z0-9]{20,40}$/.test(id)) {
+        id = newDeviceId();
+        localStorage.setItem('lightning_device_id', id);
+      }
+      return id;
     }
 
     // =========================================================================
@@ -583,7 +585,6 @@
       btn.disabled = true; btn.textContent = 'Anmelden…';
       try {
         await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-        // Ein anonymes Schüler-Login auf diesem Gerät wird durch das Lehrpersonen-Login ersetzt
         await auth.signInWithEmailAndPassword(email, password);
         document.getElementById('login-password').value = '';
       } catch (e) {
@@ -1319,16 +1320,11 @@
     }
 
     // =========================================================================
-    // 9. SCHÜLER-LOGIK (OHNE SICHTBARES LOGIN)
+    // 9. SCHÜLER-LOGIK (OHNE LOGIN)
     // =========================================================================
     function joinRoomByInput() {
       const code = document.getElementById('join-code-input').value.trim();
       if (!/^\d{4}$/.test(code)) return toast('Bitte 4-stelligen Code eingeben.');
-      if (!currentUser) {
-        pendingStudentCode = code;
-        ensureAnonymousUser();
-        return;
-      }
       connectStudentToRoom(code);
     }
 
@@ -1381,7 +1377,7 @@
       });
 
       // Wurde auf diesem Gerät schon abgegeben? (z. B. nach Neuladen)
-      sessionRef(code).collection('responses').doc(currentUser.uid).get().then((s) => {
+      sessionRef(code).collection('responses').doc(deviceId).get().then((s) => {
         if (s.exists && studentRoomCode === code) {
           studentHasSubmitted = true;
           showSentState();
@@ -1507,11 +1503,11 @@
     function showSentState() {
       document.getElementById('student-sent-banner').classList.remove('hidden');
       document.getElementById('btn-student-submit').textContent = 'Antwort aktualisieren';
-      document.getElementById('btn-handover').classList.toggle('hidden', !(currentUser && currentUser.isAnonymous));
+      document.getElementById('btn-handover').classList.toggle('hidden', isTeacherUser(currentUser));
     }
 
     async function submitStudentAnswer() {
-      if (!studentSession || !studentRoomCode || !currentUser) return;
+      if (!studentSession || !studentRoomCode) return;
       if (isStudentClosed()) return updateStudentLockState();
       const sel = document.getElementById('student-name-select');
       const name = (!sel.classList.contains('hidden') ? sel.value : document.getElementById('student-name').value).trim();
@@ -1535,7 +1531,7 @@
       }
 
       localStorage.setItem('lightning_student_name', name);
-      const ref = sessionRef(studentRoomCode).collection('responses').doc(currentUser.uid);
+      const ref = sessionRef(studentRoomCode).collection('responses').doc(deviceId);
       const payload = { name, answer, comment, updatedAt: FV.serverTimestamp() };
       const btn = document.getElementById('btn-student-submit');
       btn.disabled = true;
@@ -1557,16 +1553,16 @@
       }
     }
 
-    // Geteiltes Gerät: neue (unsichtbare) Identität für die nächste Person
-    async function handOverDevice() {
-      if (!currentUser || !currentUser.isAnonymous) return;
+    // Geteiltes Gerät: neuer Geräteschlüssel für die nächste Person
+    function handOverDevice() {
       const code = studentRoomCode;
-      if (studentUnsub) { studentUnsub(); studentUnsub = null; }
+      deviceId = newDeviceId();
+      localStorage.setItem('lightning_device_id', deviceId);
       localStorage.removeItem('lightning_student_name');
       document.getElementById('student-name').value = '';
       document.getElementById('student-name-select').value = '';
-      pendingStudentCode = code;
-      await auth.signOut();   // → onAuthStateChanged → neues anonymes Login → Raum wird neu geöffnet
+      if (code) connectStudentToRoom(code);
+      toast('Bereit für die nächste Person');
     }
 
     function leaveStudentRoom() {

@@ -5,7 +5,7 @@ service cloud.firestore {
     function signedIn() {
       return request.auth != null;
     }
-    // Richtiges Konto (E-Mail/Google) – NICHT das unsichtbare Schüler-Login von Lightning
+    // Richtiges Konto (E-Mail/Google), kein anonymes Login
     function isAccount() {
       return signedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
@@ -48,8 +48,8 @@ service cloud.firestore {
         return isAccount() && resource.data.ownerUid == request.auth.uid;
       }
 
-      // Schüler (auch anonym) dürfen eine einzelne Session per Code öffnen
-      allow get: if signedIn();
+      // Schüler (ohne Login) dürfen eine einzelne Session per Code öffnen
+      allow get: if true;
       // Listen nur für die eigenen Sessions der Lehrperson
       allow list: if sessionOwner();
       allow create: if isAccount()
@@ -61,7 +61,7 @@ service cloud.firestore {
         && request.resource.data.durationSec is int;
       allow delete: if sessionOwner();
 
-      // Antworten: Dokument-ID = UID des (anonymen) Schülergeräts
+      // Antworten: Dokument-ID = geheimer Zufallsschlüssel des Schülergeräts (20–40 Zeichen)
       match /responses/{rid} {
         function session() {
           return get(/databases/$(database)/documents/lightningSessions/$(code)).data;
@@ -86,16 +86,15 @@ service cloud.firestore {
             && (s.roster == null || d.name in s.roster);
         }
 
-        // Schüler sehen nur die eigene Antwort, die Lehrperson alle
-        allow get: if signedIn() && (request.auth.uid == rid || isTeacherOfSession());
+        // Einzelne Antwort nur mit dem geheimen Schlüssel abrufbar; die Liste aller Antworten nur für die Lehrperson
+        allow get: if true;
         allow list: if isTeacherOfSession();
 
-        allow create: if signedIn() && request.auth.uid == rid
+        allow create: if rid.matches('^[A-Za-z0-9]{20,40}$')
           && inputOpen() && validAnswer()
           && request.resource.data.mark == 'none';
 
-        allow update: if (signedIn() && request.auth.uid == rid
-            && inputOpen() && validAnswer()
+        allow update: if (inputOpen() && validAnswer()
             && request.resource.data.mark == resource.data.mark)
           || (isTeacherOfSession()
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mark'])

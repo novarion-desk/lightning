@@ -3,7 +3,7 @@
 ## v1 – 18.11.2026
 - Erste Version (Grundlage mit Gemini erstellt, überarbeitet).
 - Firestore statt Realtime Database, im gemeinsamen Projekt «Unterrichtscockpit».
-- Login für Lehrpersonen; Schüler/innen ohne sichtbares Login (anonym).
+- Login für Lehrpersonen; Schüler/innen ohne Login (geheimer Geräteschlüssel).
 - Klassenlisten, Vorlagen und Lösungen privat pro Lehrperson.
 - Schüler sehen nur ihre eigene Antwort; Sperre/Timer serverseitig erzwungen.
 - Lösung bei «Reihenfolge» für Schüler nicht mehr sichtbar.
