@@ -223,7 +223,7 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
             <div>
               <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">3. Klasse verknüpfen (optional)</label>
-              <select id="select-session-class" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm bg-white">
+              <select id="select-session-class" onchange="renderSetupAttendance()" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm bg-white">
                 <option value="">Ohne Klassenliste (freie Namenseingabe)</option>
               </select>
             </div>
@@ -238,6 +238,19 @@
                 <option value="180">3 Minuten</option>
               </select>
             </div>
+          </div>
+
+          <!-- Anwesenheit der gewählten Klasse -->
+          <div id="attendance-box" class="hidden bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-500">Wer ist da? <span class="normal-case font-normal">– antippen = abwesend</span></div>
+              <div class="flex items-center gap-2">
+                <span id="attendance-count" class="text-xs font-bold text-indigo-700"></span>
+                <button type="button" onclick="setAllPresent('setup')" class="text-xs px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 font-semibold">Alle da</button>
+              </div>
+            </div>
+            <div id="attendance-chips" class="flex flex-wrap gap-1.5"></div>
+            <p class="text-[11px] text-slate-500">Schüler sehen im Namen-Menü nur die Anwesenden. Die Auswahl gilt heute für diese Klasse.</p>
           </div>
 
           <!-- 5. Feedback-Optionen -->
@@ -308,8 +321,8 @@
                 <button onclick="toggleRevealSolution()" id="btn-reveal" class="hidden text-xs bg-white border border-slate-300 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg font-medium">
                   💡 Lösung zeigen
                 </button>
-                <button onclick="toggleAllowRevise()" id="btn-allow-revise" title="Dürfen Schüler bei ⚠️/❌ nachbessern?" class="text-xs bg-white border border-slate-300 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg font-medium">
-                  ✏️ Nachbessern: an
+                <button onclick="openLiveSettings()" class="text-xs bg-white border border-slate-300 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg font-medium">
+                  ⚙️ Einstellungen
                 </button>
               </div>
             </div>
@@ -515,6 +528,47 @@
   </div>
 
   <!-- MODAL: KI-SCHNELLIMPORT -->
+  <div id="live-settings-modal" class="hidden fixed inset-0 bg-slate-900/50 z-[60] flex items-center justify-center p-4" onclick="if(event.target===this)closeLiveSettings()">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-xl max-h-[92vh] overflow-y-auto">
+      <div class="flex justify-between items-center">
+        <h3 class="font-bold text-slate-900">⚙️ Einstellungen dieser Frage</h3>
+        <button onclick="closeLiveSettings()" class="text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+      <div id="ls-attendance" class="space-y-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="text-xs font-semibold uppercase tracking-wider text-slate-500">Wer ist da? <span class="normal-case font-normal">– antippen = abwesend</span></div>
+          <div class="flex items-center gap-2">
+            <span id="ls-attendance-count" class="text-xs font-bold text-indigo-700"></span>
+            <button type="button" onclick="setAllPresent('live')" class="text-xs px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 font-semibold">Alle da</button>
+          </div>
+        </div>
+        <div id="ls-attendance-chips" class="flex flex-wrap gap-1.5"></div>
+        <p class="text-[11px] text-slate-500">Änderungen gelten sofort. Wer schon geantwortet hat, behält seine Antwort.</p>
+      </div>
+      <div class="space-y-2.5 border-t border-slate-100 pt-3">
+        <label class="flex items-start gap-2 text-sm text-slate-700 cursor-pointer"><input type="checkbox" id="ls-revise" onchange="setLiveOption('allowRevise', this.checked)" class="accent-indigo-600 w-4 h-4 mt-0.5 shrink-0" /> <span><b>Nachbessern erlaubt</b> – nach ⚠️ «Fast» oder ❌ «Noch nicht»</span></label>
+        <label class="flex items-start gap-2 text-sm text-slate-700 cursor-pointer"><input type="checkbox" id="ls-spotnote" onchange="setLiveOption('spotlightNotice', this.checked)" class="accent-indigo-600 w-4 h-4 mt-0.5 shrink-0" /> <span><b>⭐-Hinweis</b> – Schüler sehen, wenn ihre Antwort anonym am Beamer gezeigt wird</span></label>
+        <label class="flex items-start gap-2 text-sm text-slate-700 cursor-pointer"><input type="checkbox" id="ls-names" onchange="setNamesVisible(this.checked)" class="accent-indigo-600 w-4 h-4 mt-0.5 shrink-0" /> <span><b>Namen sichtbar</b> – nur in deiner Ansicht</span></label>
+      </div>
+      <div class="border-t border-slate-100 pt-3">
+        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Zeitlimit</label>
+        <div class="flex flex-wrap items-center gap-2">
+          <select id="ls-timer" class="rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white">
+            <option value="0">Kein Zeitlimit</option>
+            <option value="30">noch 30 Sekunden</option>
+            <option value="60">noch 60 Sekunden</option>
+            <option value="90">noch 90 Sekunden</option>
+            <option value="120">noch 2 Minuten</option>
+            <option value="180">noch 3 Minuten</option>
+            <option value="300">noch 5 Minuten</option>
+          </select>
+          <button onclick="applyLiveTimer()" class="btn-primary px-4 py-2 text-sm">Übernehmen</button>
+          <span id="ls-timer-state" class="text-xs text-slate-500"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="feedback-modal" class="hidden fixed inset-0 bg-slate-900/50 z-[60] flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-md w-full p-5 space-y-3 shadow-xl max-h-[92vh] overflow-y-auto">
       <div class="flex justify-between items-center">
@@ -1054,6 +1108,7 @@
 
       const classId = document.getElementById('select-session-class').value;
       const cls = classId ? cachedClasses[classId] : null;
+      if (cls && presentStudents(classId).length === 0) return toast('Es ist niemand als anwesend markiert.');
       const timerSec = parseInt(document.getElementById('select-session-timer').value, 10) || 0;
 
       const base = {
@@ -1063,7 +1118,8 @@
         // Bei «Reihenfolge» bekommen die Schüler nur die gemischten Elemente – die Lösung bleibt privat
         options: form.type === 'order' ? shuffleDifferent(form.options) : (form.type === 'mc' ? form.options : []),
         initialText: form.initialText,
-        roster: cls ? (cls.students || []) : null,
+        roster: cls ? presentStudents(classId) : null,
+        classId: cls ? classId : null,
         className: cls ? cls.name : null,
         durationSec: timerSec,
         startedAt: FV.serverTimestamp(),
@@ -1264,14 +1320,15 @@
       const submittedNames = new Set(responses.map(r => (r.name || '').trim().toLowerCase()));
       document.getElementById('missing-class-name').textContent = data.className || '';
       const doneCount = roster.filter(n => submittedNames.has(n.toLowerCase())).length;
-      document.getElementById('missing-counter-text').textContent = `${doneCount} / ${roster.length} abgegeben`;
+      const nAbs = absentOfSession(data).length;
+      document.getElementById('missing-counter-text').textContent = `${doneCount} / ${roster.length} abgegeben` + (nAbs ? ` · ${nAbs} abwesend` : '');
       document.getElementById('missing-students-pills').innerHTML = roster.map(name => {
         const isDone = submittedNames.has(name.toLowerCase());
         const style = isDone
           ? 'bg-emerald-100 text-emerald-800 border-emerald-200 line-through opacity-75'
           : 'bg-rose-50 text-rose-800 border-rose-200 font-semibold';
         return `<span class="text-xs px-2.5 py-1 rounded-full border ${style}">${escapeHTML(name)}</span>`;
-      }).join('');
+      }).join('') + absentOfSession(data).map(name => `<span title="abwesend" class="text-xs px-2.5 py-1 rounded-full border border-slate-200 bg-slate-100 text-slate-400">${escapeHTML(name)} · abw.</span>`).join('');
     }
 
     const AMPEL_LABELS = { '1': '🟢 Alles klar', '2': '🟡 Meistens klar', '3': '🟠 Unsicher', '4': '🔴 Hilfe nötig' };
@@ -1672,7 +1729,9 @@
       updateSession({ allowRevise: !(currentSessionData.allowRevise === true) });
     }
     function updateReviseButtonUI(on) {
+      if (!document.getElementById('live-settings-modal').classList.contains('hidden')) renderLiveSettings();
       const btn = document.getElementById('btn-allow-revise');
+      if (!btn) return;
       btn.textContent = on ? '✏️ Nachbessern: an' : '✏️ Nachbessern: aus';
       btn.classList.toggle('bg-indigo-50', on);
       btn.classList.toggle('border-indigo-300', on);
@@ -1745,6 +1804,118 @@
         btn.classList.remove('bg-indigo-600', 'text-white');
         btn.classList.add('bg-white', 'text-indigo-700');
       }
+    }
+
+    // ---------- Anwesenheit (pro Gerät, nur für heute) ----------
+    function todayISO() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+    function absentKey(classId) { return `lightning_absent_${currentUser ? currentUser.uid : 'x'}_${classId}`; }
+    function getAbsent(classId) {
+      if (!classId) return [];
+      try {
+        const v = JSON.parse(localStorage.getItem(absentKey(classId)) || 'null');
+        if (v && v.date === todayISO() && Array.isArray(v.absent)) return v.absent;
+      } catch (e) {}
+      if (IS_DEMO && classId === 'demo2a' && !demoAbsentSeeded) { demoAbsentSeeded = true; setAbsent(classId, ['Tim', 'Nina']); return ['Tim', 'Nina']; }
+      return [];
+    }
+    let demoAbsentSeeded = false;
+    function setAbsent(classId, list) {
+      try { localStorage.setItem(absentKey(classId), JSON.stringify({ date: todayISO(), absent: [...new Set(list)] })); } catch (e) {}
+    }
+    function presentStudents(classId) {
+      const cls = cachedClasses[classId];
+      if (!cls) return [];
+      const absent = new Set(getAbsent(classId));
+      return (cls.students || []).filter(n => !absent.has(n));
+    }
+    function absentOfSession(data) {
+      if (!data || !data.classId || !cachedClasses[data.classId] || !Array.isArray(data.roster)) return [];
+      const present = new Set(data.roster);
+      return (cachedClasses[data.classId].students || []).filter(n => !present.has(n));
+    }
+    function chipsHTML(students, absentSet, where) {
+      return students.map((n, i) => {
+        const abs = absentSet.has(n);
+        return `<button type="button" onclick="toggleAttendance('${where}', ${i})" class="text-sm px-3 py-1.5 rounded-full border transition ${abs ? 'bg-slate-100 border-slate-200 text-slate-400 line-through' : 'bg-white border-indigo-200 text-slate-900 hover:bg-indigo-50 font-medium'}">${escapeHTML(n)}</button>`;
+      }).join('');
+    }
+    function renderSetupAttendance() {
+      const classId = document.getElementById('select-session-class').value;
+      const box = document.getElementById('attendance-box');
+      const cls = cachedClasses[classId];
+      if (!cls || !(cls.students || []).length) { box.classList.add('hidden'); return; }
+      box.classList.remove('hidden');
+      const students = cls.students || [];
+      const absent = new Set(getAbsent(classId));
+      document.getElementById('attendance-chips').innerHTML = chipsHTML(students, absent, 'setup');
+      const n = students.filter(s => !absent.has(s)).length;
+      document.getElementById('attendance-count').textContent = `${n} von ${students.length} anwesend`;
+    }
+    function toggleAttendance(where, i) {
+      const classId = where === 'setup' ? document.getElementById('select-session-class').value : (currentSessionData && currentSessionData.classId);
+      const cls = cachedClasses[classId];
+      if (!cls) return;
+      const name = (cls.students || [])[i];
+      const absent = new Set(getAbsent(classId));
+      if (absent.has(name)) absent.delete(name); else absent.add(name);
+      setAbsent(classId, [...absent]);
+      if (where === 'setup') renderSetupAttendance();
+      else applyLiveRoster(classId);
+    }
+    function setAllPresent(where) {
+      const classId = where === 'setup' ? document.getElementById('select-session-class').value : (currentSessionData && currentSessionData.classId);
+      if (!cachedClasses[classId]) return;
+      setAbsent(classId, []);
+      if (where === 'setup') renderSetupAttendance();
+      else applyLiveRoster(classId);
+    }
+    function applyLiveRoster(classId) {
+      const roster = presentStudents(classId);
+      if (!roster.length) { toast('Mindestens eine Person muss anwesend sein.'); setAbsent(classId, (cachedClasses[classId].students || []).slice(1)); }
+      updateSession({ roster: presentStudents(classId) });
+      if (currentSessionData) currentSessionData.roster = presentStudents(classId);
+      renderLiveSettings();
+    }
+
+    // ---------- Einstellungen während der Frage ----------
+    function openLiveSettings() {
+      if (!currentSessionData) return;
+      document.getElementById('live-settings-modal').classList.remove('hidden');
+      renderLiveSettings();
+    }
+    function closeLiveSettings() { document.getElementById('live-settings-modal').classList.add('hidden'); }
+    function renderLiveSettings() {
+      const d = currentSessionData;
+      if (!d) return;
+      const cls = d.classId ? cachedClasses[d.classId] : null;
+      const att = document.getElementById('ls-attendance');
+      att.classList.toggle('hidden', !cls);
+      if (cls) {
+        const students = cls.students || [];
+        const present = new Set(Array.isArray(d.roster) ? d.roster : students);
+        const absent = new Set(students.filter(n => !present.has(n)));
+        document.getElementById('ls-attendance-chips').innerHTML = chipsHTML(students, absent, 'live');
+        document.getElementById('ls-attendance-count').textContent = `${students.length - absent.size} von ${students.length} anwesend`;
+      }
+      document.getElementById('ls-revise').checked = d.allowRevise === true;
+      document.getElementById('ls-spotnote').checked = d.spotlightNotice === true;
+      document.getElementById('ls-names').checked = showNamesInTeacherView;
+      const dl = deadlineMs(d);
+      const left = dl ? Math.max(0, Math.round((dl - Date.now()) / 1000)) : null;
+      document.getElementById('ls-timer-state').textContent = left === null ? 'Aktuell: kein Zeitlimit' : (left > 0 ? `Aktuell: noch ${left} s` : 'Aktuell: Zeit abgelaufen');
+    }
+    function setLiveOption(key, val) {
+      updateSession({ [key]: !!val });
+    }
+    function setNamesVisible(on) {
+      if (showNamesInTeacherView !== !!on) toggleNamesTeacher();
+    }
+    function applyLiveTimer() {
+      const sec = parseInt(document.getElementById('ls-timer').value, 10) || 0;
+      if (sec > 0) updateSession({ durationSec: sec, startedAt: FV.serverTimestamp(), locked: false });
+      else updateSession({ durationSec: 0, locked: false });
+      toast(sec > 0 ? `Zeitlimit: noch ${sec} Sekunden` : 'Zeitlimit entfernt');
+      setTimeout(renderLiveSettings, 400);
     }
 
     function toggleNamesTeacher() {
@@ -1980,6 +2151,7 @@
       sel.innerHTML = '<option value="">Ohne Klassenliste (freie Namenseingabe)</option>' +
         sortedClassEntries().map(([id, cls]) => `<option value="${id}">Klasse ${escapeHTML(cls.name)} (${(cls.students || []).length} SuS)</option>`).join('');
       if (cachedClasses[currentVal]) sel.value = currentVal;
+      renderSetupAttendance();
     }
 
     // =========================================================================
@@ -2716,9 +2888,9 @@
     function startDemoBots(code, form) {
       stopDemoBots();
       demoForm = form;
-      const roster = (currentSessionData && currentSessionData.roster) || null;
       const classId = document.getElementById('select-session-class').value;
-      const names = shuffle(roster || (cachedClasses[classId] && cachedClasses[classId].students) || DEMO_NAMES.slice(0, 8));
+      const roster = cachedClasses[classId] ? presentStudents(classId) : null;
+      const names = shuffle(roster || DEMO_NAMES.slice(0, 8));
       // etwa 80 % antworten, die übrigen «fehlen» noch
       const count = Math.max(1, Math.round(names.length * 0.8));
       names.slice(0, count).forEach((name, i) => {

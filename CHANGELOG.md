@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.4 – 19.11.2026
+- Anwesenheit: Nach der Klassenwahl alle Namen antippen, wer fehlt (grau). Schüler sehen im Namen-Menü nur die Anwesenden, der Abgabestatus zählt nur sie («9 / 12 abgegeben · 2 abwesend»). Die Auswahl gilt heute für diese Klasse (pro Gerät), danach wieder alle.
+- ⚙️ Einstellungen während der Frage: Anwesenheit anpassen (z. B. Zuspätkommende), Nachbessern, ⭐-Hinweis, Namen sichtbar, Zeitlimit neu setzen oder entfernen. «Nachbessern» ist aus der Knopfleiste in dieses Fenster gewandert.
+- Demo: Klasse mit 2 Abwesenden.
+
 ## v1.3 – 19.11.2026
 - Multiple Choice: 2–8 Optionen, richtige Antwort(en) markierbar, Mehrfachauswahl.
 - Reihenfolge: 3–10 Elemente, im Formular verschiebbar.
