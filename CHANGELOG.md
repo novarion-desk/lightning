@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.6 – 19.11.2026
+- Klick aufs ⚡-Logo oder «← Übersicht» führt zur Startseite, ohne die Frage zu beenden (sie bleibt in «Deine Fragen» offen).
+- «👤 Namen am Beamer» (Standard AUS): zeigt die Namen auf den Antwortkarten und beim Spotlight am Beamer. Auch in der Leiste des Projektionsmodus.
+
 ## v1.5 – 19.11.2026
 - QR-Code antippen → bildschirmfüllend mit Code und Adresse (Dashboard, Projektionsmodus, Beamer-Ansicht). Antippen oder Esc schliesst.
 - «Deine Fragen» auf der Startseite: laufende Fragen (live auf allen Geräten, «Öffnen»/«Beenden») und heute beendete («Ergebnisse», «Wieder öffnen»). Eine auf dem Tablet gestartete Frage erscheint sofort auch am Mac. Gelöscht wird weiterhin automatisch nach 24 Stunden.

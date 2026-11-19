@@ -25,7 +25,7 @@
   <!-- TOP BAR -->
   <header id="app-header" class="bg-white border-b border-slate-200 px-4 py-3 sticky top-0 z-20">
     <div class="max-w-7xl mx-auto flex items-center justify-between gap-2">
-      <div class="flex items-center gap-3 min-w-0">
+      <div onclick="goHome()" title="Zur Übersicht" class="flex items-center gap-3 min-w-0 cursor-pointer">
         <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">⚡</div>
         <div class="min-w-0">
           <h1 class="font-bold text-slate-900 leading-tight text-base sm:text-lg">Lightning</h1>
@@ -340,8 +340,14 @@
           </div>
 
           <div class="flex flex-wrap items-center gap-2">
+            <button onclick="goHome()" class="px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 text-xs sm:text-sm font-semibold hover:bg-slate-50">
+              ← Übersicht
+            </button>
             <button onclick="toggleBeamerResults()" id="btn-toggle-beamer" class="px-3.5 py-2.5 rounded-xl border border-indigo-300 bg-white text-indigo-700 text-xs sm:text-sm font-semibold hover:bg-indigo-50">
               👁️ Beamer-Ergebnisse: AUS
+            </button>
+            <button onclick="toggleBeamerNames()" id="btn-beamer-names" class="px-3.5 py-2.5 rounded-xl border border-indigo-300 bg-white text-indigo-700 text-xs sm:text-sm font-semibold hover:bg-indigo-50">
+              👤 Namen am Beamer: AUS
             </button>
             <button onclick="clearSpotlight()" id="btn-clear-spotlight" class="hidden px-3.5 py-2.5 rounded-xl bg-amber-500 text-white text-xs sm:text-sm font-semibold hover:bg-amber-600">
               ⭐ Spotlight beenden
@@ -475,7 +481,7 @@
       <!-- SPOTLIGHT MODUS (1 ausgewählte Antwort gross & anonym) -->
       <div id="beamer-spotlight-box" onclick="if (projectionOn) clearSpotlight()" class="hidden card p-8 sm:p-12 border-2 border-amber-400 bg-amber-50/30 space-y-4">
         <div class="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-800 bg-amber-100 px-3 py-1 rounded-full">
-          ⭐ Fokus-Antwort zur gemeinsamen Besprechung (anonym)
+          <span id="beamer-spotlight-label">⭐ Fokus-Antwort zur gemeinsamen Besprechung (anonym)</span>
         </div>
         <div id="beamer-spotlight-original" class="hidden text-base text-slate-500 line-through bg-white p-3 rounded-xl border border-slate-200"></div>
         <p id="beamer-spotlight-text" class="text-2xl sm:text-4xl font-bold text-slate-900 leading-relaxed break-words"></p>
@@ -506,6 +512,7 @@
     <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-center gap-2">
       <span id="pj-status" class="text-xs font-semibold text-slate-500 px-2"></span>
       <button onclick="toggleBeamerResults()" id="pj-results" class="px-3 py-2 rounded-xl border border-indigo-300 bg-white text-indigo-700 text-xs sm:text-sm font-semibold">👁️ Ergebnisse zeigen</button>
+      <button onclick="toggleBeamerNames()" id="pj-names" class="px-3 py-2 rounded-xl border border-indigo-300 bg-white text-indigo-700 text-xs sm:text-sm font-semibold">👤 Namen zeigen</button>
       <button onclick="clearSpotlight()" id="pj-spotlight" class="hidden px-3 py-2 rounded-xl bg-amber-500 text-white text-xs sm:text-sm font-semibold">⭐ Spotlight beenden</button>
       <button onclick="toggleRevealSolution()" id="pj-reveal" class="hidden px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-medium">💡 Lösung zeigen</button>
       <button onclick="toggleInputLock()" id="pj-lock" class="px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-medium">🔓 Eingabe offen</button>
@@ -1146,6 +1153,7 @@
         locked: false,
         active: true,
         showOnBeamer: false,
+        showNamesOnBeamer: false,
         spotlightKey: null,
         multi: form.type === 'mc' && !!form.multi,
         maxTerms: form.type === 'cloud' ? form.maxTerms : null,
@@ -1245,6 +1253,7 @@
         classBadge.classList.add('hidden');
       }
       updateBeamerButtonUI(data.showOnBeamer);
+      updateBeamerNamesUI(data.showNamesOnBeamer === true);
       updateLockButtonUI(isInputClosed(data));
       document.getElementById('btn-clear-spotlight').classList.toggle('hidden', !data.spotlightKey);
       updateRevealButtonUI();
@@ -1816,6 +1825,26 @@
       updateSession({ showOnBeamer: !currentSessionData.showOnBeamer });
     }
 
+    function goHome() {
+      if (mode === 'beamer' || !currentUser || !isTeacherUser(currentUser)) return;
+      if (mode !== 'teacher') switchRole('teacher');
+      if (currentRoomCode) backToSetup();   // Frage läuft weiter – siehe «Deine Fragen»
+      window.scrollTo({ top: 0 });
+    }
+    function toggleBeamerNames() {
+      if (!currentSessionData) return;
+      updateSession({ showNamesOnBeamer: !(currentSessionData.showNamesOnBeamer === true) });
+    }
+    function updateBeamerNamesUI(on) {
+      const btn = document.getElementById('btn-beamer-names');
+      btn.textContent = on ? '👤 Namen am Beamer: AN' : '👤 Namen am Beamer: AUS';
+      btn.classList.toggle('bg-indigo-600', on); btn.classList.toggle('text-white', on);
+      btn.classList.toggle('bg-white', !on); btn.classList.toggle('text-indigo-700', !on);
+      const pj = document.getElementById('pj-names');
+      pj.textContent = on ? '👤 Namen ausblenden' : '👤 Namen zeigen';
+      pj.classList.toggle('bg-indigo-600', on); pj.classList.toggle('text-white', on);
+      pj.classList.toggle('bg-white', !on); pj.classList.toggle('text-indigo-700', !on);
+    }
     function updateBeamerButtonUI(isShown) {
       const btn = document.getElementById('btn-toggle-beamer');
       if (isShown) {
@@ -2679,6 +2708,8 @@
           origBox.classList.add('hidden');
         }
         const answer = displayAnswer(data, item);
+        document.getElementById('beamer-spotlight-label').textContent = data.showNamesOnBeamer === true && item.name
+          ? `⭐ Fokus-Antwort von ${item.name}` : '⭐ Fokus-Antwort zur gemeinsamen Besprechung (anonym)';
         document.getElementById('beamer-spotlight-text').textContent = item.comment ? `${answer} – «${item.comment}»` : answer;
         return;
       }
@@ -2710,7 +2741,8 @@
         const text = data.type === 'ampel' ? item.comment : item.answer;
         const border = item.mark === 'good' ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 bg-white';
         const click = projectionOn ? ` onclick="toggleSpotlight('${id}')" role="button"` : '';
-        return `<div${click} class="rounded-2xl border-2 ${border} p-5 text-lg font-medium text-slate-900 shadow-sm break-words whitespace-pre-wrap ${projectionOn ? 'cursor-pointer hover:border-amber-400' : ''}">${escapeHTML(text)}</div>`;
+        const nameTag = data.showNamesOnBeamer === true ? `<div class="text-sm font-bold text-indigo-700 mb-1 whitespace-normal">${escapeHTML(item.name || '')}</div>` : '';
+        return `<div${click} class="rounded-2xl border-2 ${border} p-5 text-lg font-medium text-slate-900 shadow-sm break-words whitespace-pre-wrap ${projectionOn ? 'cursor-pointer hover:border-amber-400' : ''}">${nameTag}${escapeHTML(text)}</div>`;
       }).join('');
     }
 
