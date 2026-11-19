@@ -180,6 +180,13 @@
             </div>
           </div>
 
+          <!-- 5. Feedback-Optionen -->
+          <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
+            <div class="text-xs font-semibold uppercase tracking-wider text-slate-500">5. Feedback an die Schüler</div>
+            <label class="flex items-start gap-2 text-sm text-slate-700 cursor-pointer"><input type="checkbox" id="opt-allow-revise" checked onchange="saveFeedbackOptions()" class="accent-indigo-600 w-4 h-4 mt-0.5 shrink-0" /> <span><b>Nachbessern erlaubt</b> – bei ⚠️ «Fast» oder ❌ «Noch nicht» dürfen Schüler ihre Antwort korrigieren</span></label>
+            <label class="flex items-start gap-2 text-sm text-slate-700 cursor-pointer"><input type="checkbox" id="opt-spotlight-notice" onchange="saveFeedbackOptions()" class="accent-indigo-600 w-4 h-4 mt-0.5 shrink-0" /> <span><b>⭐-Hinweis</b> – Schüler sehen auf ihrem Gerät, wenn ihre Antwort gerade (anonym) am Beamer gezeigt wird</span></label>
+          </div>
+
           <!-- Aktionen -->
           <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
             <button type="button" onclick="saveTemplate()" class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50">
@@ -237,6 +244,9 @@
                 </button>
                 <button onclick="toggleInputLock()" id="btn-lock-input" class="text-xs bg-white border border-slate-300 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg font-medium">
                   🔓 Eingabe offen
+                </button>
+                <button onclick="toggleAllowRevise()" id="btn-allow-revise" title="Dürfen Schüler bei ⚠️/❌ nachbessern?" class="text-xs bg-white border border-slate-300 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg font-medium">
+                  ✏️ Nachbessern: an
                 </button>
               </div>
             </div>
@@ -326,6 +336,11 @@
         <div id="student-locked-banner" class="hidden bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3.5 text-sm text-center font-medium">
           ⏱️ Die Eingabe ist gesperrt.
         </div>
+
+        <div id="student-spotlight-note" class="hidden bg-amber-50 border-2 border-amber-300 text-amber-900 rounded-xl p-3.5 text-sm text-center font-semibold">
+          ⭐ Deine Antwort wird gerade anonym am Beamer besprochen.
+        </div>
+        <div id="student-feedback-box" class="hidden rounded-xl border-2 p-4 space-y-1.5"></div>
 
         <button onclick="submitStudentAnswer()" id="btn-student-submit" class="btn-primary w-full py-3.5 text-base shadow-sm">
           Antwort absenden
@@ -434,6 +449,31 @@
   </div>
 
   <!-- MODAL: KI-SCHNELLIMPORT -->
+  <div id="feedback-modal" class="hidden fixed inset-0 bg-slate-900/50 z-[60] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-5 space-y-3 shadow-xl max-h-[92vh] overflow-y-auto">
+      <div class="flex justify-between items-center">
+        <h3 class="font-bold text-slate-900">💬 Kommentar an <span id="fb-name"></span></h3>
+        <button onclick="closeFeedbackModal()" class="text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+      <p id="fb-answer" class="text-sm text-slate-700 bg-slate-50 rounded-lg p-2.5 border border-slate-200 break-words whitespace-pre-wrap max-h-28 overflow-y-auto"></p>
+      <div>
+        <textarea id="fb-text" rows="2" maxlength="120" placeholder="Kurzer Kommentar (max. 120 Zeichen)" oninput="document.getElementById('fb-count').textContent = this.value.length + ' / 120'" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+        <div id="fb-count" class="text-right text-[11px] text-slate-400">0 / 120</div>
+      </div>
+      <div>
+        <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Bausteine (Klick fügt hinzu)</div>
+        <div id="fb-chips" class="flex flex-wrap gap-1.5"></div>
+      </div>
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+        <button onclick="saveFeedbackPhrase()" class="text-xs text-indigo-700 hover:underline font-semibold">＋ Text als Baustein speichern</button>
+        <div class="flex gap-2">
+          <button onclick="sendFeedback(true)" id="fb-remove" class="px-3 py-2 rounded-xl border border-slate-300 text-sm">Entfernen</button>
+          <button onclick="sendFeedback(false)" class="btn-primary px-4 py-2 text-sm">Senden</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="import-modal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
       <div class="flex items-center justify-between">
@@ -525,6 +565,9 @@
     let selectedMcIndex = null;
     let selectedAmpelValue = null;
     let studentOrderItems = [];
+    let studentResp = null;           // eigene Antwort inkl. Feedback der Lehrperson
+    let studentRespUnsub = null;
+    let lastFeedbackSig = null;
     let deviceId = getDeviceId();   // geheimer Zufallsschlüssel dieses Geräts (Schüler brauchen kein Login)
 
     const timers = {};
@@ -688,6 +731,7 @@
       teacherUnsubs = [];
       cachedClasses = {};
       cachedTemplates = [];
+      customPhrases = null;
     }
 
     async function cleanupOldSessions() {
@@ -817,7 +861,9 @@
         locked: false,
         active: true,
         showOnBeamer: false,
-        spotlightId: null,
+        spotlightKey: null,
+        allowRevise: document.getElementById('opt-allow-revise').checked,
+        spotlightNotice: document.getElementById('opt-spotlight-notice').checked,
         createdAt: FV.serverTimestamp()
       };
 
@@ -882,6 +928,7 @@
       liveUnsubs.push(sessionRef(code).collection('responses').onSnapshot((snap) => {
         currentResponses = snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) }));
         renderLiveResponses();
+        ensureHashes(currentResponses.map(r => r.id), renderLiveResponses);
       }, () => toast('Antworten konnten nicht geladen werden.')));
 
       teacherRef().collection('solutions').doc(code).get().then((s) => {
@@ -903,7 +950,8 @@
       }
       updateBeamerButtonUI(data.showOnBeamer);
       updateLockButtonUI(isInputClosed(data));
-      document.getElementById('btn-clear-spotlight').classList.toggle('hidden', !data.spotlightId);
+      document.getElementById('btn-clear-spotlight').classList.toggle('hidden', !data.spotlightKey);
+      updateReviseButtonUI(data.allowRevise === true);
       startCountdown('teacher-timer-badge', data, () => { updateLockButtonUI(isInputClosed(data)); renderProjectionBar(); });
       if (projectionOn) startCountdown('beamer-timer-badge', data);
       renderLiveResponses();
@@ -974,7 +1022,7 @@
       res.classList.toggle('text-white', !!d.showOnBeamer);
       res.classList.toggle('bg-white', !d.showOnBeamer);
       res.classList.toggle('text-indigo-700', !d.showOnBeamer);
-      document.getElementById('pj-spotlight').classList.toggle('hidden', !d.spotlightId);
+      document.getElementById('pj-spotlight').classList.toggle('hidden', !d.spotlightKey);
       const closed = isInputClosed(d);
       const lock = document.getElementById('pj-lock');
       lock.textContent = closed ? '🔒 Gesperrt – öffnen' : '🔓 Eingabe sperren';
@@ -1010,6 +1058,110 @@
     const AMPEL_LABELS = { '1': '🟢 Alles klar', '2': '🟡 Meistens klar', '3': '🟠 Unsicher', '4': '🔴 Hilfe nötig' };
     const ORDER_SEP = ' → ';
 
+    // Kurzer Hash eines Antwort-Schlüssels (für Spotlight)
+    const spotHash = {};
+    async function hashId(id) {
+      if (spotHash[id]) return spotHash[id];
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('lightning-spot:' + id));
+      const h = [...new Uint8Array(buf)].slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join('');
+      spotHash[id] = h;
+      return h;
+    }
+    function ensureHashes(ids, after) {
+      const missing = ids.filter(id => !spotHash[id]);
+      if (missing.length) Promise.all(missing.map(hashId)).then(after).catch(() => {});
+    }
+    function spotlightIdFrom(data, ids) {
+      if (!data || !data.spotlightKey) return null;
+      return ids.find(id => spotHash[id] === data.spotlightKey) || null;
+    }
+
+    // Feedback-Optionen im Startformular (werden auf dem Gerät gemerkt)
+    function saveFeedbackOptions() {
+      try {
+        localStorage.setItem('lightning_opt_revise', document.getElementById('opt-allow-revise').checked ? '1' : '0');
+        localStorage.setItem('lightning_opt_spotnote', document.getElementById('opt-spotlight-notice').checked ? '1' : '0');
+      } catch (e) {}
+    }
+    function loadFeedbackOptions() {
+      try {
+        const r = localStorage.getItem('lightning_opt_revise'), n = localStorage.getItem('lightning_opt_spotnote');
+        if (r !== null) document.getElementById('opt-allow-revise').checked = r === '1';
+        if (n !== null) document.getElementById('opt-spotlight-notice').checked = n === '1';
+      } catch (e) {}
+    }
+
+    // Kommentar an einzelne Schüler, mit Textbausteinen
+    const DEFAULT_PHRASES = ['Super gemacht!', 'Gut begründet!', 'Lies die Frage nochmals genau.', 'Zeitform prüfen.', 'Gross-/Kleinschreibung prüfen.', 'Satzzeichen prüfen.', 'Rechtschreibung prüfen.', 'Begründe deine Antwort.', 'Ein Detail fehlt noch.', 'Schau dir das Beispiel nochmals an.'];
+    let customPhrases = null;
+    let feedbackTarget = null;
+    async function loadCustomPhrases() {
+      if (customPhrases) return customPhrases;
+      try {
+        const s = await teacherRef().collection('settings').doc('feedback').get();
+        customPhrases = s.exists && Array.isArray(s.data().phrases) ? s.data().phrases : [];
+      } catch (e) { customPhrases = []; }
+      return customPhrases;
+    }
+    async function openFeedbackModal(respId) {
+      const item = currentResponses.find(r => r.id === respId);
+      if (!item) return;
+      feedbackTarget = respId;
+      document.getElementById('fb-name').textContent = showNamesInTeacherView ? (item.name || 'Anonym') : 'diese Person';
+      const ans = currentSessionData && currentSessionData.type === 'ampel' ? (AMPEL_LABELS[item.answer] || item.answer) + (item.comment ? ' – ' + item.comment : '') : item.answer;
+      document.getElementById('fb-answer').textContent = ans || '';
+      const ta = document.getElementById('fb-text');
+      ta.value = item.feedback || '';
+      document.getElementById('fb-count').textContent = ta.value.length + ' / 120';
+      document.getElementById('fb-remove').classList.toggle('hidden', !item.feedback);
+      document.getElementById('feedback-modal').classList.remove('hidden');
+      renderPhraseChips();
+      await loadCustomPhrases();
+      renderPhraseChips();
+      ta.focus();
+    }
+    function closeFeedbackModal() {
+      document.getElementById('feedback-modal').classList.add('hidden');
+      feedbackTarget = null;
+    }
+    function renderPhraseChips() {
+      const custom = customPhrases || [];
+      const chip = (p, i, own) => `<span class="inline-flex items-center rounded-full border ${own ? 'border-indigo-200 bg-indigo-50' : 'border-slate-200 bg-slate-50'} text-xs">
+          <button type="button" onclick="addPhrase(${own ? 'customPhrases' : 'DEFAULT_PHRASES'}[${i}])" class="px-2.5 py-1 hover:underline">${escapeHTML(p)}</button>${own ? `<button type="button" onclick="removePhrase(${i})" title="Baustein löschen" class="pr-2 text-slate-400 hover:text-rose-600">×</button>` : ''}</span>`;
+      document.getElementById('fb-chips').innerHTML = custom.map((p, i) => chip(p, i, true)).join('') + DEFAULT_PHRASES.map((p, i) => chip(p, i, false)).join('');
+    }
+    function addPhrase(p) {
+      const ta = document.getElementById('fb-text');
+      const next = (ta.value.trim() ? ta.value.trim() + ' ' : '') + p;
+      ta.value = next.slice(0, 120);
+      document.getElementById('fb-count').textContent = ta.value.length + ' / 120';
+      ta.focus();
+    }
+    async function saveFeedbackPhrase() {
+      const txt = document.getElementById('fb-text').value.trim();
+      if (!txt) return toast('Zuerst einen Text eingeben.');
+      await loadCustomPhrases();
+      if (customPhrases.includes(txt) || DEFAULT_PHRASES.includes(txt)) return toast('Diesen Baustein gibt es schon.');
+      customPhrases = [txt, ...customPhrases].slice(0, 30);
+      try { await teacherRef().collection('settings').doc('feedback').set({ phrases: customPhrases }); toast('Baustein gespeichert'); }
+      catch (e) { toast('Baustein konnte nicht gespeichert werden.'); }
+      renderPhraseChips();
+    }
+    async function removePhrase(i) {
+      customPhrases = customPhrases.filter((_, k) => k !== i);
+      try { await teacherRef().collection('settings').doc('feedback').set({ phrases: customPhrases }); } catch (e) {}
+      renderPhraseChips();
+    }
+    function sendFeedback(remove) {
+      if (!currentRoomCode || !feedbackTarget) return;
+      const txt = remove ? '' : document.getElementById('fb-text').value.trim().slice(0, 120);
+      const id = feedbackTarget;
+      closeFeedbackModal();
+      sessionRef(currentRoomCode).collection('responses').doc(id).update({ feedback: txt })
+        .then(() => toast(txt ? 'Kommentar gesendet' : 'Kommentar entfernt'))
+        .catch(() => toast('Kommentar konnte nicht gesendet werden.'));
+    }
+
     function renderTeacherResponses(data, responses) {
       const entries = [...responses].sort((a, b) => tsMillis(b.updatedAt) - tsMillis(a.updatedAt));
       document.getElementById('response-counter').textContent = entries.length;
@@ -1032,11 +1184,12 @@
       const statusColors = {
         none: 'border-slate-200 bg-white',
         good: 'border-emerald-400 bg-emerald-50/40',
-        warn: 'border-amber-400 bg-amber-50/40'
+        warn: 'border-amber-400 bg-amber-50/40',
+        bad: 'border-rose-400 bg-rose-50/40'
       };
 
       grid.innerHTML = entries.map(item => {
-        const isSpotlight = data.spotlightId === item.id;
+        const isSpotlight = !!data.spotlightKey && spotHash[item.id] === data.spotlightKey;
         const cardStyle = isSpotlight ? 'border-amber-500 ring-2 ring-amber-300 bg-amber-50/40' : (statusColors[item.mark] || statusColors.none);
         const displayName = showNamesInTeacherView ? escapeHTML(item.name || 'Anonym') : '••••••••';
 
@@ -1059,14 +1212,18 @@
             <div>
               <div class="flex items-center justify-between gap-2 mb-1.5">
                 <span class="text-xs font-bold text-indigo-700">${displayName}</span>
-                <div class="flex items-center gap-1">
-                  <button onclick="toggleSpotlight('${item.id}')" title="Auf Beamer hervorheben (Spotlight)" class="w-6 h-6 rounded hover:bg-amber-100 text-xs ${isSpotlight ? 'bg-amber-200' : ''}">⭐</button>
-                  <button onclick="markResponse('${item.id}', 'good')" title="Verstanden" class="w-6 h-6 rounded hover:bg-emerald-100 text-xs">✅</button>
-                  <button onclick="markResponse('${item.id}', 'warn')" title="Teilweise" class="w-6 h-6 rounded hover:bg-amber-100 text-xs">⚠️</button>
-                  <button onclick="deleteResponse('${item.id}')" title="Löschen" class="w-6 h-6 rounded hover:bg-rose-100 text-xs text-slate-400">✕</button>
+                <div class="flex items-center gap-0.5">
+                  <button onclick="markResponse('${item.id}', 'good')" title="Richtig (Schüler sieht es)" class="w-7 h-7 rounded hover:bg-emerald-100 text-sm ${item.mark === 'good' ? 'bg-emerald-200' : ''}">✅</button>
+                  <button onclick="markResponse('${item.id}', 'warn')" title="Fast (Schüler sieht es)" class="w-7 h-7 rounded hover:bg-amber-100 text-sm ${item.mark === 'warn' ? 'bg-amber-200' : ''}">⚠️</button>
+                  <button onclick="markResponse('${item.id}', 'bad')" title="Noch nicht (Schüler sieht es)" class="w-7 h-7 rounded hover:bg-rose-100 text-sm ${item.mark === 'bad' ? 'bg-rose-200' : ''}">❌</button>
+                  <button onclick="openFeedbackModal('${item.id}')" title="Kommentar an Schüler" class="w-7 h-7 rounded hover:bg-indigo-100 text-sm ${item.feedback ? 'bg-indigo-100' : ''}">💬</button>
+                  <button onclick="toggleSpotlight('${item.id}')" title="Anonym am Beamer zeigen (Spotlight)" class="w-7 h-7 rounded hover:bg-amber-100 text-sm ${isSpotlight ? 'bg-amber-200' : ''}">⭐</button>
+                  <button onclick="deleteResponse('${item.id}')" title="Löschen" class="w-7 h-7 rounded hover:bg-rose-100 text-xs text-slate-400">✕</button>
                 </div>
               </div>
+              ${item.revised && item.mark === 'none' ? '<div class="inline-block text-[11px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full mb-1">✏️ nachgebessert</div>' : ''}
               ${answerDisplay}
+              ${item.feedback ? `<p class="text-xs text-indigo-800 mt-2 bg-indigo-50 border border-indigo-100 rounded-lg px-2 py-1.5">💬 ${escapeHTML(item.feedback)}</p>` : ''}
             </div>
           </div>`;
       }).join('');
@@ -1119,13 +1276,28 @@
       return sessionRef(currentRoomCode).update(fields).catch(() => toast('Änderung konnte nicht gespeichert werden.'));
     }
 
-    function toggleSpotlight(respId) {
+    // Spotlight: In der (öffentlich lesbaren) Session steht nur ein Hash des Antwort-Schlüssels,
+    // nie der geheime Geräteschlüssel selbst.
+    async function toggleSpotlight(respId) {
       if (!currentSessionData) return;
-      updateSession({ spotlightId: currentSessionData.spotlightId === respId ? null : respId });
+      const h = await hashId(respId);
+      updateSession({ spotlightKey: currentSessionData.spotlightKey === h ? null : h });
     }
 
     function clearSpotlight() {
-      updateSession({ spotlightId: null });
+      updateSession({ spotlightKey: null });
+    }
+
+    function toggleAllowRevise() {
+      if (!currentSessionData) return;
+      updateSession({ allowRevise: !(currentSessionData.allowRevise === true) });
+    }
+    function updateReviseButtonUI(on) {
+      const btn = document.getElementById('btn-allow-revise');
+      btn.textContent = on ? '✏️ Nachbessern: an' : '✏️ Nachbessern: aus';
+      btn.classList.toggle('bg-indigo-50', on);
+      btn.classList.toggle('border-indigo-300', on);
+      btn.classList.toggle('text-indigo-800', on);
     }
 
     function addTimerSeconds(sec) {
@@ -1165,14 +1337,15 @@
       if (!currentRoomCode) return;
       const current = currentResponses.find(r => r.id === respId);
       const nextMark = current && current.mark === mark ? 'none' : mark;
-      sessionRef(currentRoomCode).collection('responses').doc(respId).update({ mark: nextMark })
+      sessionRef(currentRoomCode).collection('responses').doc(respId).update({ mark: nextMark, revised: false })
         .catch(() => toast('Markierung konnte nicht gespeichert werden.'));
+      if (IS_DEMO) demoReactToFeedback(respId, nextMark);
     }
 
     function deleteResponse(respId) {
       if (!currentRoomCode) return;
       if (!confirm('Diese Antwort löschen?')) return;
-      if (currentSessionData && currentSessionData.spotlightId === respId) clearSpotlight();
+      if (currentSessionData && currentSessionData.spotlightKey && spotHash[respId] === currentSessionData.spotlightKey) clearSpotlight();
       sessionRef(currentRoomCode).collection('responses').doc(respId).delete()
         .catch(() => toast('Antwort konnte nicht gelöscht werden.'));
     }
@@ -1216,13 +1389,13 @@
     function exportCSV() {
       if (!currentResponses.length) return toast('Keine Antworten vorhanden.');
       const q = (s) => `"${String(s || '').replace(/"/g, '""')}"`;
-      const markLabels = { good: 'Verstanden', warn: 'Teilweise', none: '' };
-      const rows = [['Name', 'Antwort', 'Zusatzkommentar', 'Markierung', 'Zeit'].map(q).join(';')];
+      const markLabels = { good: 'Richtig', warn: 'Fast', bad: 'Noch nicht', none: '' };
+      const rows = [['Name', 'Antwort', 'Zusatzkommentar', 'Feedback', 'Kommentar Lehrperson', 'Nachgebessert', 'Zeit'].map(q).join(';')];
       const sorted = [...currentResponses].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
       sorted.forEach(r => {
         const answer = currentSessionData && currentSessionData.type === 'ampel' ? (AMPEL_LABELS[r.answer] || r.answer) : r.answer;
         const t = tsMillis(r.updatedAt) ? new Date(tsMillis(r.updatedAt)).toLocaleTimeString('de-CH') : '';
-        rows.push([r.name, answer, r.comment, markLabels[r.mark] || '', t].map(q).join(';'));
+        rows.push([r.name, answer, r.comment, markLabels[r.mark] || '', r.feedback || '', r.revised ? 'ja' : '', t].map(q).join(';'));
       });
       // BOM, damit Excel Umlaute korrekt anzeigt
       const blob = new Blob(['﻿' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8' });
@@ -1488,19 +1661,58 @@
         document.getElementById('student-question-text').textContent = data.question;
         setupStudentNameInput(data);
         renderStudentInputFields(data);
-        startCountdown('student-timer-pill', data, () => updateStudentLockState());
+        startCountdown('student-timer-pill', data, () => { updateStudentLockState(); renderStudentFeedback(); });
         updateStudentLockState();
+        renderStudentFeedback();
       }, () => {
         showStudentClosed('Keine Verbindung', 'Die Session konnte nicht geladen werden. Bitte Seite neu laden.');
       });
 
-      // Wurde auf diesem Gerät schon abgegeben? (z. B. nach Neuladen)
-      sessionRef(code).collection('responses').doc(deviceId).get().then((s) => {
-        if (s.exists && studentRoomCode === code) {
-          studentHasSubmitted = true;
-          showSentState();
-        }
-      }).catch(() => {});
+      // Eigene Antwort beobachten: Abgabe nach Neuladen erkennen und Feedback der Lehrperson anzeigen
+      if (studentRespUnsub) { studentRespUnsub(); studentRespUnsub = null; }
+      studentResp = null;
+      lastFeedbackSig = null;
+      hashId(deviceId).then(() => renderStudentFeedback());
+      studentRespUnsub = sessionRef(code).collection('responses').doc(deviceId).onSnapshot((s) => {
+        if (studentRoomCode !== code) return;
+        studentResp = s.exists ? s.data() : null;
+        if (s.exists) { studentHasSubmitted = true; showSentState(); }
+        renderStudentFeedback();
+        updateStudentLockState();
+      }, () => {});
+    }
+
+    const FEEDBACK_TEXT = {
+      good: { cls: 'border-emerald-400 bg-emerald-50 text-emerald-900', title: '✅ Richtig! 👍' },
+      warn: { cls: 'border-amber-400 bg-amber-50 text-amber-900', title: '⚠️ Fast! Schau nochmals genau hin.' },
+      bad: { cls: 'border-rose-400 bg-rose-50 text-rose-900', title: '❌ Noch nicht richtig.' }
+    };
+    function feedbackLocksAnswer() {
+      if (!studentResp || !studentResp.mark || studentResp.mark === 'none') return false;
+      return !(studentSession && studentSession.allowRevise === true && (studentResp.mark === 'warn' || studentResp.mark === 'bad'));
+    }
+    function renderStudentFeedback() {
+      const box = document.getElementById('student-feedback-box');
+      const note = document.getElementById('student-spotlight-note');
+      const r = studentResp;
+      const mark = r && r.mark && r.mark !== 'none' ? r.mark : null;
+      const fbText = r && r.feedback ? r.feedback : '';
+      const spot = !!(studentSession && studentSession.spotlightNotice === true && studentSession.spotlightKey && spotHash[deviceId] === studentSession.spotlightKey && r);
+      note.classList.toggle('hidden', !spot);
+      if (!mark && !fbText) {
+        box.classList.add('hidden');
+      } else {
+        const cfg = FEEDBACK_TEXT[mark] || { cls: 'border-indigo-300 bg-indigo-50 text-indigo-900', title: '💬 Rückmeldung der Lehrperson' };
+        const canRevise = (mark === 'warn' || mark === 'bad') && studentSession && studentSession.allowRevise === true && !isStudentClosed();
+        box.className = 'rounded-xl border-2 p-4 space-y-1.5 ' + cfg.cls;
+        box.innerHTML = `<div class="font-bold text-base">${cfg.title}</div>` +
+          (fbText ? `<div class="text-sm">💬 ${escapeHTML(fbText)}</div>` : '') +
+          (canRevise ? '<div class="text-sm font-semibold pt-1">✏️ Du darfst deine Antwort verbessern und nochmals senden.</div>' : '');
+      }
+      // kurze Vibration, wenn neues Feedback kommt (nicht beim ersten Laden)
+      const sig = JSON.stringify([mark, fbText, spot]);
+      if (lastFeedbackSig !== null && sig !== lastFeedbackSig && (mark || fbText || spot) && navigator.vibrate) { try { navigator.vibrate(120); } catch (e) {} }
+      lastFeedbackSig = sig;
     }
 
     function setupStudentNameInput(data) {
@@ -1531,9 +1743,11 @@
     }
 
     function updateStudentLockState() {
-      const locked = isStudentClosed();
-      document.getElementById('student-locked-banner').textContent =
-        studentSession && isTimeUp(studentSession) ? '⏱️ Die Zeit ist abgelaufen – Antworten sind gesperrt.' : '🔒 Die Eingabe ist gesperrt.';
+      const fbLock = !isStudentClosed() && feedbackLocksAnswer();
+      const locked = isStudentClosed() || fbLock;
+      document.getElementById('student-locked-banner').textContent = fbLock
+        ? '✔️ Deine Antwort wurde bewertet – Änderungen sind nicht mehr möglich.'
+        : (studentSession && isTimeUp(studentSession) ? '⏱️ Die Zeit ist abgelaufen – Antworten sind gesperrt.' : '🔒 Die Eingabe ist gesperrt.');
       document.getElementById('student-locked-banner').classList.toggle('hidden', !locked);
       const btn = document.getElementById('btn-student-submit');
       btn.disabled = locked;
@@ -1651,17 +1865,20 @@
       localStorage.setItem('lightning_student_name', name);
       const ref = sessionRef(studentRoomCode).collection('responses').doc(deviceId);
       const payload = { name, answer, comment, updatedAt: FV.serverTimestamp() };
+      // Nachbessern nach ⚠️/❌: Bewertung zurücksetzen, damit die Lehrperson die neue Version sieht
+      if (studentResp && (studentResp.mark === 'warn' || studentResp.mark === 'bad')) { payload.mark = 'none'; payload.revised = true; }
       const btn = document.getElementById('btn-student-submit');
       btn.disabled = true;
       try {
         if (studentHasSubmitted) {
           try { await ref.update(payload); }
-          catch (e) { await ref.set({ ...payload, mark: 'none' }); }   // z. B. von Lehrperson gelöscht
+          catch (e) { await ref.set({ name, answer, comment, updatedAt: FV.serverTimestamp(), mark: 'none' }); }   // z. B. von Lehrperson gelöscht
         } else {
           await ref.set({ ...payload, mark: 'none' });
         }
         studentHasSubmitted = true;
         showSentState();
+        if (payload.revised) toast('Verbesserte Antwort gesendet');
       } catch (e) {
         toast(e.code === 'permission-denied'
           ? 'Abgabe nicht möglich: Die Eingabe ist gesperrt oder die Zeit ist abgelaufen.'
@@ -1686,6 +1903,10 @@
     function leaveStudentRoom() {
       clearInterval(timers['student-timer-pill']);
       if (studentUnsub) { studentUnsub(); studentUnsub = null; }
+      if (studentRespUnsub) { studentRespUnsub(); studentRespUnsub = null; }
+      studentResp = null;
+      document.getElementById('student-feedback-box').classList.add('hidden');
+      document.getElementById('student-spotlight-note').classList.add('hidden');
       studentRoomCode = null;
       studentSession = null;
       document.getElementById('student-answer-box').classList.add('hidden');
@@ -1719,6 +1940,7 @@
         beamerResponses = {};
         snap.forEach(d => { beamerResponses[d.id] = d.data(); });
         renderBeamer();
+        ensureHashes(Object.keys(beamerResponses), renderBeamer);
       }, () => {});
 
       db.collection(TEACHERS).doc(currentUser.uid).collection('solutions').doc(code).get()
@@ -1744,8 +1966,9 @@
       // Spotlight hat Vorrang
       const spotlightBox = document.getElementById('beamer-spotlight-box');
       const normalArea = document.getElementById('beamer-normal-area');
-      if (data.spotlightId && beamerResponses[data.spotlightId]) {
-        const item = beamerResponses[data.spotlightId];
+      const spotId = spotlightIdFrom(data, Object.keys(beamerResponses));
+      if (spotId && beamerResponses[spotId]) {
+        const item = beamerResponses[spotId];
         spotlightBox.classList.remove('hidden');
         normalArea.classList.add('hidden');
         const origBox = document.getElementById('beamer-spotlight-original');
@@ -2000,8 +2223,32 @@
       return { answer: pick(['I have never been to London.', 'I never have eaten sushi.', 'She has never seen snow.', 'We have never played golf.', 'I have never went to Paris.', 'He has never met a famous person.']), comment: '' };
     }
 
+    let demoForm = null;
+    function demoImprovedAnswer(form, old) {
+      const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+      if (form.type === 'mc') return form.options[1] && old !== form.options[1] ? form.options[1] : pick(form.options.filter(o => o !== old)) || old;
+      if (form.type === 'order') return form.options.join(ORDER_SEP);
+      if (form.type === 'fix') return (form.initialText || '').replace(/ (weil|obwohl|dass|als|wenn|ging)\b/gi, ', $1').replace(/^, /, '');
+      if (form.type === 'ampel') return old;
+      return pick(['I have never been to London.', 'She has never seen snow.', 'We have never played golf.', 'He has never met a famous person.']);
+    }
+    function demoReactToFeedback(respId, mark) {
+      if (!respId.startsWith('bot') || !demoForm || (mark !== 'warn' && mark !== 'bad')) return;
+      const code = currentRoomCode;
+      demoBotTimers.push(setTimeout(async () => {
+        const s = await sessionRef(code).get();
+        const d = s.exists ? s.data() : null;
+        if (!d || isInputClosed(d) || d.allowRevise !== true) return;
+        const ref = sessionRef(code).collection('responses').doc(respId);
+        const r = await ref.get();
+        if (!r.exists || (r.data().mark !== 'warn' && r.data().mark !== 'bad')) return;
+        ref.update({ answer: demoImprovedAnswer(demoForm, r.data().answer), mark: 'none', revised: true, updatedAt: FV.serverTimestamp() });
+      }, 3000 + Math.random() * 3000));
+    }
+
     function startDemoBots(code, form) {
       stopDemoBots();
+      demoForm = form;
       const roster = (currentSessionData && currentSessionData.roster) || null;
       const classId = document.getElementById('select-session-class').value;
       const names = shuffle(roster || (cachedClasses[classId] && cachedClasses[classId].students) || DEMO_NAMES.slice(0, 8));
@@ -2018,6 +2265,8 @@
         }, delay));
       });
     }
+
+    loadFeedbackOptions();
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
