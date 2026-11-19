@@ -33,6 +33,7 @@
         </div>
       </div>
       <div id="header-actions" class="flex items-center gap-2 flex-wrap justify-end">
+        <button onclick="undoLast()" id="btn-undo" title="Rückgängig" class="hidden text-xs sm:text-sm px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-semibold">↶ Rückgängig</button>
         <button onclick="openClassModal()" id="btn-classes" class="hidden text-xs sm:text-sm px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-medium">
           👥 Klassen
         </button>
@@ -725,6 +726,7 @@
     const sessionRef = (code) => db.collection(SESSIONS).doc(code);
 
     function showView(id) {
+      setTimeout(() => { try { updateUndoBtn(); } catch (e) {} }, 0);
       ['view-loading', 'view-login', 'view-teacher', 'view-student', 'view-beamer'].forEach(v =>
         document.getElementById(v).classList.toggle('hidden', v !== id));
       document.getElementById('nav-teacher').classList.toggle('pill-active', id === 'view-teacher' || id === 'view-login');
@@ -881,6 +883,7 @@
       cachedClasses = {};
       cachedTemplates = [];
       customPhrases = null;
+      undoStack = [];
     }
 
     async function cleanupOldSessions() {
@@ -1465,7 +1468,7 @@
       const txt = remove ? '' : document.getElementById('fb-text').value.trim().slice(0, 120);
       const id = feedbackTarget;
       closeFeedbackModal();
-      sessionRef(currentRoomCode).collection('responses').doc(id).update({ feedback: txt })
+      updateResponse(id, { feedback: txt }, 'Kommentar')
         .then(() => toast(txt ? 'Kommentar gesendet' : 'Kommentar entfernt'))
         .catch(() => toast('Kommentar konnte nicht gesendet werden.'));
     }
@@ -1526,12 +1529,14 @@
                   <button onclick="markResponse('${item.id}', 'good')" title="Richtig (Schüler sieht es)" class="w-7 h-7 rounded hover:bg-emerald-100 text-sm ${item.mark === 'good' ? 'bg-emerald-200' : ''}">✅</button>
                   <button onclick="markResponse('${item.id}', 'warn')" title="Fast (Schüler sieht es)" class="w-7 h-7 rounded hover:bg-amber-100 text-sm ${item.mark === 'warn' ? 'bg-amber-200' : ''}">⚠️</button>
                   <button onclick="markResponse('${item.id}', 'bad')" title="Noch nicht (Schüler sieht es)" class="w-7 h-7 rounded hover:bg-rose-100 text-sm ${item.mark === 'bad' ? 'bg-rose-200' : ''}">❌</button>
+                  <button onclick="returnResponse('${item.id}')" title="${item.returned ? 'Zurückgeben aufheben' : 'Zum Überarbeiten zurückgeben'}" class="w-7 h-7 rounded hover:bg-sky-100 text-sm ${item.returned ? 'bg-sky-200' : ''}">↩︎</button>
                   <button onclick="openFeedbackModal('${item.id}')" title="Kommentar an Schüler" class="w-7 h-7 rounded hover:bg-indigo-100 text-sm ${item.feedback ? 'bg-indigo-100' : ''}">💬</button>
                   <button onclick="toggleSpotlight('${item.id}')" title="Anonym am Beamer zeigen (Spotlight)" class="w-7 h-7 rounded hover:bg-amber-100 text-sm ${isSpotlight ? 'bg-amber-200' : ''}">⭐</button>
                   <button onclick="deleteResponse('${item.id}')" title="Löschen" class="w-7 h-7 rounded hover:bg-rose-100 text-xs text-slate-400">✕</button>
                 </div>
               </div>
-              ${item.revised && item.mark === 'none' ? '<div class="inline-block text-[11px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full mb-1">✏️ nachgebessert</div>' : ''}
+              ${item.returned ? '<div class="inline-block text-[11px] font-bold text-sky-800 bg-sky-100 px-2 py-0.5 rounded-full mb-1">↩︎ zurückgegeben – wartet auf Überarbeitung</div>' : ''}
+              ${item.revised && item.mark === 'none' && !item.returned ? '<div class="inline-block text-[11px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full mb-1">✏️ überarbeitet</div>' : ''}
               ${answerDisplay}
               ${item.feedback ? `<p class="text-xs text-indigo-800 mt-2 bg-indigo-50 border border-indigo-100 rounded-lg px-2 py-1.5">💬 ${escapeHTML(item.feedback)}</p>` : ''}
             </div>
@@ -1739,8 +1744,57 @@
       });
     }
 
-    function updateSession(fields) {
+    // ---------- Rückgängig (solange die App offen ist) ----------
+    let undoStack = [];
+    function pushUndo(label, run) {
+      undoStack.push({ label, run });
+      if (undoStack.length > 25) undoStack.shift();
+      updateUndoBtn();
+    }
+    function updateUndoBtn() {
+      const b = document.getElementById('btn-undo');
+      const show = undoStack.length > 0 && mode === 'teacher' && !!currentUser && isTeacherUser(currentUser);
+      b.classList.toggle('hidden', !show);
+      b.title = show ? 'Rückgängig: ' + undoStack[undoStack.length - 1].label : '';
+    }
+    async function undoLast() {
+      const u = undoStack.pop();
+      updateUndoBtn();
+      if (!u) return;
+      try { await u.run(); toast('↶ Rückgängig: ' + u.label); }
+      catch (e) { toast('Rückgängig nicht möglich: ' + (e.message || e)); }
+    }
+    const SESSION_FIELD_LABELS = { locked: 'Sperren/Öffnen', durationSec: 'Zeitlimit', roster: 'Anwesenheit', active: 'Beenden/Öffnen', allowRevise: 'Nachbessern',
+      spotlightNotice: '⭐-Hinweis', showOnBeamer: 'Beamer-Ergebnisse', showNamesOnBeamer: 'Namen am Beamer', spotlightKey: 'Spotlight', revealed: 'Lösung zeigen' };
+    function recordSessionUndo(code, prevData, fields) {
+      if (!prevData) return;
+      const prev = {};
+      Object.keys(fields).forEach(k => { prev[k] = prevData[k] === undefined ? null : prevData[k]; });
+      const label = Object.keys(fields).map(k => SESSION_FIELD_LABELS[k]).filter(Boolean)[0] || 'Einstellung';
+      pushUndo(label, async () => {
+        await sessionRef(code).update(prev);
+        // Anwesenheit auch im Gerätespeicher zurücksetzen
+        if ('roster' in prev && prevData.classId && cachedClasses[prevData.classId] && Array.isArray(prev.roster)) {
+          const present = new Set(prev.roster);
+          setAbsent(prevData.classId, (cachedClasses[prevData.classId].students || []).filter(n => !present.has(n)));
+        }
+      });
+    }
+    function updateResponse(respId, fields, label) {
       if (!currentRoomCode) return Promise.resolve();
+      const code = currentRoomCode;
+      const cur = currentResponses.find(r => r.id === respId);
+      if (cur) {
+        const prev = {};
+        Object.keys(fields).forEach(k => { prev[k] = cur[k] === undefined ? (k === 'feedback' ? '' : k === 'mark' ? 'none' : false) : cur[k]; });
+        pushUndo(label, () => sessionRef(code).collection('responses').doc(respId).update(prev));
+      }
+      return sessionRef(code).collection('responses').doc(respId).update(fields);
+    }
+
+    function updateSession(fields, noUndo) {
+      if (!currentRoomCode) return Promise.resolve();
+      if (!noUndo) recordSessionUndo(currentRoomCode, currentSessionData, fields);
       return sessionRef(currentRoomCode).update(fields).catch(() => toast('Änderung konnte nicht gespeichert werden.'));
     }
 
@@ -1749,11 +1803,11 @@
     async function toggleSpotlight(respId) {
       if (!currentSessionData) return;
       const h = await hashId(respId);
-      updateSession({ spotlightKey: currentSessionData.spotlightKey === h ? null : h });
+      updateSession({ spotlightKey: currentSessionData.spotlightKey === h ? null : h }, true);
     }
 
     function clearSpotlight() {
-      updateSession({ spotlightKey: null });
+      updateSession({ spotlightKey: null }, true);
     }
 
     function toggleAllowRevise() {
@@ -1807,16 +1861,36 @@
       if (!currentRoomCode) return;
       const current = currentResponses.find(r => r.id === respId);
       const nextMark = current && current.mark === mark ? 'none' : mark;
-      sessionRef(currentRoomCode).collection('responses').doc(respId).update({ mark: nextMark, revised: false })
+      updateResponse(respId, { mark: nextMark, revised: false }, 'Bewertung')
         .catch(() => toast('Markierung konnte nicht gespeichert werden.'));
       if (IS_DEMO) demoReactToFeedback(respId, nextMark);
+    }
+
+    function returnResponse(respId) {
+      const cur = currentResponses.find(r => r.id === respId);
+      if (!cur) return;
+      const on = !cur.returned;
+      updateResponse(respId, { returned: on, revised: false }, on ? 'Zurückgeben' : 'Zurückgeben aufheben')
+        .then(() => { if (on) { toast('Zurückgegeben – Kommentar optional'); openFeedbackModal(respId); } })
+        .catch(() => toast('Konnte nicht zurückgegeben werden.'));
+      if (on && IS_DEMO) demoReactToReturn(respId);
     }
 
     function deleteResponse(respId) {
       if (!currentRoomCode) return;
       if (!confirm('Diese Antwort löschen?')) return;
       if (currentSessionData && currentSessionData.spotlightKey && spotHash[respId] === currentSessionData.spotlightKey) clearSpotlight();
-      sessionRef(currentRoomCode).collection('responses').doc(respId).delete()
+      const code = currentRoomCode;
+      const cur = currentResponses.find(r => r.id === respId);
+      const backup = cur ? { ...cur } : null;
+      if (backup) delete backup.id;
+      sessionRef(code).collection('responses').doc(respId).delete()
+        .then(() => {
+          if (!backup) return;
+          const restore = () => sessionRef(code).collection('responses').doc(respId).set(backup);
+          pushUndo('Antwort gelöscht', restore);
+          toast('Antwort gelöscht.', 'Rückgängig', () => undoLast());
+        })
         .catch(() => toast('Antwort konnte nicht gelöscht werden.'));
     }
 
@@ -2015,7 +2089,8 @@
                 ? `<button onclick="openSessionFromList('${x.code}')" class="btn-primary px-3 py-1.5 text-xs">Öffnen</button>
                    <button onclick="endSessionFromList('${x.code}')" class="px-3 py-1.5 rounded-lg border border-rose-200 bg-white text-rose-700 text-xs font-semibold hover:bg-rose-50">Beenden</button>`
                 : `<button onclick="openSessionFromList('${x.code}')" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold hover:bg-slate-50">Ergebnisse</button>
-                   <button onclick="reopenSessionFromList('${x.code}')" class="px-3 py-1.5 rounded-lg border border-indigo-200 bg-white text-indigo-700 text-xs font-semibold hover:bg-indigo-50">Wieder öffnen</button>`}
+                   <button onclick="reopenSessionFromList('${x.code}')" class="px-3 py-1.5 rounded-lg border border-indigo-200 bg-white text-indigo-700 text-xs font-semibold hover:bg-indigo-50">Wieder öffnen</button>
+                   <button onclick="deleteSessionFromList('${x.code}')" title="Frage und Antworten löschen" class="px-2.5 py-1.5 rounded-lg border border-rose-200 bg-white text-rose-700 text-xs font-semibold hover:bg-rose-50">🗑</button>`}
             </span>
           </div>`;
       };
@@ -2032,7 +2107,29 @@
     async function endSessionFromList(code) {
       if (!confirm(`Frage ${code} beenden? Die Antworten bleiben noch 24 Stunden gespeichert.`)) return;
       await sessionRef(code).update({ active: false }).catch(() => toast('Konnte nicht beendet werden.'));
+      pushUndo('Beenden', () => sessionRef(code).update({ active: true }));
       if (localStorage.getItem('lightning_activeSession_' + currentUser.uid) === code) localStorage.removeItem('lightning_activeSession_' + currentUser.uid);
+    }
+    async function deleteSessionFromList(code) {
+      if (!confirm(`Frage ${code} mit allen Antworten jetzt löschen?`)) return;
+      try {
+        // Sicherung für «Rückgängig» (solange die App offen ist)
+        const ss = await sessionRef(code).get();
+        const rs = await sessionRef(code).collection('responses').get();
+        const sol = await teacherRef().collection('solutions').doc(code).get().catch(() => null);
+        const sData = ss.exists ? ss.data() : null;
+        const rData = rs.docs.map(d => [d.id, d.data()]);
+        const solData = sol && sol.exists ? sol.data() : null;
+        await deleteSessionCompletely(code);
+        if (sData) {
+          pushUndo('Frage gelöscht', async () => {
+            await sessionRef(code).set(sData);
+            for (const [id, d] of rData) await sessionRef(code).collection('responses').doc(id).set(d);
+            if (solData) await teacherRef().collection('solutions').doc(code).set(solData);
+          });
+          toast(`Frage ${code} gelöscht.`, 'Rückgängig', () => undoLast());
+        }
+      } catch (e) { toast('Löschen fehlgeschlagen.'); }
     }
     async function reopenSessionFromList(code) {
       await sessionRef(code).update({ active: true, locked: false, durationSec: 0 }).catch(() => toast('Konnte nicht geöffnet werden.'));
@@ -2360,9 +2457,28 @@
       warn: { cls: 'border-amber-400 bg-amber-50 text-amber-900', title: '⚠️ Fast! Schau nochmals genau hin.' },
       bad: { cls: 'border-rose-400 bg-rose-50 text-rose-900', title: '❌ Noch nicht richtig.' }
     };
+    function isReturned() { return !!(studentResp && studentResp.returned === true && studentSession && studentSession.active !== false); }
     function feedbackLocksAnswer() {
+      if (isReturned()) return false;
       if (!studentResp || !studentResp.mark || studentResp.mark === 'none') return false;
       return !(studentSession && studentSession.allowRevise === true && (studentResp.mark === 'warn' || studentResp.mark === 'bad'));
+    }
+    let prefilledFor = null;
+    // bisherige Antwort ins Formular übernehmen (beim Zurückgeben)
+    function prefillStudentAnswer(r) {
+      const d = studentSession;
+      if (!r || !d) return;
+      const a = r.answer || '';
+      try {
+        if (d.type === 'text' || d.type === 'fix') { const t = document.getElementById('student-text-answer'); if (t) t.value = a; }
+        else if (d.type === 'mc' && d.multi) { splitMulti(a).forEach(o => { const i = (d.options || []).indexOf(o); if (i >= 0 && !selectedMcSet.has(i)) chooseMcOption(i); }); }
+        else if (d.type === 'mc') { const i = (d.options || []).indexOf(a); if (i >= 0) chooseMcOption(i); }
+        else if (d.type === 'tf') { if (a === 'Richtig' || a === 'Falsch') chooseTf(a); }
+        else if (d.type === 'ampel') { if (['1', '2', '3', '4'].includes(a)) chooseAmpel(a); const c = document.getElementById('student-ampel-comment'); if (c) c.value = r.comment || ''; }
+        else if (d.type === 'order') { const parts = a.split(ORDER_SEP); if (parts.length === (d.options || []).length) { studentOrderItems = parts; renderStudentOrderList(); } }
+        else if (d.type === 'cloud') { splitMulti(a).forEach((t, i) => { const el = document.getElementById('stu-cloud-' + i); if (el) el.value = t; }); }
+        else if (d.type === 'number') { const el = document.getElementById('stu-number'); if (el) el.value = a; }
+      } catch (e) {}
     }
     function renderStudentFeedback() {
       const solBox = document.getElementById('student-solution-box');
@@ -2376,7 +2492,13 @@
       const fbText = r && r.feedback ? r.feedback : '';
       const spot = !!(studentSession && studentSession.spotlightNotice === true && studentSession.spotlightKey && spotHash[deviceId] === studentSession.spotlightKey && r);
       note.classList.toggle('hidden', !spot);
-      if (!mark && !fbText) {
+      if (isReturned()) {
+        box.className = 'rounded-xl border-2 p-4 space-y-1.5 border-sky-400 bg-sky-50 text-sky-900';
+        box.innerHTML = '<div class="font-bold text-base">↩︎ Deine Lehrperson hat dir die Antwort zurückgegeben.</div>' +
+          (fbText ? `<div class="text-sm">💬 ${escapeHTML(fbText)}</div>` : '') +
+          '<div class="text-sm font-semibold pt-1">✏️ Überarbeite sie und sende sie nochmals.</div>';
+        if (!prefilledFor || prefilledFor !== studentResp.updatedAt?.toMillis?.()) { prefillStudentAnswer(studentResp); prefilledFor = studentResp.updatedAt?.toMillis?.() || 1; }
+      } else if (!mark && !fbText) {
         box.classList.add('hidden');
       } else {
         const cfg = FEEDBACK_TEXT[mark] || { cls: 'border-indigo-300 bg-indigo-50 text-indigo-900', title: '💬 Rückmeldung der Lehrperson' };
@@ -2387,7 +2509,7 @@
           (canRevise ? '<div class="text-sm font-semibold pt-1">✏️ Du darfst deine Antwort verbessern und nochmals senden.</div>' : '');
       }
       // kurze Vibration, wenn neues Feedback kommt (nicht beim ersten Laden)
-      const sig = JSON.stringify([mark, fbText, spot]);
+      const sig = JSON.stringify([mark, fbText, spot, isReturned()]);
       if (lastFeedbackSig !== null && sig !== lastFeedbackSig && (mark || fbText || spot) && navigator.vibrate) { try { navigator.vibrate(120); } catch (e) {} }
       lastFeedbackSig = sig;
     }
@@ -2421,7 +2543,7 @@
 
     function updateStudentLockState() {
       const fbLock = !isStudentClosed() && feedbackLocksAnswer();
-      const locked = isStudentClosed() || fbLock;
+      const locked = (isStudentClosed() && !isReturned()) || fbLock;
       document.getElementById('student-locked-banner').textContent = fbLock
         ? '✔️ Deine Antwort wurde bewertet – Änderungen sind nicht mehr möglich.'
         : (studentSession && isTimeUp(studentSession) ? '⏱️ Die Zeit ist abgelaufen – Antworten sind gesperrt.' : '🔒 Die Eingabe ist gesperrt.');
@@ -2550,7 +2672,7 @@
 
     async function submitStudentAnswer() {
       if (!studentSession || !studentRoomCode) return;
-      if (isStudentClosed()) return updateStudentLockState();
+      if (isStudentClosed() && !isReturned()) return updateStudentLockState();
       const sel = document.getElementById('student-name-select');
       const name = (!sel.classList.contains('hidden') ? sel.value : document.getElementById('student-name').value).trim();
       if (!name) return toast('Bitte gib deinen Namen an.');
@@ -2592,6 +2714,7 @@
       const payload = { name, answer, comment, updatedAt: FV.serverTimestamp() };
       // Nachbessern nach ⚠️/❌: Bewertung zurücksetzen, damit die Lehrperson die neue Version sieht
       if (studentResp && (studentResp.mark === 'warn' || studentResp.mark === 'bad')) { payload.mark = 'none'; payload.revised = true; }
+      if (isReturned()) { payload.mark = 'none'; payload.revised = true; payload.returned = false; }
       const btn = document.getElementById('btn-student-submit');
       btn.disabled = true;
       try {
@@ -2808,9 +2931,16 @@
     }
 
     let toastTimer = null;
-    function toast(msg) {
+    function toast(msg, actionLabel, action) {
       const el = document.getElementById('toast');
       el.textContent = msg;
+      if (actionLabel && action) {
+        const b = document.createElement('button');
+        b.textContent = actionLabel;
+        b.className = 'ml-3 underline font-semibold text-amber-300';
+        b.onclick = () => { el.classList.add('hidden'); action(); };
+        el.appendChild(b);
+      }
       el.classList.remove('hidden');
       clearTimeout(toastTimer);
       toastTimer = setTimeout(() => el.classList.add('hidden'), 3500);
@@ -3008,6 +3138,16 @@
       if (form.type === 'fix') return (form.initialText || '').replace(/ (weil|obwohl|dass|als|wenn|ging)\b/gi, ', $1').replace(/^, /, '');
       if (form.type === 'ampel') return old;
       return pick(['I have never been to London.', 'She has never seen snow.', 'We have never played golf.', 'He has never met a famous person.']);
+    }
+    function demoReactToReturn(respId) {
+      if (!respId.startsWith('bot') || !demoForm) return;
+      const code = currentRoomCode;
+      demoBotTimers.push(setTimeout(async () => {
+        const ref = sessionRef(code).collection('responses').doc(respId);
+        const r = await ref.get();
+        if (!r.exists || r.data().returned !== true) return;
+        ref.update({ answer: demoImprovedAnswer(demoForm, r.data().answer), mark: 'none', revised: true, returned: false, updatedAt: FV.serverTimestamp() });
+      }, 4000 + Math.random() * 3000));
     }
     function demoReactToFeedback(respId, mark) {
       if (!respId.startsWith('bot') || !demoForm || (mark !== 'warn' && mark !== 'bad')) return;

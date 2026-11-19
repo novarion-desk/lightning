@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.7 – 19.11.2026
+- ↩︎ Zurückgeben: Antwort an einen Schüler zum Überarbeiten zurückgeben (mit optionalem Kommentar). Er sieht seine bisherige Antwort im Feld und darf sie ändern – auch wenn die Eingabe für alle gesperrt ist. Danach «✏️ überarbeitet».
+- ↶ Rückgängig in der Kopfzeile: Bewertung, Kommentar, Zurückgeben, Antwort löschen, Frage beenden/löschen, Sperren, Zeitlimit, Anwesenheit und Einstellungen – solange die App offen ist. Nach dem Löschen zusätzlich «Rückgängig» im Hinweis.
+- «Heute beendet»: 🗑 löscht eine Frage mit allen Antworten sofort.
+
 ## v1.6 – 19.11.2026
 - Klick aufs ⚡-Logo oder «← Übersicht» führt zur Startseite, ohne die Frage zu beenden (sie bleibt in «Deine Fragen» offen).
 - «👤 Namen am Beamer» (Standard AUS): zeigt die Namen auf den Antwortkarten und beim Spotlight am Beamer. Auch in der Leiste des Projektionsmodus.
