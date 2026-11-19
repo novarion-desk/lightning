@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.5 – 19.11.2026
+- QR-Code antippen → bildschirmfüllend mit Code und Adresse (Dashboard, Projektionsmodus, Beamer-Ansicht). Antippen oder Esc schliesst.
+- «Deine Fragen» auf der Startseite: laufende Fragen (live auf allen Geräten, «Öffnen»/«Beenden») und heute beendete («Ergebnisse», «Wieder öffnen»). Eine auf dem Tablet gestartete Frage erscheint sofort auch am Mac. Gelöscht wird weiterhin automatisch nach 24 Stunden.
+- Beendete Frage im Dashboard: Hinweis «Beendet» mit «Wieder öffnen».
+
 ## v1.4 – 19.11.2026
 - Anwesenheit: Nach der Klassenwahl alle Namen antippen, wer fehlt (grau). Schüler sehen im Namen-Menü nur die Anwesenden, der Abgabestatus zählt nur sie («9 / 12 abgegeben · 2 abwesend»). Die Auswahl gilt heute für diese Klasse (pro Gerät), danach wieder alle.
 - ⚙️ Einstellungen während der Frage: Anwesenheit anpassen (z. B. Zuspätkommende), Nachbessern, ⭐-Hinweis, Namen sichtbar, Zeitlimit neu setzen oder entfernen. «Nachbessern» ist aus der Knopfleiste in dieses Fenster gewandert.

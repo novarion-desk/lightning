@@ -88,6 +88,14 @@
 
       <!-- NEUE FRAGE STARTEN -->
       <div id="teacher-setup" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div id="session-list-card" class="hidden lg:col-span-3 card p-4 sm:p-5 space-y-3">
+          <h2 class="text-base font-bold text-slate-900">Deine Fragen</h2>
+          <div id="session-list-open" class="space-y-2"></div>
+          <div id="session-list-done-wrap" class="hidden space-y-2">
+            <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 pt-1">Heute beendet</div>
+            <div id="session-list-done" class="space-y-2"></div>
+          </div>
+        </div>
         <div class="lg:col-span-2 card p-5 sm:p-6 space-y-5">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <h2 class="text-lg font-bold text-slate-900">Neue Live-Frage starten</h2>
@@ -291,11 +299,14 @@
         <!-- Steuerungsleiste -->
         <div class="card p-5 flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-indigo-200 bg-indigo-50/40">
           <div class="flex items-start sm:items-center gap-4">
-            <div id="qr-teacher" class="bg-white p-2 rounded-xl border border-slate-200 shrink-0 w-24 h-24"></div>
+            <button type="button" id="qr-teacher" onclick="openQrFull()" title="QR-Code gross anzeigen" class="bg-white p-2 rounded-xl border border-slate-200 shrink-0 w-24 h-24 cursor-zoom-in"></button>
             <div>
               <div class="flex flex-wrap items-center gap-2">
-                <span class="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                <span id="live-badge" class="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
                   <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Live
+                </span>
+                <span id="ended-badge" class="hidden inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600 bg-slate-200 px-2.5 py-0.5 rounded-full">Beendet
+                  <button type="button" onclick="reopenSession()" class="normal-case tracking-normal text-indigo-700 underline">Wieder öffnen</button>
                 </span>
                 <span class="text-xs text-slate-500">Code: <strong id="live-room-code" class="text-slate-900 text-base font-mono">----</strong></span>
                 <span id="live-class-badge" class="hidden text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-semibold"></span>
@@ -458,7 +469,7 @@
           <h2 id="beamer-question" class="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-snug">Warte auf Frage...</h2>
           <p class="text-base text-slate-500">Eingegangene Antworten: <strong id="beamer-count" class="text-slate-900">0</strong></p>
         </div>
-        <div id="qr-beamer" class="bg-white p-3 rounded-2xl border-2 border-slate-200 shrink-0 w-44 h-44"></div>
+        <button type="button" id="qr-beamer" onclick="openQrFull()" title="QR-Code gross anzeigen" class="bg-white p-3 rounded-2xl border-2 border-slate-200 shrink-0 w-44 h-44 cursor-zoom-in"></button>
       </div>
 
       <!-- SPOTLIGHT MODUS (1 ausgewählte Antwort gross & anonym) -->
@@ -528,6 +539,14 @@
   </div>
 
   <!-- MODAL: KI-SCHNELLIMPORT -->
+  <div id="qr-full" class="hidden fixed inset-0 z-[80] bg-white flex flex-col items-center justify-center gap-4 p-4 cursor-zoom-out" onclick="closeQrFull()">
+    <div id="qr-full-code" class="w-[min(80vw,78vh)] h-[min(80vw,78vh)]"></div>
+    <div class="text-center">
+      <div class="text-3xl sm:text-5xl font-extrabold text-slate-900 font-mono tracking-widest">Code: <span id="qr-full-room"></span></div>
+      <div id="qr-full-url" class="text-sm sm:text-lg text-slate-500 mt-1 break-all"></div>
+    </div>
+  </div>
+
   <div id="live-settings-modal" class="hidden fixed inset-0 bg-slate-900/50 z-[60] flex items-center justify-center p-4" onclick="if(event.target===this)closeLiveSettings()">
     <div class="bg-white rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-xl max-h-[92vh] overflow-y-auto">
       <div class="flex justify-between items-center">
@@ -835,6 +854,7 @@
     // =========================================================================
     function startTeacherData() {
       stopTeacherData();
+      startSessionList();
       teacherUnsubs.push(teacherRef().collection('classes').onSnapshot((snap) => {
         cachedClasses = {};
         snap.forEach(d => { cachedClasses[d.id] = d.data(); });
@@ -1214,6 +1234,9 @@
       const data = currentSessionData;
       if (!data) return;
       document.getElementById('live-question-title').textContent = data.question;
+      const ended = data.active === false;
+      document.getElementById('live-badge').classList.toggle('hidden', ended);
+      document.getElementById('ended-badge').classList.toggle('hidden', !ended);
       const classBadge = document.getElementById('live-class-badge');
       if (data.className) {
         classBadge.textContent = 'Klasse ' + data.className;
@@ -1916,6 +1939,81 @@
       else updateSession({ durationSec: 0, locked: false });
       toast(sec > 0 ? `Zeitlimit: noch ${sec} Sekunden` : 'Zeitlimit entfernt');
       setTimeout(renderLiveSettings, 400);
+    }
+
+    // ---------- QR-Code bildschirmfüllend ----------
+    function openQrFull() {
+      const code = currentRoomCode || (document.getElementById('beamer-code') || {}).textContent;
+      if (!code || code === '----') return;
+      const link = studentLink(code);
+      renderQR('qr-full-code', link);
+      document.getElementById('qr-full-room').textContent = code;
+      document.getElementById('qr-full-url').textContent = IS_DEMO ? link : link.replace(/^https?:\/\//, '');
+      document.getElementById('qr-full').classList.remove('hidden');
+    }
+    function closeQrFull() { document.getElementById('qr-full').classList.add('hidden'); }
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeQrFull(); });
+
+    // ---------- Liste «Deine Fragen» (live, alle Geräte) ----------
+    let cachedSessions = [];
+    function startSessionList() {
+      teacherUnsubs.push(db.collection(SESSIONS).where('ownerUid', '==', currentUser.uid).onSnapshot((snap) => {
+        const cutoff = Date.now() - SESSION_MAX_AGE_MS;
+        cachedSessions = snap.docs.map(d => ({ code: d.id, ...d.data({ serverTimestamps: 'estimate' }) }))
+          .filter(x => !tsMillis(x.createdAt) || tsMillis(x.createdAt) > cutoff)
+          .sort((a, b) => tsMillis(b.createdAt) - tsMillis(a.createdAt));
+        renderSessionList();
+      }, () => {}));
+    }
+    const TYPE_ICONS = { text: '✍️', mc: '📊', ampel: '🚦', fix: '🛠️', order: '🔢', tf: '⚖️', cloud: '☁️', number: '🔟' };
+    function renderSessionList() {
+      const card = document.getElementById('session-list-card');
+      const open = cachedSessions.filter(x => x.active !== false);
+      const today = todayISO();
+      const done = cachedSessions.filter(x => x.active === false && (() => { const t = tsMillis(x.createdAt); if (!t) return false; const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === today; })());
+      card.classList.toggle('hidden', !open.length && !done.length);
+      const row = (x, isOpen) => {
+        const t = tsMillis(x.createdAt);
+        const time = t ? new Date(t).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) : '';
+        return `<div class="flex flex-wrap items-center gap-2 p-2.5 rounded-xl border ${isOpen ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-200 bg-slate-50'}">
+            ${isOpen ? '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>' : ''}
+            <span class="font-mono font-bold text-slate-900">${escapeHTML(x.code)}</span>
+            <span class="text-sm">${TYPE_ICONS[x.type] || ''}</span>
+            <span class="flex-1 min-w-[10rem] text-sm text-slate-800 truncate">${escapeHTML(x.question || '')}</span>
+            <span class="text-xs text-slate-500">${x.className ? 'Klasse ' + escapeHTML(x.className) + ' · ' : ''}${time}</span>
+            <span class="flex gap-1.5 ml-auto">
+              ${isOpen
+                ? `<button onclick="openSessionFromList('${x.code}')" class="btn-primary px-3 py-1.5 text-xs">Öffnen</button>
+                   <button onclick="endSessionFromList('${x.code}')" class="px-3 py-1.5 rounded-lg border border-rose-200 bg-white text-rose-700 text-xs font-semibold hover:bg-rose-50">Beenden</button>`
+                : `<button onclick="openSessionFromList('${x.code}')" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold hover:bg-slate-50">Ergebnisse</button>
+                   <button onclick="reopenSessionFromList('${x.code}')" class="px-3 py-1.5 rounded-lg border border-indigo-200 bg-white text-indigo-700 text-xs font-semibold hover:bg-indigo-50">Wieder öffnen</button>`}
+            </span>
+          </div>`;
+      };
+      document.getElementById('session-list-open').innerHTML = open.length ? open.map(x => row(x, true)).join('') : '<div class="text-xs text-slate-400">Keine laufende Frage.</div>';
+      document.getElementById('session-list-done-wrap').classList.toggle('hidden', !done.length);
+      document.getElementById('session-list-done').innerHTML = done.map(x => row(x, false)).join('');
+    }
+    function openSessionFromList(code) {
+      const x = cachedSessions.find(s => s.code === code);
+      if (x && x.active !== false && !IS_DEMO) localStorage.setItem('lightning_activeSession_' + currentUser.uid, code);
+      showTeacherLiveDashboard(code);
+      window.scrollTo({ top: 0 });
+    }
+    async function endSessionFromList(code) {
+      if (!confirm(`Frage ${code} beenden? Die Antworten bleiben noch 24 Stunden gespeichert.`)) return;
+      await sessionRef(code).update({ active: false }).catch(() => toast('Konnte nicht beendet werden.'));
+      if (localStorage.getItem('lightning_activeSession_' + currentUser.uid) === code) localStorage.removeItem('lightning_activeSession_' + currentUser.uid);
+    }
+    async function reopenSessionFromList(code) {
+      await sessionRef(code).update({ active: true, locked: false, durationSec: 0 }).catch(() => toast('Konnte nicht geöffnet werden.'));
+      openSessionFromList(code);
+    }
+    function reopenSession() {
+      if (!currentRoomCode) return;
+      updateSession({ active: true, locked: false, durationSec: 0 });
+      if (!IS_DEMO) localStorage.setItem('lightning_activeSession_' + currentUser.uid, currentRoomCode);
+      toast('Frage ' + currentRoomCode + ' wieder geöffnet.');
     }
 
     function toggleNamesTeacher() {
@@ -2758,7 +2856,15 @@
           doc: (id) => docRef(path + '/' + (id || autoId())),
           add: async (data) => { const r = docRef(path + '/' + autoId()); await r.set(data); return r; },
           get: async () => colSnap(path),
-          where: (field, op, value) => ({ get: async () => colSnap(path, d => d && d[field] === value) }),
+          where: (field, op, value) => ({
+            get: async () => colSnap(path, d => d && d[field] === value),
+            onSnapshot: (cb) => {
+              const l = { type: 'col', path, cb: () => cb(colSnap(path, d => d && d[field] === value)) };
+              listeners.add(l);
+              setTimeout(() => listeners.has(l) && l.cb(), 0);
+              return () => listeners.delete(l);
+            }
+          }),
           onSnapshot: (cb) => {
             const l = { type: 'col', path, cb };
             listeners.add(l);
