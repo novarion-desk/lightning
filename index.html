@@ -104,14 +104,14 @@
           <!-- 1. Fragetyp wählen (5 Modi) -->
           <div>
             <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">1. Fragetyp wählen</label>
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <button type="button" onclick="selectType('text')" id="type-text" class="type-btn pill-active border border-slate-200 rounded-xl p-2.5 text-left transition">
                 <div class="font-semibold text-xs sm:text-sm">✍️ Kurzantwort</div>
                 <div class="text-[11px] text-slate-500 mt-0.5">Satz, Begriff</div>
               </button>
               <button type="button" onclick="selectType('mc')" id="type-mc" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
                 <div class="font-semibold text-xs sm:text-sm">📊 Multiple Choice</div>
-                <div class="text-[11px] text-slate-500 mt-0.5">2–4 Optionen</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">2–8 Optionen</div>
               </button>
               <button type="button" onclick="selectType('ampel')" id="type-ampel" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
                 <div class="font-semibold text-xs sm:text-sm">🚦 Ampel</div>
@@ -125,6 +125,18 @@
                 <div class="font-semibold text-xs sm:text-sm">🔢 Reihenfolge</div>
                 <div class="text-[11px] text-slate-500 mt-0.5">Sortieren</div>
               </button>
+              <button type="button" onclick="selectType('tf')" id="type-tf" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
+                <div class="font-semibold text-xs sm:text-sm">⚖️ Richtig/Falsch</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Aussage beurteilen</div>
+              </button>
+              <button type="button" onclick="selectType('cloud')" id="type-cloud" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
+                <div class="font-semibold text-xs sm:text-sm">☁️ Wortwolke</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">1–5 Begriffe</div>
+              </button>
+              <button type="button" onclick="selectType('number')" id="type-number" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
+                <div class="font-semibold text-xs sm:text-sm">🔟 Zahl/Schätzung</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Verteilung</div>
+              </button>
             </div>
           </div>
 
@@ -136,11 +148,13 @@
 
           <!-- Zusatzfeld: Multiple Choice -->
           <div id="mc-options-box" class="hidden space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Antwortmöglichkeiten (leere Felder werden ignoriert)</label>
-            <input type="text" id="mc-opt-0" maxlength="200" placeholder="Option A" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
-            <input type="text" id="mc-opt-1" maxlength="200" placeholder="Option B" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
-            <input type="text" id="mc-opt-2" maxlength="200" placeholder="Option C (optional)" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
-            <input type="text" id="mc-opt-3" maxlength="200" placeholder="Option D (optional)" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Antworten · richtige mit ✓ markieren (optional)</label>
+              <label class="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer"><input type="checkbox" id="mc-multi" onchange="renderMcEditor()" class="accent-indigo-600 w-4 h-4" /> Mehrere Antworten wählbar</label>
+            </div>
+            <div id="mc-list" class="space-y-2"></div>
+            <button type="button" onclick="addMcOption()" id="mc-add" class="text-xs font-semibold text-indigo-700 hover:underline">＋ Option hinzufügen</button>
+            <p class="text-[11px] text-slate-500">Ist eine Lösung markiert, bekommen die Schüler sofort ✅ oder ❌.</p>
           </div>
 
           <!-- Zusatzfeld: Satz-Korrektur -->
@@ -151,12 +165,58 @@
 
           <!-- Zusatzfeld: Reihenfolge -->
           <div id="order-items-box" class="hidden space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Elemente in der RICHTIGEN Reihenfolge eingeben (werden für Schüler gemischt)</label>
-            <input type="text" id="order-item-0" maxlength="200" placeholder="1. Erstes Ereignis / Schritt" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
-            <input type="text" id="order-item-1" maxlength="200" placeholder="2. Zweites Ereignis / Schritt" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
-            <input type="text" id="order-item-2" maxlength="200" placeholder="3. Drittes Ereignis / Schritt" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
-            <input type="text" id="order-item-3" maxlength="200" placeholder="4. Viertes Ereignis / Schritt (optional)" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
-            <input type="text" id="order-item-4" maxlength="200" placeholder="5. Fünftes Ereignis / Schritt (optional)" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Elemente in der RICHTIGEN Reihenfolge (3–10, werden für Schüler gemischt)</label>
+            <div id="order-list" class="space-y-2"></div>
+            <button type="button" onclick="addOrderItem()" id="order-add" class="text-xs font-semibold text-indigo-700 hover:underline">＋ Element hinzufügen</button>
+            <p class="text-[11px] text-slate-500">Die Schüler bekommen automatisch Rückmeldung, z. B. «4 von 5 an der richtigen Stelle».</p>
+          </div>
+
+          <!-- Zusatzfeld: Musterlösung (Kurzantwort, Satz-Korrektur) -->
+          <div id="solution-box" class="hidden space-y-1.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Musterlösung (optional) – eine pro Zeile, wenn mehrere richtig sind</label>
+            <textarea id="solution-text" rows="2" maxlength="600" placeholder="z. B. I have never been to London." class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white"></textarea>
+            <p id="solution-hint" class="text-[11px] text-slate-500"></p>
+          </div>
+
+          <!-- Zusatzfeld: Richtig/Falsch -->
+          <div id="tf-box" class="hidden space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Die Frage oben ist die Aussage. Richtige Antwort (optional):</label>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" onclick="setTfSolution('true')" id="tf-sol-true" class="tf-sol px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-sm">✅ Richtig</button>
+              <button type="button" onclick="setTfSolution('false')" id="tf-sol-false" class="tf-sol px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-sm">❌ Falsch</button>
+              <button type="button" onclick="setTfSolution('')" id="tf-sol-none" class="tf-sol px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-sm">Keine Lösung</button>
+            </div>
+          </div>
+
+          <!-- Zusatzfeld: Wortwolke -->
+          <div id="cloud-box" class="hidden space-y-1.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Begriffe pro Schüler</label>
+            <select id="cloud-max" class="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
+              <option value="1">Genau 1 Begriff</option>
+              <option value="2">Bis zu 2 Begriffe</option>
+              <option value="3" selected>Bis zu 3 Begriffe</option>
+              <option value="5">Bis zu 5 Begriffe</option>
+            </select>
+            <p class="text-[11px] text-slate-500">Am Beamer entsteht eine Wortwolke – häufige Begriffe erscheinen grösser.</p>
+          </div>
+
+          <!-- Zusatzfeld: Zahl/Schätzung -->
+          <div id="number-box" class="hidden space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Richtige Zahl (optional)</label>
+                <input type="text" id="num-correct" inputmode="decimal" maxlength="20" placeholder="z. B. 1291" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Toleranz ±</label>
+                <input type="text" id="num-tol" inputmode="decimal" maxlength="20" placeholder="0" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Einheit (optional)</label>
+                <input type="text" id="num-unit" maxlength="20" placeholder="z. B. km" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+              </div>
+            </div>
+            <p class="text-[11px] text-slate-500">Mit richtiger Zahl: ✅ innerhalb der Toleranz, sonst ❌. Am Beamer erscheint die Verteilung.</p>
           </div>
 
           <!-- 3. Klasse & Countdown -->
@@ -244,6 +304,9 @@
                 </button>
                 <button onclick="toggleInputLock()" id="btn-lock-input" class="text-xs bg-white border border-slate-300 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg font-medium">
                   🔓 Eingabe offen
+                </button>
+                <button onclick="toggleRevealSolution()" id="btn-reveal" class="hidden text-xs bg-white border border-slate-300 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg font-medium">
+                  💡 Lösung zeigen
                 </button>
                 <button onclick="toggleAllowRevise()" id="btn-allow-revise" title="Dürfen Schüler bei ⚠️/❌ nachbessern?" class="text-xs bg-white border border-slate-300 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg font-medium">
                   ✏️ Nachbessern: an
@@ -341,6 +404,7 @@
           ⭐ Deine Antwort wird gerade anonym am Beamer besprochen.
         </div>
         <div id="student-feedback-box" class="hidden rounded-xl border-2 p-4 space-y-1.5"></div>
+        <div id="student-solution-box" class="hidden rounded-xl border-2 border-emerald-300 bg-emerald-50 text-emerald-900 p-4 text-sm font-semibold"></div>
 
         <button onclick="submitStudentAnswer()" id="btn-student-submit" class="btn-primary w-full py-3.5 text-base shadow-sm">
           Antwort absenden
@@ -394,6 +458,7 @@
       </div>
 
       <!-- Standard Beamer-Ergebnisse -->
+      <div id="beamer-solution" class="hidden card p-5 mb-4 border-2 border-emerald-400 bg-emerald-50/50 text-xl sm:text-2xl font-bold text-emerald-900 text-center"></div>
       <div id="beamer-normal-area">
         <div id="beamer-results-hidden" class="card p-10 text-center text-slate-400">
           <p class="text-lg font-medium">Die Ergebnisse sind noch ausgeblendet.</p>
@@ -418,6 +483,7 @@
       <span id="pj-status" class="text-xs font-semibold text-slate-500 px-2"></span>
       <button onclick="toggleBeamerResults()" id="pj-results" class="px-3 py-2 rounded-xl border border-indigo-300 bg-white text-indigo-700 text-xs sm:text-sm font-semibold">👁️ Ergebnisse zeigen</button>
       <button onclick="clearSpotlight()" id="pj-spotlight" class="hidden px-3 py-2 rounded-xl bg-amber-500 text-white text-xs sm:text-sm font-semibold">⭐ Spotlight beenden</button>
+      <button onclick="toggleRevealSolution()" id="pj-reveal" class="hidden px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-medium">💡 Lösung zeigen</button>
       <button onclick="toggleInputLock()" id="pj-lock" class="px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-medium">🔓 Eingabe offen</button>
       <button onclick="addTimerSeconds(30)" class="px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-medium">⏱️ +30s</button>
       <button onclick="exitProjectionMode()" class="px-3 py-2 rounded-xl bg-slate-900 text-white text-xs sm:text-sm font-semibold">✕ Zurück zum Dashboard</button>
@@ -480,7 +546,7 @@
         <h3 class="font-bold text-lg text-slate-900">KI-Schnellimport</h3>
         <button onclick="closeImportModal()" class="text-slate-400 hover:text-slate-700">✕</button>
       </div>
-      <p class="text-xs text-slate-600">Füge eine Frage direkt im Format <code>Typ | Frage | Option 1 | Option 2 ...</code> oder als JSON ein. Typen: <code>text</code>, <code>mc</code>, <code>ampel</code>, <code>fix</code>, <code>order</code>.</p>
+      <p class="text-xs text-slate-600">Füge eine Frage direkt im Format <code>Typ | Frage | Option 1 | Option 2 ...</code> oder als JSON ein. Typen: <code>text</code>, <code>mc</code>, <code>ampel</code>, <code>fix</code>, <code>order</code>, <code>tf</code>, <code>cloud</code>, <code>number</code>.<br>Richtige MC-Antwort mit <code>*</code> markieren (<code>*since 2022</code>). Beispiele: <code>tf | Bern ist die Hauptstadt. | richtig</code> · <code>number | Gründung der Eidgenossenschaft? | 1291</code> · <code>cloud | Was fällt dir zu Ferien ein? | 3</code> · <code>text | Frage | Musterlösung</code></p>
       <textarea id="import-raw-text" rows="5" placeholder='mc | Welches Signalwort passt zum Present Perfect? | yesterday | since 2022 | last week | ago' class="w-full font-mono text-xs rounded-xl border border-slate-300 p-3"></textarea>
       <div class="flex justify-end gap-2">
         <button onclick="closeImportModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-sm">Abbrechen</button>
@@ -564,6 +630,8 @@
     let studentHasSubmitted = false;
     let selectedMcIndex = null;
     let selectedAmpelValue = null;
+    let selectedMcSet = new Set();
+    let selectedTf = null;
     let studentOrderItems = [];
     let studentResp = null;           // eigene Antwort inkl. Feedback der Lehrperson
     let studentRespUnsub = null;
@@ -774,20 +842,147 @@
     // =========================================================================
     // 5. LEHRPERSON: FRAGE ERSTELLEN & SESSION STARTEN
     // =========================================================================
+    const TYPES = ['text', 'mc', 'ampel', 'fix', 'order', 'tf', 'cloud', 'number'];
+    let mcDraft = [{ text: '', correct: false }, { text: '', correct: false }, { text: '', correct: false }, { text: '', correct: false }];
+    let orderDraft = ['', '', ''];
+    let tfSolution = '';
+
     function selectType(type) {
+      if (!TYPES.includes(type)) type = 'text';
       currentQuestionType = type;
       document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('pill-active'));
       document.getElementById('type-' + type).classList.add('pill-active');
       document.getElementById('mc-options-box').classList.toggle('hidden', type !== 'mc');
       document.getElementById('fix-sentence-box').classList.toggle('hidden', type !== 'fix');
       document.getElementById('order-items-box').classList.toggle('hidden', type !== 'order');
+      document.getElementById('solution-box').classList.toggle('hidden', type !== 'text' && type !== 'fix');
+      document.getElementById('tf-box').classList.toggle('hidden', type !== 'tf');
+      document.getElementById('cloud-box').classList.toggle('hidden', type !== 'cloud');
+      document.getElementById('number-box').classList.toggle('hidden', type !== 'number');
+      document.getElementById('solution-hint').textContent = type === 'fix'
+        ? 'Stimmt eine Antwort genau überein (Leerzeichen und Gross-/Kleinschreibung egal, Satzzeichen zählen), gibt es automatisch ✅. Sonst entscheidest du.'
+        : 'Stimmt eine Antwort genau überein (Gross-/Kleinschreibung, Leerzeichen und Schlusspunkt egal), gibt es automatisch ✅. Sonst entscheidest du.';
+      if (type === 'mc') renderMcEditor();
+      if (type === 'order') renderOrderEditor();
+      if (type === 'tf') setTfSolution(tfSolution);
+    }
+
+    // Multiple Choice: 2–8 Optionen, Lösung(en) markierbar
+    function renderMcEditor() {
+      const multi = document.getElementById('mc-multi').checked;
+      document.getElementById('mc-list').innerHTML = mcDraft.map((o, i) => `
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="toggleMcCorrect(${i})" title="${multi ? 'Richtige Antworten markieren' : 'Richtige Antwort markieren'}" class="w-9 h-9 shrink-0 ${multi ? 'rounded-lg' : 'rounded-full'} border-2 font-bold ${o.correct ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 bg-white text-slate-300 hover:border-emerald-400'}">✓</button>
+          <input type="text" id="mc-opt-${i}" maxlength="200" value="${escapeHTML(o.text)}" oninput="mcDraft[${i}].text = this.value" placeholder="Option ${String.fromCharCode(65 + i)}${i >= 2 ? ' (optional)' : ''}" class="flex-1 min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+          <button type="button" onclick="removeMcOption(${i})" ${mcDraft.length <= 2 ? 'disabled' : ''} title="Option entfernen" class="w-8 h-8 shrink-0 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-30">✕</button>
+        </div>`).join('');
+      document.getElementById('mc-add').classList.toggle('hidden', mcDraft.length >= 8);
+    }
+    function toggleMcCorrect(i) {
+      const multi = document.getElementById('mc-multi').checked;
+      const was = mcDraft[i].correct;
+      if (!multi) mcDraft.forEach(o => { o.correct = false; });
+      mcDraft[i].correct = !was;
+      renderMcEditor();
+    }
+    function addMcOption() {
+      if (mcDraft.length >= 8) return;
+      mcDraft.push({ text: '', correct: false });
+      renderMcEditor();
+      document.getElementById('mc-opt-' + (mcDraft.length - 1)).focus();
+    }
+    function removeMcOption(i) {
+      if (mcDraft.length <= 2) return;
+      mcDraft.splice(i, 1);
+      renderMcEditor();
+    }
+
+    // Reihenfolge: 3–10 Elemente
+    function renderOrderEditor() {
+      document.getElementById('order-list').innerHTML = orderDraft.map((t, i) => `
+        <div class="flex items-center gap-1.5">
+          <span class="w-6 text-right text-sm font-bold text-indigo-600 shrink-0">${i + 1}.</span>
+          <input type="text" id="order-item-${i}" maxlength="200" value="${escapeHTML(t)}" oninput="orderDraft[${i}] = this.value" placeholder="${i + 1}. Element${i >= 3 ? ' (optional)' : ''}" class="flex-1 min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+          <button type="button" onclick="moveOrderDraft(${i}, -1)" ${i === 0 ? 'disabled' : ''} class="w-7 h-8 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-xs font-bold">↑</button>
+          <button type="button" onclick="moveOrderDraft(${i}, 1)" ${i === orderDraft.length - 1 ? 'disabled' : ''} class="w-7 h-8 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-xs font-bold">↓</button>
+          <button type="button" onclick="removeOrderItem(${i})" ${orderDraft.length <= 3 ? 'disabled' : ''} class="w-7 h-8 rounded text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-30">✕</button>
+        </div>`).join('');
+      document.getElementById('order-add').classList.toggle('hidden', orderDraft.length >= 10);
+    }
+    function addOrderItem() {
+      if (orderDraft.length >= 10) return;
+      orderDraft.push('');
+      renderOrderEditor();
+      document.getElementById('order-item-' + (orderDraft.length - 1)).focus();
+    }
+    function removeOrderItem(i) {
+      if (orderDraft.length <= 3) return;
+      orderDraft.splice(i, 1);
+      renderOrderEditor();
+    }
+    function moveOrderDraft(i, dir) {
+      const j = i + dir;
+      if (j < 0 || j >= orderDraft.length) return;
+      [orderDraft[i], orderDraft[j]] = [orderDraft[j], orderDraft[i]];
+      renderOrderEditor();
+    }
+
+    function setTfSolution(v) {
+      tfSolution = v;
+      document.querySelectorAll('.tf-sol').forEach(b => b.classList.remove('pill-active'));
+      document.getElementById('tf-sol-' + (v || 'none')).classList.add('pill-active');
+    }
+
+    function parseNum(v) {
+      const t = String(v == null ? '' : v).trim().replace(/[’'\s]/g, '').replace(',', '.');
+      if (!t) return null;
+      const n = Number(t);
+      return Number.isFinite(n) ? n : NaN;
     }
 
     function clearForm() {
       document.getElementById('input-question').value = '';
       document.getElementById('fix-initial-text').value = '';
-      for (let i = 0; i < 4; i++) document.getElementById('mc-opt-' + i).value = '';
-      for (let i = 0; i < 5; i++) document.getElementById('order-item-' + i).value = '';
+      document.getElementById('solution-text').value = '';
+      document.getElementById('mc-multi').checked = false;
+      mcDraft = [0, 1, 2, 3].map(() => ({ text: '', correct: false }));
+      orderDraft = ['', '', ''];
+      tfSolution = '';
+      document.getElementById('cloud-max').value = '3';
+      ['num-correct', 'num-tol', 'num-unit'].forEach(id => { document.getElementById(id).value = ''; });
+      renderMcEditor();
+      renderOrderEditor();
+      setTfSolution('');
+    }
+
+    // Formular aus Vorlage / Import füllen
+    function fillForm(t) {
+      clearForm();
+      const type = TYPES.includes(t.type) ? t.type : 'text';
+      document.getElementById('input-question').value = t.question || '';
+      const sol = t.solution || {};
+      if (type === 'mc') {
+        const opts = (t.options || []).slice(0, 8);
+        const correct = sol.mcCorrect || [];
+        document.getElementById('mc-multi').checked = !!t.multi;
+        mcDraft = (opts.length ? opts : ['', '']).map(o => ({ text: String(o), correct: correct.includes(String(o)) }));
+        while (mcDraft.length < 2) mcDraft.push({ text: '', correct: false });
+      } else if (type === 'order') {
+        orderDraft = (t.options || []).slice(0, 10).map(String);
+        while (orderDraft.length < 3) orderDraft.push('');
+      } else if (type === 'fix') {
+        document.getElementById('fix-initial-text').value = t.initialText || '';
+      } else if (type === 'tf') {
+        tfSolution = sol.tf === 'true' || sol.tf === 'false' ? sol.tf : '';
+      } else if (type === 'cloud') {
+        document.getElementById('cloud-max').value = String([1, 2, 3, 5].includes(Number(t.maxTerms)) ? t.maxTerms : 3);
+      } else if (type === 'number') {
+        document.getElementById('num-correct').value = sol.num != null ? String(sol.num) : '';
+        document.getElementById('num-tol').value = sol.tol ? String(sol.tol) : '';
+        document.getElementById('num-unit').value = t.unit || '';
+      }
+      if ((type === 'text' || type === 'fix') && Array.isArray(sol.accepted)) document.getElementById('solution-text').value = sol.accepted.join('\n');
+      selectType(type);
     }
 
     function generateRoomCode() {
@@ -799,23 +994,35 @@
     }
 
     function collectFormData() {
-      const qText = document.getElementById('input-question').value.trim();
-      let options = [];
-      let initialText = '';
-      if (currentQuestionType === 'mc') {
-        for (let i = 0; i < 4; i++) {
-          const val = document.getElementById('mc-opt-' + i).value.trim();
-          if (val) options.push(val);
-        }
-      } else if (currentQuestionType === 'fix') {
-        initialText = document.getElementById('fix-initial-text').value.trim();
-      } else if (currentQuestionType === 'order') {
-        for (let i = 0; i < 5; i++) {
-          const val = document.getElementById('order-item-' + i).value.trim();
-          if (val) options.push(val);
-        }
+      const type = currentQuestionType;
+      const form = { type, question: document.getElementById('input-question').value.trim(), options: [], initialText: '', solution: {} };
+      if (type === 'mc') {
+        const filled = mcDraft.map(o => ({ text: o.text.trim(), correct: o.correct })).filter(o => o.text);
+        form.options = filled.map(o => o.text);
+        form.multi = document.getElementById('mc-multi').checked;
+        const correct = filled.filter(o => o.correct).map(o => o.text);
+        if (correct.length) form.solution.mcCorrect = form.multi ? correct : correct.slice(0, 1);
+      } else if (type === 'fix') {
+        form.initialText = document.getElementById('fix-initial-text').value.trim();
+      } else if (type === 'order') {
+        form.options = orderDraft.map(t => t.trim()).filter(Boolean);
+        form.solution.order = form.options;
+      } else if (type === 'tf') {
+        if (tfSolution) form.solution.tf = tfSolution;
+      } else if (type === 'cloud') {
+        form.maxTerms = Number(document.getElementById('cloud-max').value) || 3;
+      } else if (type === 'number') {
+        form.unit = document.getElementById('num-unit').value.trim();
+        const n = parseNum(document.getElementById('num-correct').value);
+        const tol = parseNum(document.getElementById('num-tol').value);
+        if (n !== null) form.solution.num = n;
+        if (tol !== null && !Number.isNaN(tol)) form.solution.tol = Math.abs(tol);
       }
-      return { type: currentQuestionType, question: qText, options, initialText };
+      if (type === 'text' || type === 'fix') {
+        const acc = document.getElementById('solution-text').value.split('\n').map(x => x.trim()).filter(Boolean).slice(0, 10);
+        if (acc.length) form.solution.accepted = acc;
+      }
+      return form;
     }
 
     function shuffle(arr) {
@@ -839,9 +1046,11 @@
       const form = collectFormData();
       if (!form.question) return toast('Bitte gib zuerst eine Frage ein.');
       if (form.type === 'mc' && form.options.length < 2) return toast('Bitte mindestens 2 Antwortmöglichkeiten eingeben.');
+      if (form.type === 'number' && Number.isNaN(form.solution.num)) return toast('Die richtige Zahl ist keine gültige Zahl.');
       if (form.type === 'mc' && new Set(form.options).size !== form.options.length) return toast('Die Antwortmöglichkeiten müssen verschieden sein.');
       if (form.type === 'fix' && !form.initialText) return toast('Bitte gib den fehlerhaften Ausgangssatz ein.');
       if (form.type === 'order' && form.options.length < 3) return toast('Bitte mindestens 3 Elemente zum Sortieren eingeben.');
+      if (form.type === 'order' && new Set(form.options).size !== form.options.length) return toast('Die Elemente müssen verschieden sein.');
 
       const classId = document.getElementById('select-session-class').value;
       const cls = classId ? cachedClasses[classId] : null;
@@ -862,6 +1071,10 @@
         active: true,
         showOnBeamer: false,
         spotlightKey: null,
+        multi: form.type === 'mc' && !!form.multi,
+        maxTerms: form.type === 'cloud' ? form.maxTerms : null,
+        unit: form.type === 'number' ? (form.unit || '') : '',
+        revealed: null,
         allowRevise: document.getElementById('opt-allow-revise').checked,
         spotlightNotice: document.getElementById('opt-spotlight-notice').checked,
         createdAt: FV.serverTimestamp()
@@ -885,8 +1098,9 @@
           }
         }
         if (!code) throw new Error('Kein freier Code gefunden.');
-        if (form.type === 'order') {
-          await teacherRef().collection('solutions').doc(code).set({ order: form.options, createdAt: FV.serverTimestamp() });
+        // Lösung bleibt privat bei der Lehrperson (Schüler können sie nicht lesen)
+        if (Object.keys(form.solution).length) {
+          await teacherRef().collection('solutions').doc(code).set({ ...form.solution, createdAt: FV.serverTimestamp() });
         }
         if (!IS_DEMO) localStorage.setItem('lightning_activeSession_' + currentUser.uid, code);
         showTeacherLiveDashboard(code);
@@ -929,11 +1143,14 @@
         currentResponses = snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) }));
         renderLiveResponses();
         ensureHashes(currentResponses.map(r => r.id), renderLiveResponses);
+        autoEvaluate();
       }, () => toast('Antworten konnten nicht geladen werden.')));
 
       teacherRef().collection('solutions').doc(code).get().then((s) => {
-        currentSolution = s.exists ? (s.data().order || null) : null;
+        currentSolution = s.exists ? s.data() : null;
         renderLiveResponses();
+        updateRevealButtonUI();
+        autoEvaluate();
       }).catch(() => {});
     }
 
@@ -951,6 +1168,7 @@
       updateBeamerButtonUI(data.showOnBeamer);
       updateLockButtonUI(isInputClosed(data));
       document.getElementById('btn-clear-spotlight').classList.toggle('hidden', !data.spotlightKey);
+      updateRevealButtonUI();
       updateReviseButtonUI(data.allowRevise === true);
       startCountdown('teacher-timer-badge', data, () => { updateLockButtonUI(isInputClosed(data)); renderProjectionBar(); });
       if (projectionOn) startCountdown('beamer-timer-badge', data);
@@ -1023,6 +1241,7 @@
       res.classList.toggle('bg-white', !d.showOnBeamer);
       res.classList.toggle('text-indigo-700', !d.showOnBeamer);
       document.getElementById('pj-spotlight').classList.toggle('hidden', !d.spotlightKey);
+      updateRevealButtonUI();
       const closed = isInputClosed(d);
       const lock = document.getElementById('pj-lock');
       lock.textContent = closed ? '🔒 Gesperrt – öffnen' : '🔓 Eingabe sperren';
@@ -1167,7 +1386,7 @@
       document.getElementById('response-counter').textContent = entries.length;
 
       const summaryBox = document.getElementById('live-summary-box');
-      if (data.type === 'mc' || data.type === 'ampel' || data.type === 'order') {
+      if (SUMMARY_TYPES.includes(data.type)) {
         summaryBox.classList.remove('hidden');
         summaryBox.innerHTML = buildSummaryHTML(data, entries, currentSolution);
       } else {
@@ -1180,7 +1399,7 @@
         return;
       }
 
-      const correctStr = (currentSolution || []).join(ORDER_SEP);
+      const correctStr = ((currentSolution && currentSolution.order) || []).join(ORDER_SEP);
       const statusColors = {
         none: 'border-slate-200 bg-white',
         good: 'border-emerald-400 bg-emerald-50/40',
@@ -1198,13 +1417,15 @@
           answerDisplay = `<div class="font-semibold text-sm">${AMPEL_LABELS[item.answer] || escapeHTML(item.answer)}</div>`;
           if (item.comment) answerDisplay += `<p class="text-sm text-slate-700 mt-1 bg-white/80 p-2 rounded-lg border border-slate-200">${escapeHTML(item.comment)}</p>`;
         } else if (data.type === 'order') {
-          const known = !!currentSolution;
+          const known = !!(currentSolution && currentSolution.order);
           const isExact = known && item.answer === correctStr;
           answerDisplay = `
             ${known ? `<div class="text-xs font-bold mb-1 ${isExact ? 'text-emerald-700' : 'text-amber-700'}">${isExact ? '✓ Exakte Reihenfolge' : '△ Abweichung'}</div>` : ''}
             <p class="text-sm text-slate-900 font-medium break-words">${escapeHTML(item.answer)}</p>`;
+        } else if (data.type === 'cloud') {
+          answerDisplay = `<div class="flex flex-wrap gap-1">${splitMulti(item.answer).map(t => `<span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-900 text-sm font-medium">${escapeHTML(t)}</span>`).join('')}</div>`;
         } else {
-          answerDisplay = `<p class="text-base text-slate-900 font-medium break-words whitespace-pre-wrap">${escapeHTML(item.answer)}</p>`;
+          answerDisplay = `<p class="text-base text-slate-900 font-medium break-words whitespace-pre-wrap">${escapeHTML(displayAnswer(data, item))}</p>`;
         }
 
         return `
@@ -1229,46 +1450,204 @@
       }).join('');
     }
 
-    function buildSummaryHTML(data, entries, solution) {
+    const SUMMARY_TYPES = ['mc', 'ampel', 'order', 'tf', 'cloud', 'number'];
+    const MULTI_SEP = '\n';
+    function splitMulti(a) { return String(a || '').split(MULTI_SEP).map(x => x.trim()).filter(Boolean); }
+    function fmtNum(n) { return n.toLocaleString('de-CH', { maximumFractionDigits: 2, useGrouping: Math.abs(n) >= 10000 }); }
+    function displayAnswer(data, item) {
+      const a = item.answer;
+      if (!data) return a;
+      if (data.type === 'ampel') return AMPEL_LABELS[a] || a;
+      if (data.type === 'mc' && data.multi) return splitMulti(a).join(', ');
+      if (data.type === 'cloud') return splitMulti(a).join(', ');
+      if (data.type === 'tf') return a === 'Richtig' ? '✅ Richtig' : a === 'Falsch' ? '❌ Falsch' : a;
+      if (data.type === 'number') { const n = parseNum(a); return (n === null || Number.isNaN(n) ? a : fmtNum(n)) + (data.unit ? ' ' + data.unit : ''); }
+      return a;
+    }
+
+    function barRow(label, count, total, color, mark) {
+      const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+      return `
+          <div>
+            <div class="flex justify-between gap-3 text-xs sm:text-sm font-medium mb-1">
+              <span>${mark ? '<span class="text-emerald-600 font-bold">✓</span> ' : ''}${escapeHTML(label)}</span>
+              <span class="shrink-0">${count} (${pct}%)</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+              <div class="${color || 'bg-indigo-600'} h-3 rounded-full transition-all duration-300" style="width: ${pct}%"></div>
+            </div>
+          </div>`;
+    }
+
+    function wordCloudHTML(entries) {
+      const counts = new Map();
+      entries.forEach(e => {
+        const seen = new Set();
+        splitMulti(e.answer).forEach(t => {
+          const key = t.toLowerCase().replace(/\s+/g, ' ');
+          if (seen.has(key)) return;
+          seen.add(key);
+          const c = counts.get(key) || { label: t, n: 0 };
+          c.n++;
+          counts.set(key, c);
+        });
+      });
+      const words = [...counts.values()].sort((a, b) => b.n - a.n || a.label.localeCompare(b.label, 'de')).slice(0, 60);
+      if (!words.length) return '<div class="text-sm text-slate-400 text-center py-6">Noch keine Begriffe.</div>';
+      const max = words[0].n, min = words[words.length - 1].n;
+      const colors = ['text-indigo-700', 'text-emerald-700', 'text-amber-600', 'text-rose-600', 'text-sky-700', 'text-violet-700', 'text-teal-700'];
+      // grosse Begriffe in die Mitte
+      const arranged = [];
+      words.forEach((w, i) => { if (i % 2) arranged.push(w); else arranged.unshift(w); });
+      return `<div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 py-4 leading-none">` + arranged.map(w => {
+        const f = max === min ? 1 : (w.n - min) / (max - min);
+        const size = Math.round(15 + f * 45);
+        const color = colors[Math.abs([...w.label].reduce((h, c) => h * 31 + c.charCodeAt(0), 7)) % colors.length];
+        return `<span class="font-bold ${color}" style="font-size:${size}px" title="${w.n}×">${escapeHTML(w.label)}</span>`;
+      }).join('') + `</div>`;
+    }
+
+    function numberSummaryHTML(data, entries, sol) {
+      const vals = entries.map(e => parseNum(e.answer)).filter(v => v !== null && !Number.isNaN(v)).sort((a, b) => a - b);
+      if (!vals.length) return '<div class="text-sm text-slate-400">Noch keine Zahlen.</div>';
+      const unit = data.unit ? ' ' + escapeHTML(data.unit) : '';
+      const mid = Math.floor(vals.length / 2);
+      const median = vals.length % 2 ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2;
+      const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+      const hasSol = sol && typeof sol.num === 'number';
+      const lo = Math.min(vals[0], hasSol ? sol.num : vals[0]), hi = Math.max(vals[vals.length - 1], hasSol ? sol.num : vals[0]);
+      let bins = [];
+      if (lo === hi) bins = [{ a: lo, b: hi, n: vals.length }];
+      else {
+        const k = Math.min(8, Math.max(3, Math.ceil(Math.sqrt(vals.length))));
+        const w = (hi - lo) / k;
+        bins = Array.from({ length: k }, (_, i) => ({ a: lo + i * w, b: lo + (i + 1) * w, n: 0 }));
+        vals.forEach(v => { bins[Math.min(k - 1, Math.floor((v - lo) / w))].n++; });
+      }
+      const round = (x) => Math.abs(hi - lo) >= 20 ? Math.round(x) : Math.round(x * 10) / 10;
+      const within = hasSol ? vals.filter(v => Math.abs(v - sol.num) <= (sol.tol || 0) + 1e-9).length : 0;
+      return `
+          <div class="flex flex-wrap gap-x-5 gap-y-1 text-sm">
+            <span><b>${vals.length}</b> Antworten</span>
+            <span>Median <b>${fmtNum(median)}${unit}</b></span>
+            <span>Mittelwert <b>${fmtNum(Math.round(mean * 100) / 100)}${unit}</b></span>
+            <span>Bereich <b>${fmtNum(vals[0])}–${fmtNum(vals[vals.length - 1])}${unit}</b></span>
+            ${hasSol ? `<span class="text-emerald-700">✓ Richtig: <b>${fmtNum(sol.num)}${unit}</b>${sol.tol ? ' (±' + fmtNum(sol.tol) + ')' : ''} · ${within} getroffen</span>` : ''}
+          </div>` + bins.map(bn => {
+            const hit = hasSol && sol.num >= bn.a && (sol.num < bn.b || bn === bins[bins.length - 1]);
+            const label = lo === hi ? fmtNum(lo) : `${fmtNum(round(bn.a))} – ${fmtNum(round(bn.b))}`;
+            return barRow(label + (data.unit ? ' ' + data.unit : ''), bn.n, vals.length, hit ? 'bg-emerald-600' : 'bg-indigo-600', hit);
+          }).join('');
+    }
+
+    function buildSummaryHTML(data, entries, sol) {
       const total = entries.length;
       if (data.type === 'order') {
-        if (!solution) return '<div class="text-xs text-slate-500">Lösung nicht verfügbar.</div>';
-        const correctStr = solution.join(ORDER_SEP);
+        const order = sol && sol.order;
+        if (!order) return '<div class="text-xs text-slate-500">Lösung nicht verfügbar.</div>';
+        const correctStr = order.join(ORDER_SEP);
         const exactCount = entries.filter(e => e.answer === correctStr).length;
-        const pct = total > 0 ? Math.round((exactCount / total) * 100) : 0;
-        return `
-          <div class="text-xs font-bold uppercase tracking-wider text-slate-500">Ziel-Reihenfolge: <span class="text-slate-900 normal-case">${escapeHTML(correctStr)}</span></div>
-          <div>
-            <div class="flex justify-between text-sm font-semibold mb-1">
-              <span>Komplett richtig sortiert</span>
-              <span>${exactCount} von ${total} (${pct}%)</span>
-            </div>
-            <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-              <div class="bg-emerald-600 h-3 rounded-full transition-all" style="width: ${pct}%"></div>
-            </div>
-          </div>`;
+        return `<div class="text-xs font-bold uppercase tracking-wider text-slate-500">Ziel-Reihenfolge: <span class="text-slate-900 normal-case">${escapeHTML(correctStr)}</span></div>` +
+          barRow('Komplett richtig sortiert', exactCount, total, 'bg-emerald-600');
       }
-
-      let buckets = [];
+      if (data.type === 'cloud') return wordCloudHTML(entries);
+      if (data.type === 'number') return numberSummaryHTML(data, entries, sol);
       if (data.type === 'mc') {
-        buckets = (data.options || []).map(opt => ({ label: opt, count: entries.filter(e => e.answer === opt).length }));
-      } else if (data.type === 'ampel') {
-        buckets = ['1', '2', '3', '4'].map(k => ({ label: `${AMPEL_LABELS[k]} (${k})`, count: entries.filter(e => e.answer === k).length }));
+        const correct = (sol && sol.mcCorrect) || [];
+        const head = data.multi ? '<div class="text-[11px] text-slate-500">Mehrfachauswahl – Prozent der Schüler, die die Option gewählt haben</div>' : '';
+        return head + (data.options || []).map(opt => barRow(opt, entries.filter(e => (data.multi ? splitMulti(e.answer).includes(opt) : e.answer === opt)).length, total, correct.includes(opt) ? 'bg-emerald-600' : 'bg-indigo-600', correct.includes(opt))).join('');
       }
+      if (data.type === 'tf') {
+        const right = sol && sol.tf ? (sol.tf === 'true' ? 'Richtig' : 'Falsch') : null;
+        return ['Richtig', 'Falsch'].map(v => barRow((v === 'Richtig' ? '✅ ' : '❌ ') + v, entries.filter(e => e.answer === v).length, total, right === v ? 'bg-emerald-600' : 'bg-indigo-600', right === v)).join('');
+      }
+      if (data.type === 'ampel') {
+        return ['1', '2', '3', '4'].map(k => barRow(`${AMPEL_LABELS[k]} (${k})`, entries.filter(e => e.answer === k).length, total)).join('');
+      }
+      return '';
+    }
 
-      return buckets.map(b => {
-        const pct = total > 0 ? Math.round((b.count / total) * 100) : 0;
-        return `
-          <div>
-            <div class="flex justify-between text-xs sm:text-sm font-medium mb-1">
-              <span>${escapeHTML(b.label)}</span>
-              <span>${b.count} (${pct}%)</span>
-            </div>
-            <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-              <div class="bg-indigo-600 h-3 rounded-full transition-all duration-300" style="width: ${pct}%"></div>
-            </div>
-          </div>`;
-      }).join('');
+    // ---------- Automatische Rückmeldung (läuft auf dem Gerät der Lehrperson) ----------
+    const autoSeen = {};
+    function normText(t, keepPunct) {
+      let x = String(t || '').toLowerCase().replace(/[’`´]/g, "'").replace(/\s+/g, ' ').trim();
+      if (!keepPunct) x = x.replace(/[.!?]+$/, '').trim();
+      return x;
+    }
+    function evaluateAnswer(data, sol, answer) {
+      if (!data || !sol) return null;
+      if (data.type === 'mc' && Array.isArray(sol.mcCorrect) && sol.mcCorrect.length) {
+        if (!data.multi) return { mark: sol.mcCorrect.includes(answer) ? 'good' : 'bad' };
+        const chosen = new Set(splitMulti(answer)), corr = new Set(sol.mcCorrect);
+        const hits = [...chosen].filter(x => corr.has(x)).length;
+        if (hits === corr.size && chosen.size === corr.size) return { mark: 'good' };
+        if (hits > 0) return { mark: 'warn', feedback: `${hits} von ${corr.size} richtigen Antworten gefunden${chosen.size > hits ? ', aber auch falsche gewählt' : ''}.` };
+        return { mark: 'bad' };
+      }
+      if (data.type === 'tf' && sol.tf) return { mark: answer === (sol.tf === 'true' ? 'Richtig' : 'Falsch') ? 'good' : 'bad' };
+      if (data.type === 'number' && typeof sol.num === 'number') {
+        const v = parseNum(answer);
+        if (v === null || Number.isNaN(v)) return null;
+        return { mark: Math.abs(v - sol.num) <= (sol.tol || 0) + 1e-9 ? 'good' : 'bad' };
+      }
+      if (data.type === 'order' && Array.isArray(sol.order)) {
+        const got = String(answer || '').split(ORDER_SEP);
+        if (got.join(ORDER_SEP) === sol.order.join(ORDER_SEP)) return { mark: 'good' };
+        const k = sol.order.filter((x, i) => got[i] === x).length;
+        return { mark: k >= sol.order.length / 2 ? 'warn' : 'bad', feedback: `${k} von ${sol.order.length} an der richtigen Stelle.` };
+      }
+      if ((data.type === 'text' || data.type === 'fix') && Array.isArray(sol.accepted) && sol.accepted.length) {
+        const keep = data.type === 'fix';
+        const a = normText(answer, keep);
+        if (sol.accepted.some(x => normText(x, keep) === a)) return { mark: 'good' };
+      }
+      return null;
+    }
+    function autoEvaluate() {
+      const data = currentSessionData, sol = currentSolution;
+      if (!currentRoomCode || !data || !sol) return;
+      currentResponses.forEach(r => {
+        if (r.mark && r.mark !== 'none') { autoSeen[r.id] = r.answer; return; }
+        if (autoSeen[r.id] === r.answer) return;
+        autoSeen[r.id] = r.answer;
+        const res = evaluateAnswer(data, sol, r.answer);
+        if (!res) return;
+        const upd = { mark: res.mark, revised: false };
+        if (res.feedback && !r.feedback) upd.feedback = res.feedback;
+        else if (r.feedback && /an der richtigen Stelle\.$|richtigen Antworten gefunden/.test(r.feedback)) upd.feedback = res.feedback || '';
+        sessionRef(currentRoomCode).collection('responses').doc(r.id).update(upd).catch(() => {});
+        if (IS_DEMO) demoReactToFeedback(r.id, res.mark);
+      });
+    }
+
+    // ---------- Lösung zeigen ----------
+    function solutionLabel(data, sol) {
+      if (!data || !sol) return '';
+      if (data.type === 'mc' && sol.mcCorrect && sol.mcCorrect.length) return sol.mcCorrect.join(', ');
+      if (data.type === 'tf' && sol.tf) return sol.tf === 'true' ? 'Richtig' : 'Falsch';
+      if (data.type === 'number' && typeof sol.num === 'number') return fmtNum(sol.num) + (data.unit ? ' ' + data.unit : '') + (sol.tol ? ' (±' + fmtNum(sol.tol) + ')' : '');
+      if (data.type === 'order' && sol.order) return sol.order.join(ORDER_SEP);
+      if ((data.type === 'text' || data.type === 'fix') && sol.accepted && sol.accepted.length) return sol.accepted.join(' / ');
+      return '';
+    }
+    function toggleRevealSolution() {
+      const d = currentSessionData;
+      if (!d) return;
+      const label = solutionLabel(d, currentSolution);
+      if (!label && !d.revealed) return toast('Für diese Frage ist keine Lösung hinterlegt.');
+      updateSession({ revealed: d.revealed ? null : label.slice(0, 600) });
+    }
+    function updateRevealButtonUI() {
+      const d = currentSessionData;
+      const has = !!(d && (d.revealed || solutionLabel(d, currentSolution)));
+      ['btn-reveal', 'pj-reveal'].forEach(id => {
+        const b = document.getElementById(id);
+        if (!b) return;
+        b.classList.toggle('hidden', !has);
+        b.textContent = d && d.revealed ? '🙈 Lösung ausblenden' : '💡 Lösung zeigen';
+        b.classList.toggle('bg-emerald-100', !!(d && d.revealed));
+        b.classList.toggle('border-emerald-400', !!(d && d.revealed));
+      });
     }
 
     function updateSession(fields) {
@@ -1393,7 +1772,7 @@
       const rows = [['Name', 'Antwort', 'Zusatzkommentar', 'Feedback', 'Kommentar Lehrperson', 'Nachgebessert', 'Zeit'].map(q).join(';')];
       const sorted = [...currentResponses].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
       sorted.forEach(r => {
-        const answer = currentSessionData && currentSessionData.type === 'ampel' ? (AMPEL_LABELS[r.answer] || r.answer) : r.answer;
+        const answer = displayAnswer(currentSessionData, r);
         const t = tsMillis(r.updatedAt) ? new Date(tsMillis(r.updatedAt)).toLocaleTimeString('de-CH') : '';
         rows.push([r.name, answer, r.comment, markLabels[r.mark] || '', r.feedback || '', r.revised ? 'ja' : '', t].map(q).join(';'));
       });
@@ -1442,7 +1821,7 @@
         .catch(() => toast('Vorlage konnte nicht gespeichert werden.'));
     }
 
-    const TYPE_LABELS = { text: 'Kurzantwort', mc: 'Multiple Choice', ampel: 'Ampel', fix: 'Satz-Korrektur', order: 'Reihenfolge' };
+    const TYPE_LABELS = { text: 'Kurzantwort', mc: 'Multiple Choice', ampel: 'Ampel', fix: 'Satz-Korrektur', order: 'Reihenfolge', tf: 'Richtig/Falsch', cloud: 'Wortwolke', number: 'Zahl/Schätzung' };
 
     function renderTemplates() {
       document.getElementById('template-count').textContent = cachedTemplates.length;
@@ -1465,16 +1844,7 @@
     function applyTemplate(id) {
       const tpl = cachedTemplates.find(t => t.id === id);
       if (!tpl) return;
-      clearForm();
-      selectType(TYPE_LABELS[tpl.type] ? tpl.type : 'text');
-      document.getElementById('input-question').value = tpl.question || '';
-      if (tpl.type === 'mc') {
-        for (let i = 0; i < 4; i++) document.getElementById('mc-opt-' + i).value = (tpl.options && tpl.options[i]) || '';
-      } else if (tpl.type === 'fix') {
-        document.getElementById('fix-initial-text').value = tpl.initialText || '';
-      } else if (tpl.type === 'order') {
-        for (let i = 0; i < 5; i++) document.getElementById('order-item-' + i).value = (tpl.options && tpl.options[i]) || '';
-      }
+      fillForm(tpl);
     }
 
     function deleteTemplate(id) {
@@ -1485,39 +1855,43 @@
     function openImportModal() { document.getElementById('import-modal').classList.remove('hidden'); }
     function closeImportModal() { document.getElementById('import-modal').classList.add('hidden'); }
 
-    function fillOptions(type, opts) {
-      const prefix = type === 'order' ? 'order-item-' : 'mc-opt-';
-      opts.forEach((o, idx) => {
-        const el = document.getElementById(prefix + idx);
-        if (el) el.value = String(o);
-      });
-    }
-
     function processQuickImport() {
       const raw = document.getElementById('import-raw-text').value.trim();
       if (!raw) return;
       try {
-        let type, question, options = [], initialText = '';
+        let t;
         if (raw.startsWith('{')) {
           const obj = JSON.parse(raw);
-          type = String(obj.type || 'text').toLowerCase();
-          question = obj.question || '';
-          initialText = obj.initialText || '';
-          options = Array.isArray(obj.options) ? obj.options : [];
+          const type = String(obj.type || 'text').toLowerCase();
+          const options = Array.isArray(obj.options) ? obj.options.map(String) : [];
+          const sol = {};
+          const corr = obj.correct != null ? [].concat(obj.correct) : [];
+          if (type === 'mc' && corr.length) sol.mcCorrect = corr.map(c => typeof c === 'number' ? options[c] : String(c)).filter(Boolean);
+          if (type === 'tf' && obj.correct != null) sol.tf = /^(true|richtig|wahr|r|1)$/i.test(String(obj.correct)) ? 'true' : 'false';
+          if (type === 'number' && obj.correct != null) { const n = parseNum(obj.correct); if (n !== null && !Number.isNaN(n)) sol.num = n; if (obj.tolerance != null) sol.tol = Math.abs(parseNum(obj.tolerance) || 0); }
+          if ((type === 'text' || type === 'fix') && obj.solution) sol.accepted = [].concat(obj.solution).map(String);
+          if (type === 'order') sol.order = options;
+          t = { type, question: obj.question || '', options, initialText: obj.initialText || '', multi: !!obj.multi, maxTerms: obj.maxTerms, unit: obj.unit || '', solution: sol };
         } else {
-          // Pipe-Format: typ | frage | opt1 | opt2 ...
-          const parts = raw.split('|').map(s => s.trim()).filter(Boolean);
-          type = (parts[0] || '').toLowerCase();
-          question = parts[1] || '';
-          if (type === 'fix') initialText = parts[2] || '';
-          else options = parts.slice(2);
+          // Pipe-Format: typ | frage | ...
+          const parts = raw.split('|').map(x => x.trim()).filter(Boolean);
+          const type = (parts[0] || '').toLowerCase();
+          const rest = parts.slice(2);
+          t = { type, question: parts[1] || '', options: [], initialText: '', solution: {} };
+          if (type === 'mc') {
+            t.options = rest.map(o => o.replace(/^\*\s*/, ''));
+            const corr = rest.filter(o => o.startsWith('*')).map(o => o.replace(/^\*\s*/, ''));
+            t.multi = corr.length > 1;
+            if (corr.length) t.solution.mcCorrect = corr;
+          } else if (type === 'order') { t.options = rest; t.solution.order = rest; }
+          else if (type === 'fix') { t.initialText = rest[0] || ''; if (rest[1]) t.solution.accepted = [rest[1]]; }
+          else if (type === 'text') { if (rest[0]) t.solution.accepted = rest; }
+          else if (type === 'tf') { if (rest[0]) t.solution.tf = /^(true|richtig|wahr|r|1)$/i.test(rest[0]) ? 'true' : 'false'; }
+          else if (type === 'cloud') { t.maxTerms = Number(rest[0]) || 3; }
+          else if (type === 'number') { const n = parseNum(rest[0]); if (n !== null && !Number.isNaN(n)) t.solution.num = n; if (rest[1]) t.solution.tol = Math.abs(parseNum(rest[1]) || 0); t.unit = rest[2] || ''; }
         }
-        if (!TYPE_LABELS[type]) type = 'text';
-        clearForm();
-        selectType(type);
-        document.getElementById('input-question').value = question;
-        if (type === 'fix') document.getElementById('fix-initial-text').value = initialText;
-        if (type === 'mc' || type === 'order') fillOptions(type, options);
+        if (!TYPES.includes(t.type)) t.type = 'text';
+        fillForm(t);
         document.getElementById('import-raw-text').value = '';
         closeImportModal();
       } catch (e) {
@@ -1692,6 +2066,10 @@
       return !(studentSession && studentSession.allowRevise === true && (studentResp.mark === 'warn' || studentResp.mark === 'bad'));
     }
     function renderStudentFeedback() {
+      const solBox = document.getElementById('student-solution-box');
+      const rev = studentSession && studentSession.revealed;
+      solBox.classList.toggle('hidden', !rev);
+      if (rev) solBox.textContent = '💡 Lösung: ' + rev;
       const box = document.getElementById('student-feedback-box');
       const note = document.getElementById('student-spotlight-note');
       const r = studentResp;
@@ -1757,12 +2135,34 @@
 
     function renderStudentInputFields(data) {
       const area = document.getElementById('student-input-area');
-      const signature = JSON.stringify([data.type, data.question, data.initialText || '', data.options || []]);
+      const signature = JSON.stringify([data.type, data.question, data.initialText || '', data.options || [], !!data.multi, data.maxTerms || 0, data.unit || '']);
       if (area.dataset.signature === signature) return;
       area.dataset.signature = signature;
       area.dataset.type = data.type;
       selectedMcIndex = null;
       selectedAmpelValue = null;
+      selectedMcSet = new Set();
+      selectedTf = null;
+
+      if (data.type === 'tf') {
+        area.innerHTML = `<label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Stimmt diese Aussage?</label>
+          <div class="grid grid-cols-2 gap-3">
+            <button type="button" onclick="chooseTf('Richtig')" id="stu-tf-Richtig" class="stu-tf-btn p-5 rounded-2xl border-2 border-slate-300 text-lg font-bold hover:bg-emerald-50 transition">✅ Richtig</button>
+            <button type="button" onclick="chooseTf('Falsch')" id="stu-tf-Falsch" class="stu-tf-btn p-5 rounded-2xl border-2 border-slate-300 text-lg font-bold hover:bg-rose-50 transition">❌ Falsch</button>
+          </div>`;
+        return;
+      }
+      if (data.type === 'cloud') {
+        const n = [1, 2, 3, 5].includes(Number(data.maxTerms)) ? Number(data.maxTerms) : 3;
+        area.innerHTML = `<label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">${n === 1 ? 'Dein Begriff' : `Deine Begriffe (1 bis ${n})`}</label>` +
+          Array.from({ length: n }, (_, i) => `<input type="text" id="stu-cloud-${i}" maxlength="40" placeholder="${n === 1 ? 'Ein Wort oder kurzer Begriff' : 'Begriff ' + (i + 1) + (i ? ' (optional)' : '')}" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500" />`).join('');
+        return;
+      }
+      if (data.type === 'number') {
+        area.innerHTML = `<label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Deine Zahl</label>
+          <div class="flex items-center gap-2"><input type="text" id="stu-number" inputmode="decimal" maxlength="20" placeholder="z. B. 42" class="flex-1 min-w-0 rounded-xl border border-slate-300 px-3.5 py-3 text-xl font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500" />${data.unit ? `<span class="text-base font-semibold text-slate-600">${escapeHTML(data.unit)}</span>` : ''}</div>`;
+        return;
+      }
 
       if (data.type === 'text') {
         area.innerHTML = `
@@ -1776,7 +2176,7 @@
         studentOrderItems = shuffle(data.options || []);
         renderStudentOrderList();
       } else if (data.type === 'mc') {
-        area.innerHTML = `<label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Wähle eine Antwort</label>` +
+        area.innerHTML = `<label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">${data.multi ? 'Wähle alle passenden Antworten' : 'Wähle eine Antwort'}</label>` +
           (data.options || []).map((opt, idx) => `
             <button type="button" onclick="chooseMcOption(${idx})" id="stu-mc-${idx}" class="stu-mc-btn w-full text-left p-3.5 rounded-xl border border-slate-300 font-medium text-sm hover:bg-slate-50 transition">
               ${escapeHTML(opt)}
@@ -1820,7 +2220,18 @@
       renderStudentOrderList();
     }
 
+    function chooseTf(v) {
+      selectedTf = v;
+      document.querySelectorAll('.stu-tf-btn').forEach(b => b.classList.remove('pill-active'));
+      document.getElementById('stu-tf-' + v).classList.add('pill-active');
+    }
+
     function chooseMcOption(idx) {
+      if (studentSession && studentSession.multi) {
+        if (selectedMcSet.has(idx)) selectedMcSet.delete(idx); else selectedMcSet.add(idx);
+        document.getElementById('stu-mc-' + idx).classList.toggle('pill-active', selectedMcSet.has(idx));
+        return;
+      }
       selectedMcIndex = idx;
       document.querySelectorAll('.stu-mc-btn').forEach(b => b.classList.remove('pill-active'));
       document.getElementById('stu-mc-' + idx).classList.add('pill-active');
@@ -1853,9 +2264,24 @@
         if (!answer) return toast('Bitte gib eine Antwort ein.');
       } else if (type === 'order') {
         answer = studentOrderItems.join(ORDER_SEP);
+      } else if (type === 'mc' && studentSession.multi) {
+        if (!selectedMcSet.size) return toast('Bitte wähle mindestens eine Option aus.');
+        answer = [...selectedMcSet].sort((a, b) => a - b).map(i => (studentSession.options || [])[i]).filter(Boolean).join(MULTI_SEP);
       } else if (type === 'mc') {
         if (selectedMcIndex === null) return toast('Bitte wähle eine Option aus.');
         answer = (studentSession.options || [])[selectedMcIndex] || '';
+      } else if (type === 'tf') {
+        if (!selectedTf) return toast('Bitte wähle Richtig oder Falsch.');
+        answer = selectedTf;
+      } else if (type === 'cloud') {
+        const seen = new Set();
+        const terms = [...document.querySelectorAll('[id^="stu-cloud-"]')].map(i => i.value.trim().replace(/\s+/g, ' ')).filter(t => t && !seen.has(t.toLowerCase()) && seen.add(t.toLowerCase()));
+        if (!terms.length) return toast('Bitte gib mindestens einen Begriff ein.');
+        answer = terms.join(MULTI_SEP);
+      } else if (type === 'number') {
+        const n = parseNum(document.getElementById('stu-number').value);
+        if (n === null || Number.isNaN(n)) return toast('Bitte gib eine gültige Zahl ein.');
+        answer = String(n);
       } else if (type === 'ampel') {
         if (!selectedAmpelValue) return toast('Bitte wähle eine Stufe aus.');
         answer = selectedAmpelValue;
@@ -1907,6 +2333,7 @@
       studentResp = null;
       document.getElementById('student-feedback-box').classList.add('hidden');
       document.getElementById('student-spotlight-note').classList.add('hidden');
+      document.getElementById('student-solution-box').classList.add('hidden');
       studentRoomCode = null;
       studentSession = null;
       document.getElementById('student-answer-box').classList.add('hidden');
@@ -1944,7 +2371,7 @@
       }, () => {});
 
       db.collection(TEACHERS).doc(currentUser.uid).collection('solutions').doc(code).get()
-        .then(s => { beamerSolution = s.exists ? s.data().order : null; renderBeamer(); })
+        .then(s => { beamerSolution = s.exists ? s.data() : null; renderBeamer(); })
         .catch(() => {});
     }
 
@@ -1959,6 +2386,9 @@
         return;
       }
       document.getElementById('beamer-question').textContent = data.question;
+      const solEl = document.getElementById('beamer-solution');
+      solEl.classList.toggle('hidden', !data.revealed || data.active === false);
+      solEl.textContent = data.revealed ? '💡 Lösung: ' + data.revealed : '';
       const entries = Object.values(beamerResponses);
       document.getElementById('beamer-count').textContent = entries.length;
       if (closed) return;
@@ -1978,7 +2408,7 @@
         } else {
           origBox.classList.add('hidden');
         }
-        const answer = data.type === 'ampel' ? (AMPEL_LABELS[item.answer] || item.answer) : item.answer;
+        const answer = displayAnswer(data, item);
         document.getElementById('beamer-spotlight-text').textContent = item.comment ? `${answer} – «${item.comment}»` : answer;
         return;
       }
@@ -1997,7 +2427,7 @@
 
       const summary = document.getElementById('beamer-summary');
       const cards = document.getElementById('beamer-cards');
-      if (data.type === 'mc' || data.type === 'ampel' || data.type === 'order') {
+      if (SUMMARY_TYPES.includes(data.type)) {
         summary.classList.remove('hidden');
         summary.innerHTML = buildSummaryHTML(data, entries, beamerSolution);
       } else {
@@ -2005,7 +2435,7 @@
       }
 
       cards.innerHTML = Object.entries(beamerResponses).map(([id, item]) => {
-        if (data.type === 'mc' || data.type === 'order') return '';
+        if (!['text', 'fix', 'ampel'].includes(data.type)) return '';
         if (data.type === 'ampel' && !item.comment) return '';
         const text = data.type === 'ampel' ? item.comment : item.answer;
         const border = item.mark === 'good' ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 bg-white';
@@ -2190,8 +2620,14 @@
         { type: 'fix', question: 'Setze die fehlenden Kommas.', options: [], initialText: 'Obwohl es regnete ging sie ohne Schirm aus dem Haus weil sie es eilig hatte.' },
         { type: 'ampel', question: 'Wie sicher fühlst du dich beim Present Perfect?', options: [], initialText: '' },
         { type: 'order', question: 'Bringe die Schritte einer Bewerbung in die richtige Reihenfolge.', options: ['Lehrstelle suchen', 'Schnupperlehre machen', 'Bewerbung schreiben', 'Vorstellungsgespräch', 'Lehrvertrag unterschreiben'], initialText: '' },
-        { type: 'text', question: 'Schreibe einen korrekten Satz im Present Perfect mit «never».', options: [], initialText: '' }
+        { type: 'text', question: 'Schreibe einen korrekten Satz im Present Perfect mit «never».', options: [], initialText: '' },
+        { type: 'tf', question: 'Das Present Perfect verwendet man mit «yesterday».', options: [], initialText: '', solution: { tf: 'false' } },
+        { type: 'cloud', question: 'Was fällt dir zum Thema Ferien ein?', options: [], initialText: '', maxTerms: 3, solution: {} },
+        { type: 'number', question: 'In welchem Jahr wurde die Eidgenossenschaft gegründet?', options: [], initialText: '', unit: '', solution: { num: 1291, tol: 0 } },
+        { type: 'mc', question: 'Welche Wörter sind Signalwörter für das Present Perfect?', options: ['since', 'yesterday', 'already', 'last year', 'never'], initialText: '', multi: true, solution: { mcCorrect: ['since', 'already', 'never'] } }
       ].forEach((tpl, i) => t.collection('templates').doc('demo' + i).set({ ...tpl, createdAt: Date.now() - i * 1000 }));
+      // Lösung der ersten Vorlage markieren
+      t.collection('templates').doc('demo0').set({ type: 'mc', question: 'Welches Signalwort passt zum Present Perfect?', options: ['yesterday', 'since 2022', 'last week', 'ago'], initialText: '', solution: { mcCorrect: ['since 2022'] }, createdAt: Date.now() });
     }
 
     let demoBotTimers = [];
@@ -2202,6 +2638,30 @@
 
     function demoAnswerFor(form) {
       const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+      const sol = form.solution || {};
+      if (form.type === 'mc' && form.multi) {
+        const corr = sol.mcCorrect || form.options.slice(0, 2);
+        const chosen = form.options.filter(o => corr.includes(o) ? Math.random() < 0.8 : Math.random() < 0.2);
+        return { answer: (chosen.length ? chosen : [pick(form.options)]).join(MULTI_SEP), comment: '' };
+      }
+      if (form.type === 'mc' && sol.mcCorrect && sol.mcCorrect.length) {
+        return { answer: Math.random() < 0.65 ? sol.mcCorrect[0] : pick(form.options), comment: '' };
+      }
+      if (form.type === 'tf') {
+        const right = sol.tf === 'false' ? 'Falsch' : 'Richtig';
+        return { answer: Math.random() < 0.7 ? right : (right === 'Richtig' ? 'Falsch' : 'Richtig'), comment: '' };
+      }
+      if (form.type === 'cloud') {
+        const pool = ['Meer', 'Sonne', 'Strand', 'Glace', 'Berge', 'Reisen', 'Freunde', 'Ausschlafen', 'Familie', 'Schwimmen', 'Sonne', 'Meer', 'Camping', 'Velo', 'Zelt'];
+        const n = 1 + Math.floor(Math.random() * (form.maxTerms || 3));
+        return { answer: [...new Set(Array.from({ length: n }, () => pick(pool)))].join(MULTI_SEP), comment: '' };
+      }
+      if (form.type === 'number') {
+        const base = typeof sol.num === 'number' ? sol.num : 50;
+        const spread = typeof sol.num === 'number' ? Math.max(5, Math.abs(base) * 0.05) : 30;
+        const v = Math.random() < 0.4 ? base : Math.round(base + (Math.random() - 0.5) * 2 * spread);
+        return { answer: String(v), comment: '' };
+      }
       if (form.type === 'mc') {
         // meist die zweite Option (oft die richtige), sonst zufällig
         return { answer: Math.random() < 0.6 && form.options[1] ? form.options[1] : pick(form.options), comment: '' };
@@ -2226,7 +2686,14 @@
     let demoForm = null;
     function demoImprovedAnswer(form, old) {
       const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+      const sol = form.solution || {};
+      if (form.type === 'mc' && form.multi) return (sol.mcCorrect || [form.options[0]]).join(MULTI_SEP);
+      if (form.type === 'mc' && sol.mcCorrect && sol.mcCorrect.length) return sol.mcCorrect[0];
       if (form.type === 'mc') return form.options[1] && old !== form.options[1] ? form.options[1] : pick(form.options.filter(o => o !== old)) || old;
+      if (form.type === 'tf') return sol.tf === 'false' ? 'Falsch' : 'Richtig';
+      if (form.type === 'number') return typeof sol.num === 'number' ? String(sol.num) : old;
+      if (form.type === 'cloud') return old;
+      if ((form.type === 'text' || form.type === 'fix') && sol.accepted && sol.accepted.length) return sol.accepted[0];
       if (form.type === 'order') return form.options.join(ORDER_SEP);
       if (form.type === 'fix') return (form.initialText || '').replace(/ (weil|obwohl|dass|als|wenn|ging)\b/gi, ', $1').replace(/^, /, '');
       if (form.type === 'ampel') return old;
@@ -2267,6 +2734,8 @@
     }
 
     loadFeedbackOptions();
+    renderMcEditor();
+    renderOrderEditor();
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));

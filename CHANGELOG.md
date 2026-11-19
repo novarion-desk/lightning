@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.3 – 19.11.2026
+- Multiple Choice: 2–8 Optionen, richtige Antwort(en) markierbar, Mehrfachauswahl.
+- Reihenfolge: 3–10 Elemente, im Formular verschiebbar.
+- Kurzantwort und Satz-Korrektur: optionale Musterlösung (mehrere möglich).
+- Neue Typen: ⚖️ Richtig/Falsch, ☁️ Wortwolke (1, bis 2, 3 oder 5 Begriffe), 🔟 Zahl/Schätzung (mit Verteilung, Median, Toleranz, Einheit).
+- Automatische Rückmeldung, sobald eine Lösung hinterlegt ist (bei Reihenfolge z. B. «4 von 5 an der richtigen Stelle»). Die Lösung bleibt privat, bis «💡 Lösung zeigen» gedrückt wird – dann erscheint sie am Beamer und bei den Schülern.
+- Vorlagen und KI-Import kennen alle neuen Typen und Lösungen.
+
 ## v1.2 – 19.11.2026
 - Feedback an Schüler: ✅ Richtig, ⚠️ Fast, ❌ Noch nicht – erscheint sofort auf dem Gerät des Schülers (nicht am Beamer), mit kurzer Vibration.
 - 💬 Kurzkommentar (max. 120 Zeichen) mit Textbausteinen; eigene Bausteine speicherbar.
