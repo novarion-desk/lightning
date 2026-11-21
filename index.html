@@ -37,6 +37,7 @@
         <button onclick="openClassModal()" id="btn-classes" class="hidden text-xs sm:text-sm px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-medium">
           👥 Klassen
         </button>
+        <button onclick="openAppFeedback()" id="btn-app-feedback" title="Feedback zur App: Fehler melden, Wünsche äussern" class="text-xs sm:text-sm px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-medium">📝 App-Feedback</button>
         <button onclick="switchRole('teacher')" id="nav-teacher" class="text-xs sm:text-sm px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-medium">
           Lehrperson
         </button>
@@ -3191,5 +3192,9 @@
       window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
     }
   </script>
+<script>
+/* Feedback: öffnet das anonyme Tally-Formular (App, Version und Gerät werden mitgegeben, keine Personendaten) */
+function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'1.8',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
+</script>
 </body>
 </html>

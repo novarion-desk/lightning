@@ -38,3 +38,6 @@ Kurzantwort · Multiple Choice · Ampel (1–4 + Rückfrage) · Satz-Korrektur �
 - Feedback (✅/⚠️/❌, Kommentar) sieht nur der betroffene Schüler auf seinem Gerät. Nachbessern ist nur nach ⚠️/❌ und nur mit Erlaubnis der Lehrperson möglich – auch das prüft die Datenbank.
 - Sessions und Antworten werden 24 Stunden nach dem Start automatisch gelöscht (beim nächsten Login der Lehrperson).
 - Nur Vornamen oder Kürzel speichern.
+
+## Feedback zur App
+Der Knopf «📝 App-Feedback» öffnet ein externes, anonymes Formular bei Tally (Fehler, Wünsche). Nur dann werden Angaben gesendet – zusammen mit App-Name, Version und Gerätetyp. Namen werden nicht abgefragt. Mit den Kommentaren an Schüler hat das nichts zu tun.

@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.8 – 21.11.2026
+- Neuer Knopf «📝 App-Feedback» in der Kopfzeile: öffnet ein anonymes Formular für Fehler und Wünsche zur App (nicht zu verwechseln mit dem Kommentar an Schüler). Version und Gerät werden automatisch mitgegeben; es werden keine Namen abgefragt.
+
 ## v1.7 – 19.11.2026
 - ↩︎ Zurückgeben: Antwort an einen Schüler zum Überarbeiten zurückgeben (mit optionalem Kommentar). Er sieht seine bisherige Antwort im Feld und darf sie ändern – auch wenn die Eingabe für alle gesperrt ist. Danach «✏️ überarbeitet».
 - ↶ Rückgängig in der Kopfzeile: Bewertung, Kommentar, Zurückgeben, Antwort löschen, Frage beenden/löschen, Sperren, Zeitlimit, Anwesenheit und Einstellungen – solange die App offen ist. Nach dem Löschen zusätzlich «Rückgängig» im Hinweis.
