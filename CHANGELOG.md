@@ -1,5 +1,8 @@
 # Changelog
 
+## Version 1.9 – 21.11.2026
+- Neu: Zurück-Geste / Zurück-Taste schliesst offene Fenster bzw. geht von der laufenden Frage zurück zur Startansicht (die Frage läuft weiter), statt die App zu schliessen.
+
 ## v1.8 – 21.11.2026
 - Neuer Knopf «📝 App-Feedback» in der Kopfzeile: öffnet ein anonymes Formular für Fehler und Wünsche zur App (nicht zu verwechseln mit dem Kommentar an Schüler). Version und Gerät werden automatisch mitgegeben; es werden keine Namen abgefragt.
 
