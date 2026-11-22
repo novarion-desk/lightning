@@ -1,5 +1,8 @@
 # Changelog
 
+## Version 2.1 – 22.11.2026
+- Neu: 📺-Knopf unten links «Auf Bildschirm senden»: Cast-Bildschirm (Chrome) oder «Als Fenster öffnen» für einen zweiten Bildschirm. «Getrennt»: Bildschirm zeigt die Beamer-Ansicht (Projektionsmodus 📽️ einschalten), du siehst weiter dein Dashboard. «Gleich»: dasselbe wie du. Nichts davon läuft über Firebase
+
 ## Version 2.0 – 22.11.2026
 - Neu: 🔤 Lückentext. Wörter in eckige Klammern setzen, z. B. «I [have] lived here [for/since] three years.»; Schüler setzen ein, automatische Rückmeldung («1 von 2 Lücken richtig»), Auswertung pro Lücke am Beamer
 - Neu: 🔗 Zuordnen (2–8 Paare, «links = rechts»); Schüler wählen pro Begriff aus einer Liste, Auswertung pro Paar
