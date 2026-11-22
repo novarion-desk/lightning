@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 2.2 – 22.11.2026
+- Neu: «🔗 Link kopieren» neben dem Code (Link mit Code für Teams oder Chat) und die kurze Adresse als Text, falls ein Schüler den QR-Code nicht scannen kann
+- Keine Änderung an den Firebase-Regeln nötig
+
 ## Version 2.1 – 22.11.2026
 - Neu: 📺-Knopf unten links «Auf Bildschirm senden»: Cast-Bildschirm (Chrome) oder «Als Fenster öffnen» für einen zweiten Bildschirm. «Getrennt»: Bildschirm zeigt die Beamer-Ansicht (Projektionsmodus 📽️ einschalten), du siehst weiter dein Dashboard. «Gleich»: dasselbe wie du. Nichts davon läuft über Firebase
 
