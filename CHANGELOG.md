@@ -1,5 +1,16 @@
 # Changelog
 
+## Version 2.0 – 22.11.2026
+- Neu: 🔤 Lückentext. Wörter in eckige Klammern setzen, z. B. «I [have] lived here [for/since] three years.»; Schüler setzen ein, automatische Rückmeldung («1 von 2 Lücken richtig»), Auswertung pro Lücke am Beamer
+- Neu: 🔗 Zuordnen (2–8 Paare, «links = rechts»); Schüler wählen pro Begriff aus einer Liste, Auswertung pro Paar
+- Neu: 🖼️ Bild zur Frage (bei jedem Fragetyp; wird verkleinert und in der Frage gespeichert, auch in Vorlagen). Sichtbar bei Schülern, Beamer und Lehrperson
+- Neu: «❓ Offene Fragen sammeln»: Vorlage für anonyme Rückfragen (Kurzantwort, Namen am Beamer bleiben aus)
+- Bereits vorhanden (jetzt in der Übersicht der Fragetypen ergänzt): Wortwolke, Zahl/Schätzung, Richtig/Falsch, Zeitlimit mit Countdown, CSV-Export
+- Keine Änderung an den Firebase-Regeln nötig
+
+## Version 1.9.1 – 21.11.2026
+- Sicherheit: Der Code für Schüler ist neu 6-stellig (statt 4), damit er schwerer zu erraten ist. Ältere 4-stellige Codes funktionieren zum Beitreten weiter. Sonst keine Änderung.
+
 ## Version 1.9 – 21.11.2026
 - Neu: Zurück-Geste / Zurück-Taste schliesst offene Fenster bzw. geht von der laufenden Frage zurück zur Startansicht (die Frage läuft weiter), statt die App zu schliessen.
 

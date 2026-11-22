@@ -1,0 +1,3221 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Lightning – Live-Checks & Exit-Tickets</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="theme-color" content="#4f46e5" />
+  <link rel="stylesheet" href="vendor/app.css" />
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif; background-color: #f8fafc; color: #0f172a; }
+    .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .btn-primary { background-color: #4f46e5; color: #ffffff; font-weight: 600; border-radius: 0.75rem; transition: all 0.15s; }
+    .btn-primary:hover { background-color: #4338ca; }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .pill-active { background-color: #eef2ff; border-color: #4f46e5; color: #4338ca; font-weight: 600; }
+    #qr-teacher svg, #qr-beamer svg { display: block; width: 100%; height: 100%; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- TOP BAR -->
+  <header id="app-header" class="bg-white border-b border-slate-200 px-4 py-3 sticky top-0 z-20">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-2">
+      <div onclick="goHome()" title="Zur Übersicht" class="flex items-center gap-3 min-w-0 cursor-pointer">
+        <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">⚡</div>
+        <div class="min-w-0">
+          <h1 class="font-bold text-slate-900 leading-tight text-base sm:text-lg">Lightning</h1>
+          <p class="text-xs text-slate-500 hidden sm:block">Warm-up, Zwischencheck & Exit-Ticket</p>
+        </div>
+      </div>
+      <div id="header-actions" class="flex items-center gap-2 flex-wrap justify-end">
+        <button onclick="undoLast()" id="btn-undo" title="Rückgängig" class="hidden text-xs sm:text-sm px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-semibold">↶ Rückgängig</button>
+        <button onclick="openClassModal()" id="btn-classes" class="hidden text-xs sm:text-sm px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-medium">
+          👥 Klassen
+        </button>
+        <button onclick="openAppFeedback()" id="btn-app-feedback" title="Feedback zur App: Fehler melden, Wünsche äussern" class="text-xs sm:text-sm px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-medium">📝 App-Feedback</button>
+        <button onclick="switchRole('teacher')" id="nav-teacher" class="text-xs sm:text-sm px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-medium">
+          Lehrperson
+        </button>
+        <button onclick="switchRole('student')" id="nav-student" class="text-xs sm:text-sm px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-medium">
+          Teilnehmen
+        </button>
+        <button onclick="logoutTeacher()" id="btn-logout" title="Abmelden" class="hidden text-xs sm:text-sm px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-medium text-slate-500">
+          ⎋ Abmelden
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- DEMO-HINWEIS -->
+  <div id="demo-banner" class="hidden bg-amber-50 border-b border-amber-200 px-4 py-2.5 text-xs sm:text-sm text-amber-900">
+    <div class="max-w-7xl mx-auto"><strong>Demo:</strong> Nichts wird gespeichert, die Schülerantworten werden simuliert. Mit «Teilnehmen» oben kannst du die Schüleransicht auf diesem Gerät ausprobieren.</div>
+  </div>
+
+  <!-- MAIN CONTAINER -->
+  <main id="app-main" class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
+
+    <!-- LADEN -->
+    <section id="view-loading" class="pt-16 text-center text-sm text-slate-400">Lade…</section>
+
+    <!-- ========================================== -->
+    <!-- 0. LOGIN LEHRPERSON                        -->
+    <!-- ========================================== -->
+    <section id="view-login" class="hidden max-w-sm mx-auto pt-4">
+      <form onsubmit="handleTeacherLogin(event)" class="card p-6 space-y-4">
+        <div>
+          <h2 class="text-lg font-bold text-slate-900">Anmelden</h2>
+          <p id="login-hint" class="text-sm text-slate-500 mt-1">Melde dich mit deinem Lehrpersonen-Konto an. Klassenlisten und Vorlagen sind nur für dich sichtbar.</p>
+        </div>
+        <input type="email" id="login-email" autocomplete="username" required placeholder="E-Mail" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <input type="password" id="login-password" autocomplete="current-password" required placeholder="Passwort" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <div id="login-error" class="hidden text-sm bg-rose-50 border border-rose-200 text-rose-800 rounded-xl p-3"></div>
+        <div id="login-info" class="hidden text-sm bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-3"></div>
+        <button type="submit" id="login-submit" class="btn-primary w-full py-3 text-base">Anmelden</button>
+        <div class="flex items-center justify-between text-xs">
+          <button type="button" onclick="handlePasswordReset()" class="text-indigo-600 hover:underline">Passwort vergessen?</button>
+          <button type="button" onclick="switchRole('student')" class="text-slate-500 hover:underline">Schüler/in? → Teilnehmen</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- 1. LEHRER-COCKPIT (TABLET / LAPTOP)        -->
+    <!-- ========================================== -->
+    <section id="view-teacher" class="hidden space-y-6">
+
+      <!-- NEUE FRAGE STARTEN -->
+      <div id="teacher-setup" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div id="session-list-card" class="hidden lg:col-span-3 card p-4 sm:p-5 space-y-3">
+          <h2 class="text-base font-bold text-slate-900">Deine Fragen</h2>
+          <div id="session-list-open" class="space-y-2"></div>
+          <div id="session-list-done-wrap" class="hidden space-y-2">
+            <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 pt-1">Heute beendet</div>
+            <div id="session-list-done" class="space-y-2"></div>
+          </div>
+        </div>
+        <div class="lg:col-span-2 card p-5 sm:p-6 space-y-5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-lg font-bold text-slate-900">Neue Live-Frage starten</h2>
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="clearForm()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-semibold">
+                ↺ Leeren
+              </button>
+              <button type="button" onclick="openImportModal()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-semibold">
+                📋 KI-Import
+              </button>
+            </div>
+          </div>
+
+          <!-- 1. Fragetyp wählen (5 Modi) -->
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">1. Fragetyp wählen</label>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <button type="button" onclick="selectType('text')" id="type-text" class="type-btn pill-active border border-slate-200 rounded-xl p-2.5 text-left transition">
+                <div class="font-semibold text-xs sm:text-sm">✍️ Kurzantwort</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Satz, Begriff</div>
+              </button>
+              <button type="button" onclick="selectType('mc')" id="type-mc" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
+                <div class="font-semibold text-xs sm:text-sm">📊 Multiple Choice</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">2–8 Optionen</div>
+              </button>
+              <button type="button" onclick="selectType('ampel')" id="type-ampel" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
+                <div class="font-semibold text-xs sm:text-sm">🚦 Ampel</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">1–4 + Rückfrage</div>
+              </button>
+              <button type="button" onclick="selectType('fix')" id="type-fix" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
+                <div class="font-semibold text-xs sm:text-sm">🛠️ Satz-Korrektur</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Komma / Fehler</div>
+              </button>
+              <button type="button" onclick="selectType('order')" id="type-order" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
+                <div class="font-semibold text-xs sm:text-sm">🔢 Reihenfolge</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Sortieren</div>
+              </button>
+              <button type="button" onclick="selectType('tf')" id="type-tf" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
+                <div class="font-semibold text-xs sm:text-sm">⚖️ Richtig/Falsch</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Aussage beurteilen</div>
+              </button>
+              <button type="button" onclick="selectType('cloud')" id="type-cloud" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
+                <div class="font-semibold text-xs sm:text-sm">☁️ Wortwolke</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">1–5 Begriffe</div>
+              </button>
+              <button type="button" onclick="selectType('number')" id="type-number" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
+                <div class="font-semibold text-xs sm:text-sm">🔟 Zahl/Schätzung</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Verteilung</div>
+              </button>
+            </div>
+          </div>
+
+          <!-- 2. Fragestellung -->
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">2. Frage oder Arbeitsauftrag</label>
+            <textarea id="input-question" rows="2" maxlength="500" placeholder="z. B. Schreibe einen korrekten Satz im Present Perfect mit 'never'." class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+          </div>
+
+          <!-- Zusatzfeld: Multiple Choice -->
+          <div id="mc-options-box" class="hidden space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Antworten · richtige mit ✓ markieren (optional)</label>
+              <label class="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer"><input type="checkbox" id="mc-multi" onchange="renderMcEditor()" class="accent-indigo-600 w-4 h-4" /> Mehrere Antworten wählbar</label>
+            </div>
+            <div id="mc-list" class="space-y-2"></div>
+            <button type="button" onclick="addMcOption()" id="mc-add" class="text-xs font-semibold text-indigo-700 hover:underline">＋ Option hinzufügen</button>
+            <p class="text-[11px] text-slate-500">Ist eine Lösung markiert, bekommen die Schüler sofort ✅ oder ❌.</p>
+          </div>
+
+          <!-- Zusatzfeld: Satz-Korrektur -->
+          <div id="fix-sentence-box" class="hidden space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Fehlerhafter Ausgangssatz (wird bei den Schülern vorausgefüllt)</label>
+            <textarea id="fix-initial-text" rows="2" maxlength="500" placeholder="z. B. Obwohl es regnete ging sie ohne Schirm aus dem Haus weil sie es eilig hatte." class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white"></textarea>
+          </div>
+
+          <!-- Zusatzfeld: Reihenfolge -->
+          <div id="order-items-box" class="hidden space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Elemente in der RICHTIGEN Reihenfolge (3–10, werden für Schüler gemischt)</label>
+            <div id="order-list" class="space-y-2"></div>
+            <button type="button" onclick="addOrderItem()" id="order-add" class="text-xs font-semibold text-indigo-700 hover:underline">＋ Element hinzufügen</button>
+            <p class="text-[11px] text-slate-500">Die Schüler bekommen automatisch Rückmeldung, z. B. «4 von 5 an der richtigen Stelle».</p>
+          </div>
+
+          <!-- Zusatzfeld: Musterlösung (Kurzantwort, Satz-Korrektur) -->
+          <div id="solution-box" class="hidden space-y-1.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Musterlösung (optional) – eine pro Zeile, wenn mehrere richtig sind</label>
+            <textarea id="solution-text" rows="2" maxlength="600" placeholder="z. B. I have never been to London." class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white"></textarea>
+            <p id="solution-hint" class="text-[11px] text-slate-500"></p>
+          </div>
+
+          <!-- Zusatzfeld: Richtig/Falsch -->
+          <div id="tf-box" class="hidden space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Die Frage oben ist die Aussage. Richtige Antwort (optional):</label>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" onclick="setTfSolution('true')" id="tf-sol-true" class="tf-sol px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-sm">✅ Richtig</button>
+              <button type="button" onclick="setTfSolution('false')" id="tf-sol-false" class="tf-sol px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-sm">❌ Falsch</button>
+              <button type="button" onclick="setTfSolution('')" id="tf-sol-none" class="tf-sol px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-sm">Keine Lösung</button>
+            </div>
+          </div>
+
+          <!-- Zusatzfeld: Wortwolke -->
+          <div id="cloud-box" class="hidden space-y-1.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Begriffe pro Schüler</label>
+            <select id="cloud-max" class="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
+              <option value="1">Genau 1 Begriff</option>
+              <option value="2">Bis zu 2 Begriffe</option>
+              <option value="3" selected>Bis zu 3 Begriffe</option>
+              <option value="5">Bis zu 5 Begriffe</option>
+            </select>
+            <p class="text-[11px] text-slate-500">Am Beamer entsteht eine Wortwolke – häufige Begriffe erscheinen grösser.</p>
+          </div>
+
+          <!-- Zusatzfeld: Zahl/Schätzung -->
+          <div id="number-box" class="hidden space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Richtige Zahl (optional)</label>
+                <input type="text" id="num-correct" inputmode="decimal" maxlength="20" placeholder="z. B. 1291" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Toleranz ±</label>
+                <input type="text" id="num-tol" inputmode="decimal" maxlength="20" placeholder="0" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Einheit (optional)</label>
+                <input type="text" id="num-unit" maxlength="20" placeholder="z. B. km" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+              </div>
+            </div>
+            <p class="text-[11px] text-slate-500">Mit richtiger Zahl: ✅ innerhalb der Toleranz, sonst ❌. Am Beamer erscheint die Verteilung.</p>
+          </div>
+
+          <!-- 3. Klasse & Countdown -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">3. Klasse verknüpfen (optional)</label>
+              <select id="select-session-class" onchange="renderSetupAttendance()" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm bg-white">
+                <option value="">Ohne Klassenliste (freie Namenseingabe)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">4. Start-Countdown (optional)</label>
+              <select id="select-session-timer" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm bg-white">
+                <option value="0">Kein Zeitlimit (manuell beenden)</option>
+                <option value="30">30 Sekunden</option>
+                <option value="60">60 Sekunden</option>
+                <option value="90">90 Sekunden</option>
+                <option value="120">2 Minuten</option>
+                <option value="180">3 Minuten</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Anwesenheit der gewählten Klasse -->
+          <div id="attendance-box" class="hidden bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-500">Wer ist da? <span class="normal-case font-normal">– antippen = abwesend</span></div>
+              <div class="flex items-center gap-2">
+                <span id="attendance-count" class="text-xs font-bold text-indigo-700"></span>
+                <button type="button" onclick="setAllPresent('setup')" class="text-xs px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 font-semibold">Alle da</button>
+              </div>
+            </div>
+            <div id="attendance-chips" class="flex flex-wrap gap-1.5"></div>
+            <p class="text-[11px] text-slate-500">Schüler sehen im Namen-Menü nur die Anwesenden. Die Auswahl gilt heute für diese Klasse.</p>
+          </div>
+
+          <!-- 5. Feedback-Optionen -->
+          <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
+            <div class="text-xs font-semibold uppercase tracking-wider text-slate-500">5. Feedback an die Schüler</div>
+            <label class="flex items-start gap-2 text-sm text-slate-700 cursor-pointer"><input type="checkbox" id="opt-allow-revise" checked onchange="saveFeedbackOptions()" class="accent-indigo-600 w-4 h-4 mt-0.5 shrink-0" /> <span><b>Nachbessern erlaubt</b> – bei ⚠️ «Fast» oder ❌ «Noch nicht» dürfen Schüler ihre Antwort korrigieren</span></label>
+            <label class="flex items-start gap-2 text-sm text-slate-700 cursor-pointer"><input type="checkbox" id="opt-spotlight-notice" onchange="saveFeedbackOptions()" class="accent-indigo-600 w-4 h-4 mt-0.5 shrink-0" /> <span><b>⭐-Hinweis</b> – Schüler sehen auf ihrem Gerät, wenn ihre Antwort gerade (anonym) am Beamer gezeigt wird</span></label>
+          </div>
+
+          <!-- Aktionen -->
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+            <button type="button" onclick="saveTemplate()" class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50">
+              ☁️ Als Vorlage speichern
+            </button>
+            <button type="button" id="btn-start-session" onclick="startSession()" class="btn-primary px-6 py-3 text-base shadow-sm flex items-center gap-2">
+              <span>⚡ Live-Session starten</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- VORLAGEN-BIBLIOTHEK -->
+        <div class="card p-5 sm:p-6 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="font-bold text-slate-900">Vorlagen-Bibliothek</h3>
+              <span id="template-count" class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">0</span>
+            </div>
+            <p class="text-xs text-slate-500 mb-4">Synchronisiert zwischen deinen Geräten.</p>
+            <div id="template-list" class="space-y-2 max-h-[26rem] overflow-y-auto pr-1">
+              <div class="text-xs text-slate-400 italic">Noch keine Vorlagen gespeichert.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AKTIVE SESSION (LIVE-DASHBOARD) -->
+      <div id="teacher-live" class="hidden space-y-5">
+        <!-- Steuerungsleiste -->
+        <div class="card p-5 flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-indigo-200 bg-indigo-50/40">
+          <div class="flex items-start sm:items-center gap-4">
+            <button type="button" id="qr-teacher" onclick="openQrFull()" title="QR-Code gross anzeigen" class="bg-white p-2 rounded-xl border border-slate-200 shrink-0 w-24 h-24 cursor-zoom-in"></button>
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span id="live-badge" class="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Live
+                </span>
+                <span id="ended-badge" class="hidden inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600 bg-slate-200 px-2.5 py-0.5 rounded-full">Beendet
+                  <button type="button" onclick="reopenSession()" class="normal-case tracking-normal text-indigo-700 underline">Wieder öffnen</button>
+                </span>
+                <span class="text-xs text-slate-500">Code: <strong id="live-room-code" class="text-slate-900 text-base font-mono">----</strong></span>
+                <span id="live-class-badge" class="hidden text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-semibold"></span>
+                <span id="teacher-timer-badge" class="hidden text-xs bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-full font-mono font-bold">⏱️ 00:00</span>
+              </div>
+              <h2 id="live-question-title" class="text-lg sm:text-xl font-bold text-slate-900 mt-1">Frage...</h2>
+              <div class="flex flex-wrap gap-2 mt-2">
+                <button onclick="enterProjectionMode()" class="text-xs bg-indigo-600 text-white hover:bg-indigo-700 px-3 py-1.5 rounded-lg font-semibold">
+                  📽️ Projektionsmodus
+                </button>
+                <button onclick="openBeamerWindow()" id="btn-open-beamer" class="text-xs bg-white border border-slate-300 hover:bg-slate-50 px-3 py-1.5 rounded-lg font-medium">
+                  🖥️ Beamer-Ansicht (2. Gerät)
+                </button>
+                <button onclick="copyStudentLink()" class="text-xs bg-white border border-slate-300 hover:bg-slate-50 px-3 py-1.5 rounded-lg font-medium">
+                  🔗 Schüler-Link kopieren
+                </button>
+                <button onclick="addTimerSeconds(30)" class="text-xs bg-white border border-slate-300 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg font-medium">
+                  ⏱️ +30s
+                </button>
+                <button onclick="toggleInputLock()" id="btn-lock-input" class="text-xs bg-white border border-slate-300 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg font-medium">
+                  🔓 Eingabe offen
+                </button>
+                <button onclick="toggleRevealSolution()" id="btn-reveal" class="hidden text-xs bg-white border border-slate-300 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg font-medium">
+                  💡 Lösung zeigen
+                </button>
+                <button onclick="openLiveSettings()" class="text-xs bg-white border border-slate-300 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg font-medium">
+                  ⚙️ Einstellungen
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="goHome()" class="px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 text-xs sm:text-sm font-semibold hover:bg-slate-50">
+              ← Übersicht
+            </button>
+            <button onclick="toggleBeamerResults()" id="btn-toggle-beamer" class="px-3.5 py-2.5 rounded-xl border border-indigo-300 bg-white text-indigo-700 text-xs sm:text-sm font-semibold hover:bg-indigo-50">
+              👁️ Beamer-Ergebnisse: AUS
+            </button>
+            <button onclick="toggleBeamerNames()" id="btn-beamer-names" class="px-3.5 py-2.5 rounded-xl border border-indigo-300 bg-white text-indigo-700 text-xs sm:text-sm font-semibold hover:bg-indigo-50">
+              👤 Namen am Beamer: AUS
+            </button>
+            <button onclick="clearSpotlight()" id="btn-clear-spotlight" class="hidden px-3.5 py-2.5 rounded-xl bg-amber-500 text-white text-xs sm:text-sm font-semibold hover:bg-amber-600">
+              ⭐ Spotlight beenden
+            </button>
+            <button onclick="exportCSV()" class="px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 text-xs sm:text-sm font-medium hover:bg-slate-50">
+              📥 CSV
+            </button>
+            <button onclick="endSession()" class="px-4 py-2.5 rounded-xl bg-rose-600 text-white text-xs sm:text-sm font-semibold hover:bg-rose-700">
+              Beenden
+            </button>
+          </div>
+        </div>
+
+        <!-- Klassen-Statusleiste (wer fehlt noch?) -->
+        <div id="missing-students-bar" class="hidden card p-4 bg-white border-slate-200">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Abgabestatus Klasse <span id="missing-class-name"></span></span>
+            <span id="missing-counter-text" class="text-xs font-bold text-indigo-700">0 / 0 abgegeben</span>
+          </div>
+          <div id="missing-students-pills" class="flex flex-wrap gap-1.5"></div>
+        </div>
+
+        <!-- Auswertung Header -->
+        <div class="flex items-center justify-between">
+          <h3 class="font-bold text-slate-900 text-base">Eingegangene Antworten (<span id="response-counter">0</span>)</h3>
+          <button onclick="toggleNamesTeacher()" id="btn-teacher-names" class="text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-white font-medium">
+            Namen sichtbar
+          </button>
+        </div>
+
+        <!-- Zusammenfassung (für MC, Ampel & Reihenfolge) -->
+        <div id="live-summary-box" class="hidden card p-5 space-y-3"></div>
+
+        <!-- Einzelne Schülerkarten -->
+        <div id="live-responses-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5"></div>
+
+        <p class="text-xs text-slate-400 text-center pt-2">Antworten werden 24 Stunden nach Start der Session automatisch gelöscht. Exportiere sie vorher als CSV, wenn du sie behalten willst.</p>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- 2. SCHÜLER-ANSICHT (HANDY / IPAD)          -->
+    <!-- ========================================== -->
+    <section id="view-student" class="hidden max-w-md mx-auto space-y-5 pt-2">
+      <!-- Code-Eingabe -->
+      <div id="student-join-box" class="card p-6 space-y-4">
+        <h2 class="text-lg font-bold text-slate-900">Session beitreten</h2>
+        <p class="text-sm text-slate-500">Gib den Code von der Wandtafel ein.</p>
+        <input type="text" id="join-code-input" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="z. B. 482915" onkeydown="if(event.key==='Enter')joinRoomByInput()" class="w-full text-center text-2xl font-mono tracking-widest rounded-xl border border-slate-300 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <button onclick="joinRoomByInput()" class="btn-primary w-full py-3 text-base">Weiter</button>
+      </div>
+
+      <!-- Antwortformular -->
+      <div id="student-answer-box" class="hidden card p-6 space-y-5">
+        <div class="flex items-center justify-between text-xs text-slate-500">
+          <span>Raum <strong id="student-room-label" class="font-mono text-slate-800">----</strong></span>
+          <span id="student-timer-pill" class="hidden bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-full font-mono font-bold">⏱️ 00:00</span>
+          <button onclick="leaveStudentRoom()" class="text-indigo-600 hover:underline">Raum wechseln</button>
+        </div>
+
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Auftrag / Frage</p>
+          <h2 id="student-question-text" class="text-base sm:text-lg font-bold text-slate-900">Lade Frage...</h2>
+        </div>
+
+        <!-- Namenswahl (Dropdown wenn Klasse verknüpft, sonst Textfeld) -->
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Dein Name</label>
+          <select id="student-name-select" class="hidden w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-base bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="">-- Bitte deinen Namen wählen --</option>
+          </select>
+          <input type="text" id="student-name" maxlength="40" placeholder="Vorname eingeben" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+
+        <!-- Dynamischer Antwortbereich -->
+        <div id="student-input-area" class="space-y-3"></div>
+
+        <!-- Sperr-Hinweis -->
+        <div id="student-locked-banner" class="hidden bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3.5 text-sm text-center font-medium">
+          ⏱️ Die Eingabe ist gesperrt.
+        </div>
+
+        <div id="student-spotlight-note" class="hidden bg-amber-50 border-2 border-amber-300 text-amber-900 rounded-xl p-3.5 text-sm text-center font-semibold">
+          ⭐ Deine Antwort wird gerade anonym am Beamer besprochen.
+        </div>
+        <div id="student-feedback-box" class="hidden rounded-xl border-2 p-4 space-y-1.5"></div>
+        <div id="student-solution-box" class="hidden rounded-xl border-2 border-emerald-300 bg-emerald-50 text-emerald-900 p-4 text-sm font-semibold"></div>
+
+        <button onclick="submitStudentAnswer()" id="btn-student-submit" class="btn-primary w-full py-3.5 text-base shadow-sm">
+          Antwort absenden
+        </button>
+
+        <div id="student-sent-banner" class="hidden bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-3.5 text-sm text-center font-medium">
+          ✓ Deine Antwort wurde übermittelt. Du kannst sie anpassen, solange die Eingabe offen ist.
+        </div>
+
+        <button onclick="handOverDevice()" id="btn-handover" class="hidden w-full text-sm py-2.5 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-50 font-medium">
+          👋 Gerät an nächste Person weitergeben
+        </button>
+      </div>
+
+      <div id="student-closed-box" class="hidden card p-6 text-center space-y-3">
+        <div class="text-3xl">🔒</div>
+        <h2 id="student-closed-title" class="text-lg font-bold text-slate-900">Session beendet</h2>
+        <p id="student-closed-text" class="text-sm text-slate-500">Diese Umfrage wurde von der Lehrperson geschlossen.</p>
+        <button onclick="leaveStudentRoom()" class="px-4 py-2 rounded-xl border border-slate-300 text-sm font-medium">Neuen Code eingeben</button>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- 3. BEAMER-ANSICHT (ANONYMISIERT & SPOTLIGHT)-->
+    <!-- ========================================== -->
+    <section id="view-beamer" class="hidden space-y-6">
+      <!-- Kopfbereich -->
+      <div class="card p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 border-indigo-200">
+        <div class="space-y-3 flex-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-sm font-bold">
+              <span>⚡ Code: <span id="beamer-code" class="font-mono text-lg">----</span></span>
+            </span>
+            <span id="beamer-timer-badge" class="hidden bg-amber-100 text-amber-900 px-3.5 py-1 rounded-full font-mono text-lg font-extrabold">
+              ⏱️ 00:00
+            </span>
+          </div>
+          <h2 id="beamer-question" class="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-snug">Warte auf Frage...</h2>
+          <p class="text-base text-slate-500">Eingegangene Antworten: <strong id="beamer-count" class="text-slate-900">0</strong></p>
+        </div>
+        <button type="button" id="qr-beamer" onclick="openQrFull()" title="QR-Code gross anzeigen" class="bg-white p-3 rounded-2xl border-2 border-slate-200 shrink-0 w-44 h-44 cursor-zoom-in"></button>
+      </div>
+
+      <!-- SPOTLIGHT MODUS (1 ausgewählte Antwort gross & anonym) -->
+      <div id="beamer-spotlight-box" onclick="if (projectionOn) clearSpotlight()" class="hidden card p-8 sm:p-12 border-2 border-amber-400 bg-amber-50/30 space-y-4">
+        <div class="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-800 bg-amber-100 px-3 py-1 rounded-full">
+          <span id="beamer-spotlight-label">⭐ Fokus-Antwort zur gemeinsamen Besprechung (anonym)</span>
+        </div>
+        <div id="beamer-spotlight-original" class="hidden text-base text-slate-500 line-through bg-white p-3 rounded-xl border border-slate-200"></div>
+        <p id="beamer-spotlight-text" class="text-2xl sm:text-4xl font-bold text-slate-900 leading-relaxed break-words"></p>
+      </div>
+
+      <!-- Standard Beamer-Ergebnisse -->
+      <div id="beamer-solution" class="hidden card p-5 mb-4 border-2 border-emerald-400 bg-emerald-50/50 text-xl sm:text-2xl font-bold text-emerald-900 text-center"></div>
+      <div id="beamer-normal-area">
+        <div id="beamer-results-hidden" class="card p-10 text-center text-slate-400">
+          <p class="text-lg font-medium">Die Ergebnisse sind noch ausgeblendet.</p>
+        </div>
+
+        <div id="beamer-results-visible" class="hidden space-y-6">
+          <div id="beamer-summary" class="hidden card p-6 space-y-4"></div>
+          <div id="beamer-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </div>
+      </div>
+
+      <div id="beamer-closed" class="hidden card p-10 text-center text-slate-500">
+        <p class="text-lg font-medium">Diese Session ist beendet.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- STEUERLEISTE PROJEKTIONSMODUS (ohne Namen) -->
+  <div id="projection-bar" class="hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-slate-200 px-3 py-2.5 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-center gap-2">
+      <span id="pj-status" class="text-xs font-semibold text-slate-500 px-2"></span>
+      <button onclick="toggleBeamerResults()" id="pj-results" class="px-3 py-2 rounded-xl border border-indigo-300 bg-white text-indigo-700 text-xs sm:text-sm font-semibold">👁️ Ergebnisse zeigen</button>
+      <button onclick="toggleBeamerNames()" id="pj-names" class="px-3 py-2 rounded-xl border border-indigo-300 bg-white text-indigo-700 text-xs sm:text-sm font-semibold">👤 Namen zeigen</button>
+      <button onclick="clearSpotlight()" id="pj-spotlight" class="hidden px-3 py-2 rounded-xl bg-amber-500 text-white text-xs sm:text-sm font-semibold">⭐ Spotlight beenden</button>
+      <button onclick="toggleRevealSolution()" id="pj-reveal" class="hidden px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-medium">💡 Lösung zeigen</button>
+      <button onclick="toggleInputLock()" id="pj-lock" class="px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-medium">🔓 Eingabe offen</button>
+      <button onclick="addTimerSeconds(30)" class="px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-medium">⏱️ +30s</button>
+      <button onclick="exitProjectionMode()" class="px-3 py-2 rounded-xl bg-slate-900 text-white text-xs sm:text-sm font-semibold">✕ Zurück zum Dashboard</button>
+    </div>
+    <p id="pj-hint" class="text-center text-[11px] text-slate-400 mt-1">Tipp: Auf eine Antwortkarte tippen, um sie als Spotlight gross zu zeigen.</p>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] bg-slate-900 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg max-w-[90vw] text-center"></div>
+
+  <!-- MODAL: KLASSENLISTEN VERWALTEN -->
+  <div id="class-modal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <h3 id="class-modal-title" class="font-bold text-lg text-slate-900">Klassenlisten verwalten</h3>
+        <button onclick="closeClassModal()" class="text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+      <p class="text-xs text-slate-600">Nur für dich sichtbar. Bitte nur Vornamen oder Kürzel eintragen. So siehst du live, wer noch nicht abgegeben hat.</p>
+      <div class="space-y-2.5">
+        <input type="text" id="new-class-name" maxlength="30" placeholder="Klassenname (z. B. 2A)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+        <textarea id="new-class-students" rows="5" placeholder="Vornamen (ein Name pro Zeile oder mit Komma getrennt)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"></textarea>
+        <div class="flex items-center gap-2">
+          <button onclick="saveClassList()" id="btn-save-class" class="btn-primary px-4 py-2 text-sm">Klasse speichern</button>
+          <button onclick="resetClassForm()" id="btn-cancel-class-edit" class="hidden px-4 py-2 rounded-xl border border-slate-300 text-sm">Abbrechen</button>
+        </div>
+      </div>
+      <div id="saved-classes-list" class="space-y-2 max-h-52 overflow-y-auto pt-2 border-t border-slate-100"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: KI-SCHNELLIMPORT -->
+  <div id="qr-full" class="hidden fixed inset-0 z-[80] bg-white flex flex-col items-center justify-center gap-4 p-4 cursor-zoom-out" onclick="closeQrFull()">
+    <div id="qr-full-code" class="w-[min(80vw,78vh)] h-[min(80vw,78vh)]"></div>
+    <div class="text-center">
+      <div class="text-3xl sm:text-5xl font-extrabold text-slate-900 font-mono tracking-widest">Code: <span id="qr-full-room"></span></div>
+      <div id="qr-full-url" class="text-sm sm:text-lg text-slate-500 mt-1 break-all"></div>
+    </div>
+  </div>
+
+  <div id="live-settings-modal" class="hidden fixed inset-0 bg-slate-900/50 z-[60] flex items-center justify-center p-4" onclick="if(event.target===this)closeLiveSettings()">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-xl max-h-[92vh] overflow-y-auto">
+      <div class="flex justify-between items-center">
+        <h3 class="font-bold text-slate-900">⚙️ Einstellungen dieser Frage</h3>
+        <button onclick="closeLiveSettings()" class="text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+      <div id="ls-attendance" class="space-y-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="text-xs font-semibold uppercase tracking-wider text-slate-500">Wer ist da? <span class="normal-case font-normal">– antippen = abwesend</span></div>
+          <div class="flex items-center gap-2">
+            <span id="ls-attendance-count" class="text-xs font-bold text-indigo-700"></span>
+            <button type="button" onclick="setAllPresent('live')" class="text-xs px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 font-semibold">Alle da</button>
+          </div>
+        </div>
+        <div id="ls-attendance-chips" class="flex flex-wrap gap-1.5"></div>
+        <p class="text-[11px] text-slate-500">Änderungen gelten sofort. Wer schon geantwortet hat, behält seine Antwort.</p>
+      </div>
+      <div class="space-y-2.5 border-t border-slate-100 pt-3">
+        <label class="flex items-start gap-2 text-sm text-slate-700 cursor-pointer"><input type="checkbox" id="ls-revise" onchange="setLiveOption('allowRevise', this.checked)" class="accent-indigo-600 w-4 h-4 mt-0.5 shrink-0" /> <span><b>Nachbessern erlaubt</b> – nach ⚠️ «Fast» oder ❌ «Noch nicht»</span></label>
+        <label class="flex items-start gap-2 text-sm text-slate-700 cursor-pointer"><input type="checkbox" id="ls-spotnote" onchange="setLiveOption('spotlightNotice', this.checked)" class="accent-indigo-600 w-4 h-4 mt-0.5 shrink-0" /> <span><b>⭐-Hinweis</b> – Schüler sehen, wenn ihre Antwort anonym am Beamer gezeigt wird</span></label>
+        <label class="flex items-start gap-2 text-sm text-slate-700 cursor-pointer"><input type="checkbox" id="ls-names" onchange="setNamesVisible(this.checked)" class="accent-indigo-600 w-4 h-4 mt-0.5 shrink-0" /> <span><b>Namen sichtbar</b> – nur in deiner Ansicht</span></label>
+      </div>
+      <div class="border-t border-slate-100 pt-3">
+        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Zeitlimit</label>
+        <div class="flex flex-wrap items-center gap-2">
+          <select id="ls-timer" class="rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white">
+            <option value="0">Kein Zeitlimit</option>
+            <option value="30">noch 30 Sekunden</option>
+            <option value="60">noch 60 Sekunden</option>
+            <option value="90">noch 90 Sekunden</option>
+            <option value="120">noch 2 Minuten</option>
+            <option value="180">noch 3 Minuten</option>
+            <option value="300">noch 5 Minuten</option>
+          </select>
+          <button onclick="applyLiveTimer()" class="btn-primary px-4 py-2 text-sm">Übernehmen</button>
+          <span id="ls-timer-state" class="text-xs text-slate-500"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="feedback-modal" class="hidden fixed inset-0 bg-slate-900/50 z-[60] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-5 space-y-3 shadow-xl max-h-[92vh] overflow-y-auto">
+      <div class="flex justify-between items-center">
+        <h3 class="font-bold text-slate-900">💬 Kommentar an <span id="fb-name"></span></h3>
+        <button onclick="closeFeedbackModal()" class="text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+      <p id="fb-answer" class="text-sm text-slate-700 bg-slate-50 rounded-lg p-2.5 border border-slate-200 break-words whitespace-pre-wrap max-h-28 overflow-y-auto"></p>
+      <div>
+        <textarea id="fb-text" rows="2" maxlength="120" placeholder="Kurzer Kommentar (max. 120 Zeichen)" oninput="document.getElementById('fb-count').textContent = this.value.length + ' / 120'" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+        <div id="fb-count" class="text-right text-[11px] text-slate-400">0 / 120</div>
+      </div>
+      <div>
+        <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Bausteine (Klick fügt hinzu)</div>
+        <div id="fb-chips" class="flex flex-wrap gap-1.5"></div>
+      </div>
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+        <button onclick="saveFeedbackPhrase()" class="text-xs text-indigo-700 hover:underline font-semibold">＋ Text als Baustein speichern</button>
+        <div class="flex gap-2">
+          <button onclick="sendFeedback(true)" id="fb-remove" class="px-3 py-2 rounded-xl border border-slate-300 text-sm">Entfernen</button>
+          <button onclick="sendFeedback(false)" class="btn-primary px-4 py-2 text-sm">Senden</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="import-modal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-lg text-slate-900">KI-Schnellimport</h3>
+        <button onclick="closeImportModal()" class="text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+      <p class="text-xs text-slate-600">Füge eine Frage direkt im Format <code>Typ | Frage | Option 1 | Option 2 ...</code> oder als JSON ein. Typen: <code>text</code>, <code>mc</code>, <code>ampel</code>, <code>fix</code>, <code>order</code>, <code>tf</code>, <code>cloud</code>, <code>number</code>.<br>Richtige MC-Antwort mit <code>*</code> markieren (<code>*since 2022</code>). Beispiele: <code>tf | Bern ist die Hauptstadt. | richtig</code> · <code>number | Gründung der Eidgenossenschaft? | 1291</code> · <code>cloud | Was fällt dir zu Ferien ein? | 3</code> · <code>text | Frage | Musterlösung</code></p>
+      <textarea id="import-raw-text" rows="5" placeholder='mc | Welches Signalwort passt zum Present Perfect? | yesterday | since 2022 | last week | ago' class="w-full font-mono text-xs rounded-xl border border-slate-300 p-3"></textarea>
+      <div class="flex justify-end gap-2">
+        <button onclick="closeImportModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-sm">Abbrechen</button>
+        <button onclick="processQuickImport()" class="btn-primary px-4 py-2 text-sm">In Formular laden</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BIBLIOTHEKEN (lokal im Repo, keine fremden Server) -->
+  <script src="vendor/firebase-app-compat.js"></script>
+  <script src="vendor/firebase-auth-compat.js"></script>
+  <script src="vendor/firebase-firestore-compat.js"></script>
+  <script src="vendor/qrcode.js"></script>
+
+  <script>
+    // =========================================================================
+    // 1. FIREBASE
+    // =========================================================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyBHHhgjAvY0D0trm2IMxauhFp-ssw9ooz4",
+      authDomain: "zufallsgenerator-209f3.firebaseapp.com",
+      projectId: "zufallsgenerator-209f3",
+      storageBucket: "zufallsgenerator-209f3.firebasestorage.app",
+      messagingSenderId: "274439019701",
+      appId: "1:274439019701:web:b90892c5745657e39972fc"
+    };
+    const IS_DEMO = new URLSearchParams(location.search).has('demo');
+    const DEMO_USER = { uid: 'demo', isAnonymous: false, email: 'demo' };
+    let auth, db, FV;
+    if (IS_DEMO) {
+      // Demo: alles nur im Arbeitsspeicher dieses Tabs, kein Firebase, kein Login
+      const fake = createFakeDb();
+      db = fake.db;
+      FV = { serverTimestamp: () => fake.SERVER_TS };
+      auth = {
+        onAuthStateChanged: (cb) => setTimeout(() => cb(DEMO_USER), 0),
+        signOut: async () => {},
+        setPersistence: async () => {},
+        signInWithEmailAndPassword: async () => {},
+        sendPasswordResetEmail: async () => {}
+      };
+    } else {
+      firebase.initializeApp(firebaseConfig);
+      auth = firebase.auth();
+      db = firebase.firestore();
+      FV = firebase.firestore.FieldValue;
+    }
+
+    const SESSIONS = 'lightningSessions';          // öffentliche Session-Daten (Frage, Namensliste der Klasse)
+    const TEACHERS = 'lightningTeachers';          // privat pro Lehrperson: Klassen, Vorlagen, Lösungen
+    const SESSION_MAX_AGE_MS = 24 * 3600 * 1000;   // danach automatisch gelöscht
+
+    // =========================================================================
+    // 2. APP STATE & ROUTING
+    // =========================================================================
+    const params = new URLSearchParams(window.location.search);
+    const paramCode = (params.get('code') || '').trim();
+    const paramBeamer = (params.get('beamer') || '').trim();
+
+    let mode = paramBeamer ? 'beamer' : (paramCode ? 'student' : 'teacher');
+    let currentUser = null;
+    let teacherDataFor = null;        // uid, für den Klassen/Vorlagen geladen sind
+    let teacherUnsubs = [];
+    let liveUnsubs = [];
+    let studentUnsub = null;
+    let pendingStudentCode = paramCode || null;
+
+    let currentQuestionType = 'text';
+    let currentRoomCode = null;       // Lehrperson: laufende Session
+    let currentSessionData = null;
+    let currentResponses = [];
+    let currentSolution = null;       // korrekte Reihenfolge (nur Lehrperson)
+    let showNamesInTeacherView = true;
+    let cachedClasses = {};
+    let cachedTemplates = [];
+    let editingClassId = null;
+
+    // Schüler-State
+    let studentRoomCode = null;
+    let studentSession = null;
+    let studentHasSubmitted = false;
+    let selectedMcIndex = null;
+    let selectedAmpelValue = null;
+    let selectedMcSet = new Set();
+    let selectedTf = null;
+    let studentOrderItems = [];
+    let studentResp = null;           // eigene Antwort inkl. Feedback der Lehrperson
+    let studentRespUnsub = null;
+    let lastFeedbackSig = null;
+    let deviceId = getDeviceId();   // geheimer Zufallsschlüssel dieses Geräts (Schüler brauchen kein Login)
+
+    const timers = {};
+
+    const isTeacherUser = (u) => !!u && !u.isAnonymous;
+    const teacherRef = () => db.collection(TEACHERS).doc(currentUser.uid);
+    const sessionRef = (code) => db.collection(SESSIONS).doc(code);
+
+    function showView(id) {
+      setTimeout(() => { try { updateUndoBtn(); } catch (e) {} }, 0);
+      ['view-loading', 'view-login', 'view-teacher', 'view-student', 'view-beamer'].forEach(v =>
+        document.getElementById(v).classList.toggle('hidden', v !== id));
+      document.getElementById('nav-teacher').classList.toggle('pill-active', id === 'view-teacher' || id === 'view-login');
+      document.getElementById('nav-student').classList.toggle('pill-active', id === 'view-student');
+    }
+
+    function renderHeader() {
+      const teacher = isTeacherUser(currentUser);
+      document.getElementById('btn-classes').classList.toggle('hidden', !teacher || mode !== 'teacher');
+      document.getElementById('btn-logout').classList.toggle('hidden', !teacher || IS_DEMO);
+      document.getElementById('header-actions').classList.toggle('hidden', mode === 'beamer');
+      document.getElementById('demo-banner').classList.toggle('hidden', !IS_DEMO);
+    }
+
+    auth.onAuthStateChanged((user) => {
+      currentUser = user;
+      if (!isTeacherUser(user)) stopTeacherData();
+      route();
+    });
+
+    function route() {
+      renderHeader();
+      if (mode === 'teacher') {
+        if (isTeacherUser(currentUser)) {
+          showView('view-teacher');
+          if (teacherDataFor !== currentUser.uid) {
+            teacherDataFor = currentUser.uid;
+            if (IS_DEMO) seedDemoData();
+            startTeacherData();
+            cleanupOldSessions();
+            resumeActiveSession();
+          }
+        } else {
+          document.getElementById('login-hint').textContent = 'Melde dich mit deinem Lehrpersonen-Konto an. Klassenlisten und Vorlagen sind nur für dich sichtbar.';
+          showView('view-login');
+        }
+      } else if (mode === 'beamer') {
+        if (isTeacherUser(currentUser)) {
+          showView('view-beamer');
+          if (teacherDataFor !== currentUser.uid + ':beamer') {
+            teacherDataFor = currentUser.uid + ':beamer';
+            initBeamerView(paramBeamer);
+          }
+        } else {
+          document.getElementById('login-hint').textContent = 'Die Beamer-Ansicht ist nur für die Lehrperson. Bitte anmelden.';
+          showView('view-login');
+        }
+      } else if (mode === 'student') {
+        showView('view-student');
+        if (pendingStudentCode) {
+          const c = pendingStudentCode;
+          pendingStudentCode = null;
+          connectStudentToRoom(c);
+        }
+      }
+    }
+
+    function switchRole(role) {
+      if (mode === 'beamer') return;
+      mode = role;
+      route();
+    }
+
+    function newDeviceId() {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      const bytes = crypto.getRandomValues(new Uint8Array(28));
+      return Array.from(bytes, b => chars[b % chars.length]).join('');
+    }
+    function getDeviceId() {
+      let id = localStorage.getItem('lightning_device_id');
+      if (!id || !/^[A-Za-z0-9]{20,40}$/.test(id)) {
+        id = newDeviceId();
+        localStorage.setItem('lightning_device_id', id);
+      }
+      return id;
+    }
+
+    // =========================================================================
+    // 3. LOGIN LEHRPERSON
+    // =========================================================================
+    async function handleTeacherLogin(event) {
+      event.preventDefault();
+      const email = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
+      const err = document.getElementById('login-error');
+      const btn = document.getElementById('login-submit');
+      err.classList.add('hidden');
+      document.getElementById('login-info').classList.add('hidden');
+      btn.disabled = true; btn.textContent = 'Anmelden…';
+      try {
+        await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+        await auth.signInWithEmailAndPassword(email, password);
+        document.getElementById('login-password').value = '';
+      } catch (e) {
+        err.textContent = 'Anmeldung fehlgeschlagen: Bitte E-Mail und Passwort prüfen.';
+        err.classList.remove('hidden');
+      } finally {
+        btn.disabled = false; btn.textContent = 'Anmelden';
+      }
+    }
+
+    async function handlePasswordReset() {
+      const email = document.getElementById('login-email').value.trim();
+      const err = document.getElementById('login-error');
+      const info = document.getElementById('login-info');
+      err.classList.add('hidden'); info.classList.add('hidden');
+      if (!email) {
+        err.textContent = 'Bitte zuerst oben die E-Mail-Adresse eingeben.';
+        err.classList.remove('hidden');
+        return;
+      }
+      try {
+        await auth.sendPasswordResetEmail(email);
+        info.textContent = 'Falls ein Konto existiert, wurde eine E-Mail zum Zurücksetzen verschickt.';
+        info.classList.remove('hidden');
+      } catch (e) {
+        err.textContent = 'E-Mail konnte nicht verschickt werden.';
+        err.classList.remove('hidden');
+      }
+    }
+
+    async function logoutTeacher() {
+      if (currentRoomCode && !confirm('Es läuft noch eine Session. Trotzdem abmelden? Die Session läuft weiter.')) return;
+      stopLive();
+      stopTeacherData();
+      teacherDataFor = null;
+      await auth.signOut();
+      mode = 'teacher';
+      route();
+    }
+
+    // =========================================================================
+    // 4. LEHRPERSON: DATEN (KLASSEN, VORLAGEN), AUFRÄUMEN, FORTSETZEN
+    // =========================================================================
+    function startTeacherData() {
+      stopTeacherData();
+      startSessionList();
+      teacherUnsubs.push(teacherRef().collection('classes').onSnapshot((snap) => {
+        cachedClasses = {};
+        snap.forEach(d => { cachedClasses[d.id] = d.data(); });
+        renderClassDropdowns();
+        renderSavedClassesModal();
+      }, () => toast('Klassen konnten nicht geladen werden.')));
+      teacherUnsubs.push(teacherRef().collection('templates').onSnapshot((snap) => {
+        cachedTemplates = snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) }));
+        cachedTemplates.sort((a, b) => tsMillis(b.createdAt) - tsMillis(a.createdAt));
+        renderTemplates();
+      }, () => toast('Vorlagen konnten nicht geladen werden.')));
+    }
+
+    function stopTeacherData() {
+      teacherUnsubs.forEach(u => u());
+      teacherUnsubs = [];
+      cachedClasses = {};
+      cachedTemplates = [];
+      customPhrases = null;
+      undoStack = [];
+    }
+
+    async function cleanupOldSessions() {
+      try {
+        const uid = currentUser.uid;
+        const qs = await db.collection(SESSIONS).where('ownerUid', '==', uid).get();
+        const cutoff = Date.now() - SESSION_MAX_AGE_MS;
+        for (const d of qs.docs) {
+          const created = tsMillis(d.data().createdAt);
+          if (created && created < cutoff) await deleteSessionCompletely(d.id);
+        }
+      } catch (e) { /* nächster Versuch beim nächsten Login */ }
+    }
+
+    async function deleteSessionCompletely(code) {
+      const rs = await sessionRef(code).collection('responses').get();
+      const batch = db.batch();
+      rs.forEach(r => batch.delete(r.ref));
+      batch.delete(sessionRef(code));
+      batch.delete(teacherRef().collection('solutions').doc(code));
+      await batch.commit();
+    }
+
+    async function resumeActiveSession() {
+      const key = 'lightning_activeSession_' + currentUser.uid;
+      const code = localStorage.getItem(key);
+      if (!code) return;
+      try {
+        const snap = await sessionRef(code).get();
+        const d = snap.exists ? snap.data() : null;
+        if (d && d.ownerUid === currentUser.uid && d.active) {
+          showTeacherLiveDashboard(code);
+          toast('Laufende Session ' + code + ' fortgesetzt.');
+        } else {
+          localStorage.removeItem(key);
+        }
+      } catch (e) { localStorage.removeItem(key); }
+    }
+
+    // =========================================================================
+    // 5. LEHRPERSON: FRAGE ERSTELLEN & SESSION STARTEN
+    // =========================================================================
+    const TYPES = ['text', 'mc', 'ampel', 'fix', 'order', 'tf', 'cloud', 'number'];
+    let mcDraft = [{ text: '', correct: false }, { text: '', correct: false }, { text: '', correct: false }, { text: '', correct: false }];
+    let orderDraft = ['', '', ''];
+    let tfSolution = '';
+
+    function selectType(type) {
+      if (!TYPES.includes(type)) type = 'text';
+      currentQuestionType = type;
+      document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('pill-active'));
+      document.getElementById('type-' + type).classList.add('pill-active');
+      document.getElementById('mc-options-box').classList.toggle('hidden', type !== 'mc');
+      document.getElementById('fix-sentence-box').classList.toggle('hidden', type !== 'fix');
+      document.getElementById('order-items-box').classList.toggle('hidden', type !== 'order');
+      document.getElementById('solution-box').classList.toggle('hidden', type !== 'text' && type !== 'fix');
+      document.getElementById('tf-box').classList.toggle('hidden', type !== 'tf');
+      document.getElementById('cloud-box').classList.toggle('hidden', type !== 'cloud');
+      document.getElementById('number-box').classList.toggle('hidden', type !== 'number');
+      document.getElementById('solution-hint').textContent = type === 'fix'
+        ? 'Stimmt eine Antwort genau überein (Leerzeichen und Gross-/Kleinschreibung egal, Satzzeichen zählen), gibt es automatisch ✅. Sonst entscheidest du.'
+        : 'Stimmt eine Antwort genau überein (Gross-/Kleinschreibung, Leerzeichen und Schlusspunkt egal), gibt es automatisch ✅. Sonst entscheidest du.';
+      if (type === 'mc') renderMcEditor();
+      if (type === 'order') renderOrderEditor();
+      if (type === 'tf') setTfSolution(tfSolution);
+    }
+
+    // Multiple Choice: 2–8 Optionen, Lösung(en) markierbar
+    function renderMcEditor() {
+      const multi = document.getElementById('mc-multi').checked;
+      document.getElementById('mc-list').innerHTML = mcDraft.map((o, i) => `
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="toggleMcCorrect(${i})" title="${multi ? 'Richtige Antworten markieren' : 'Richtige Antwort markieren'}" class="w-9 h-9 shrink-0 ${multi ? 'rounded-lg' : 'rounded-full'} border-2 font-bold ${o.correct ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 bg-white text-slate-300 hover:border-emerald-400'}">✓</button>
+          <input type="text" id="mc-opt-${i}" maxlength="200" value="${escapeHTML(o.text)}" oninput="mcDraft[${i}].text = this.value" placeholder="Option ${String.fromCharCode(65 + i)}${i >= 2 ? ' (optional)' : ''}" class="flex-1 min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+          <button type="button" onclick="removeMcOption(${i})" ${mcDraft.length <= 2 ? 'disabled' : ''} title="Option entfernen" class="w-8 h-8 shrink-0 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-30">✕</button>
+        </div>`).join('');
+      document.getElementById('mc-add').classList.toggle('hidden', mcDraft.length >= 8);
+    }
+    function toggleMcCorrect(i) {
+      const multi = document.getElementById('mc-multi').checked;
+      const was = mcDraft[i].correct;
+      if (!multi) mcDraft.forEach(o => { o.correct = false; });
+      mcDraft[i].correct = !was;
+      renderMcEditor();
+    }
+    function addMcOption() {
+      if (mcDraft.length >= 8) return;
+      mcDraft.push({ text: '', correct: false });
+      renderMcEditor();
+      document.getElementById('mc-opt-' + (mcDraft.length - 1)).focus();
+    }
+    function removeMcOption(i) {
+      if (mcDraft.length <= 2) return;
+      mcDraft.splice(i, 1);
+      renderMcEditor();
+    }
+
+    // Reihenfolge: 3–10 Elemente
+    function renderOrderEditor() {
+      document.getElementById('order-list').innerHTML = orderDraft.map((t, i) => `
+        <div class="flex items-center gap-1.5">
+          <span class="w-6 text-right text-sm font-bold text-indigo-600 shrink-0">${i + 1}.</span>
+          <input type="text" id="order-item-${i}" maxlength="200" value="${escapeHTML(t)}" oninput="orderDraft[${i}] = this.value" placeholder="${i + 1}. Element${i >= 3 ? ' (optional)' : ''}" class="flex-1 min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+          <button type="button" onclick="moveOrderDraft(${i}, -1)" ${i === 0 ? 'disabled' : ''} class="w-7 h-8 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-xs font-bold">↑</button>
+          <button type="button" onclick="moveOrderDraft(${i}, 1)" ${i === orderDraft.length - 1 ? 'disabled' : ''} class="w-7 h-8 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-xs font-bold">↓</button>
+          <button type="button" onclick="removeOrderItem(${i})" ${orderDraft.length <= 3 ? 'disabled' : ''} class="w-7 h-8 rounded text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-30">✕</button>
+        </div>`).join('');
+      document.getElementById('order-add').classList.toggle('hidden', orderDraft.length >= 10);
+    }
+    function addOrderItem() {
+      if (orderDraft.length >= 10) return;
+      orderDraft.push('');
+      renderOrderEditor();
+      document.getElementById('order-item-' + (orderDraft.length - 1)).focus();
+    }
+    function removeOrderItem(i) {
+      if (orderDraft.length <= 3) return;
+      orderDraft.splice(i, 1);
+      renderOrderEditor();
+    }
+    function moveOrderDraft(i, dir) {
+      const j = i + dir;
+      if (j < 0 || j >= orderDraft.length) return;
+      [orderDraft[i], orderDraft[j]] = [orderDraft[j], orderDraft[i]];
+      renderOrderEditor();
+    }
+
+    function setTfSolution(v) {
+      tfSolution = v;
+      document.querySelectorAll('.tf-sol').forEach(b => b.classList.remove('pill-active'));
+      document.getElementById('tf-sol-' + (v || 'none')).classList.add('pill-active');
+    }
+
+    function parseNum(v) {
+      const t = String(v == null ? '' : v).trim().replace(/[’'\s]/g, '').replace(',', '.');
+      if (!t) return null;
+      const n = Number(t);
+      return Number.isFinite(n) ? n : NaN;
+    }
+
+    function clearForm() {
+      document.getElementById('input-question').value = '';
+      document.getElementById('fix-initial-text').value = '';
+      document.getElementById('solution-text').value = '';
+      document.getElementById('mc-multi').checked = false;
+      mcDraft = [0, 1, 2, 3].map(() => ({ text: '', correct: false }));
+      orderDraft = ['', '', ''];
+      tfSolution = '';
+      document.getElementById('cloud-max').value = '3';
+      ['num-correct', 'num-tol', 'num-unit'].forEach(id => { document.getElementById(id).value = ''; });
+      renderMcEditor();
+      renderOrderEditor();
+      setTfSolution('');
+    }
+
+    // Formular aus Vorlage / Import füllen
+    function fillForm(t) {
+      clearForm();
+      const type = TYPES.includes(t.type) ? t.type : 'text';
+      document.getElementById('input-question').value = t.question || '';
+      const sol = t.solution || {};
+      if (type === 'mc') {
+        const opts = (t.options || []).slice(0, 8);
+        const correct = sol.mcCorrect || [];
+        document.getElementById('mc-multi').checked = !!t.multi;
+        mcDraft = (opts.length ? opts : ['', '']).map(o => ({ text: String(o), correct: correct.includes(String(o)) }));
+        while (mcDraft.length < 2) mcDraft.push({ text: '', correct: false });
+      } else if (type === 'order') {
+        orderDraft = (t.options || []).slice(0, 10).map(String);
+        while (orderDraft.length < 3) orderDraft.push('');
+      } else if (type === 'fix') {
+        document.getElementById('fix-initial-text').value = t.initialText || '';
+      } else if (type === 'tf') {
+        tfSolution = sol.tf === 'true' || sol.tf === 'false' ? sol.tf : '';
+      } else if (type === 'cloud') {
+        document.getElementById('cloud-max').value = String([1, 2, 3, 5].includes(Number(t.maxTerms)) ? t.maxTerms : 3);
+      } else if (type === 'number') {
+        document.getElementById('num-correct').value = sol.num != null ? String(sol.num) : '';
+        document.getElementById('num-tol').value = sol.tol ? String(sol.tol) : '';
+        document.getElementById('num-unit').value = t.unit || '';
+      }
+      if ((type === 'text' || type === 'fix') && Array.isArray(sol.accepted)) document.getElementById('solution-text').value = sol.accepted.join('\n');
+      selectType(type);
+    }
+
+    function generateRoomCode() {
+      // 6 Ziffern (statt 4): 1 Mio. mögliche Codes, schwerer zu erraten
+      const buf = new Uint32Array(1);
+      crypto.getRandomValues(buf);
+      return String(100000 + (buf[0] % 900000));
+    }
+
+    function getBaseUrl() {
+      return window.location.origin + window.location.pathname;
+    }
+
+    function collectFormData() {
+      const type = currentQuestionType;
+      const form = { type, question: document.getElementById('input-question').value.trim(), options: [], initialText: '', solution: {} };
+      if (type === 'mc') {
+        const filled = mcDraft.map(o => ({ text: o.text.trim(), correct: o.correct })).filter(o => o.text);
+        form.options = filled.map(o => o.text);
+        form.multi = document.getElementById('mc-multi').checked;
+        const correct = filled.filter(o => o.correct).map(o => o.text);
+        if (correct.length) form.solution.mcCorrect = form.multi ? correct : correct.slice(0, 1);
+      } else if (type === 'fix') {
+        form.initialText = document.getElementById('fix-initial-text').value.trim();
+      } else if (type === 'order') {
+        form.options = orderDraft.map(t => t.trim()).filter(Boolean);
+        form.solution.order = form.options;
+      } else if (type === 'tf') {
+        if (tfSolution) form.solution.tf = tfSolution;
+      } else if (type === 'cloud') {
+        form.maxTerms = Number(document.getElementById('cloud-max').value) || 3;
+      } else if (type === 'number') {
+        form.unit = document.getElementById('num-unit').value.trim();
+        const n = parseNum(document.getElementById('num-correct').value);
+        const tol = parseNum(document.getElementById('num-tol').value);
+        if (n !== null) form.solution.num = n;
+        if (tol !== null && !Number.isNaN(tol)) form.solution.tol = Math.abs(tol);
+      }
+      if (type === 'text' || type === 'fix') {
+        const acc = document.getElementById('solution-text').value.split('\n').map(x => x.trim()).filter(Boolean).slice(0, 10);
+        if (acc.length) form.solution.accepted = acc;
+      }
+      return form;
+    }
+
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    // Mischen, aber nie schon in der richtigen Reihenfolge
+    function shuffleDifferent(arr) {
+      if (arr.length < 2) return [...arr];
+      let a = shuffle(arr);
+      for (let i = 0; i < 20 && a.join('\u0001') === arr.join('\u0001'); i++) a = shuffle(arr);
+      return a;
+    }
+
+    async function startSession() {
+      const form = collectFormData();
+      if (!form.question) return toast('Bitte gib zuerst eine Frage ein.');
+      if (form.type === 'mc' && form.options.length < 2) return toast('Bitte mindestens 2 Antwortmöglichkeiten eingeben.');
+      if (form.type === 'number' && Number.isNaN(form.solution.num)) return toast('Die richtige Zahl ist keine gültige Zahl.');
+      if (form.type === 'mc' && new Set(form.options).size !== form.options.length) return toast('Die Antwortmöglichkeiten müssen verschieden sein.');
+      if (form.type === 'fix' && !form.initialText) return toast('Bitte gib den fehlerhaften Ausgangssatz ein.');
+      if (form.type === 'order' && form.options.length < 3) return toast('Bitte mindestens 3 Elemente zum Sortieren eingeben.');
+      if (form.type === 'order' && new Set(form.options).size !== form.options.length) return toast('Die Elemente müssen verschieden sein.');
+
+      const classId = document.getElementById('select-session-class').value;
+      const cls = classId ? cachedClasses[classId] : null;
+      if (cls && presentStudents(classId).length === 0) return toast('Es ist niemand als anwesend markiert.');
+      const timerSec = parseInt(document.getElementById('select-session-timer').value, 10) || 0;
+
+      const base = {
+        ownerUid: currentUser.uid,
+        type: form.type,
+        question: form.question,
+        // Bei «Reihenfolge» bekommen die Schüler nur die gemischten Elemente – die Lösung bleibt privat
+        options: form.type === 'order' ? shuffleDifferent(form.options) : (form.type === 'mc' ? form.options : []),
+        initialText: form.initialText,
+        roster: cls ? presentStudents(classId) : null,
+        classId: cls ? classId : null,
+        className: cls ? cls.name : null,
+        durationSec: timerSec,
+        startedAt: FV.serverTimestamp(),
+        locked: false,
+        active: true,
+        showOnBeamer: false,
+        showNamesOnBeamer: false,
+        spotlightKey: null,
+        multi: form.type === 'mc' && !!form.multi,
+        maxTerms: form.type === 'cloud' ? form.maxTerms : null,
+        unit: form.type === 'number' ? (form.unit || '') : '',
+        revealed: null,
+        allowRevise: document.getElementById('opt-allow-revise').checked,
+        spotlightNotice: document.getElementById('opt-spotlight-notice').checked,
+        createdAt: FV.serverTimestamp()
+      };
+
+      const btn = document.getElementById('btn-start-session');
+      btn.disabled = true;
+      try {
+        let code = null;
+        for (let attempt = 0; attempt < 15 && !code; attempt++) {
+          const c = generateRoomCode();
+          try {
+            code = await db.runTransaction(async (tx) => {
+              const snap = await tx.get(sessionRef(c));
+              if (snap.exists) return null;          // Code belegt → neuen versuchen
+              tx.set(sessionRef(c), { ...base, code: c });
+              return c;
+            });
+          } catch (e) {
+            if (e.code !== 'permission-denied' && e.code !== 'aborted') throw e;
+          }
+        }
+        if (!code) throw new Error('Kein freier Code gefunden.');
+        // Lösung bleibt privat bei der Lehrperson (Schüler können sie nicht lesen)
+        if (Object.keys(form.solution).length) {
+          await teacherRef().collection('solutions').doc(code).set({ ...form.solution, createdAt: FV.serverTimestamp() });
+        }
+        if (!IS_DEMO) localStorage.setItem('lightning_activeSession_' + currentUser.uid, code);
+        showTeacherLiveDashboard(code);
+        if (IS_DEMO) startDemoBots(code, form);
+      } catch (e) {
+        toast('Session konnte nicht gestartet werden. Bitte nochmals versuchen.');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // =========================================================================
+    // 6. LEHRPERSON: LIVE-DASHBOARD
+    // =========================================================================
+    function stopLive() {
+      liveUnsubs.forEach(u => u());
+      liveUnsubs = [];
+      clearInterval(timers['teacher-timer-badge']);
+    }
+
+    function showTeacherLiveDashboard(code) {
+      stopLive();
+      currentRoomCode = code;
+      currentSessionData = null;
+      currentResponses = [];
+      currentSolution = null;
+
+      document.getElementById('teacher-setup').classList.add('hidden');
+      document.getElementById('teacher-live').classList.remove('hidden');
+      document.getElementById('live-room-code').textContent = code;
+      renderQR('qr-teacher', studentLink(code));
+
+      liveUnsubs.push(sessionRef(code).onSnapshot((snap) => {
+        if (!snap.exists) { backToSetup(); return; }
+        currentSessionData = snap.data({ serverTimestamps: 'estimate' });
+        renderLiveSession();
+      }, () => toast('Verbindung zur Session unterbrochen.')));
+
+      liveUnsubs.push(sessionRef(code).collection('responses').onSnapshot((snap) => {
+        currentResponses = snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) }));
+        renderLiveResponses();
+        ensureHashes(currentResponses.map(r => r.id), renderLiveResponses);
+        autoEvaluate();
+      }, () => toast('Antworten konnten nicht geladen werden.')));
+
+      teacherRef().collection('solutions').doc(code).get().then((s) => {
+        currentSolution = s.exists ? s.data() : null;
+        renderLiveResponses();
+        updateRevealButtonUI();
+        autoEvaluate();
+      }).catch(() => {});
+    }
+
+    function renderLiveSession() {
+      const data = currentSessionData;
+      if (!data) return;
+      document.getElementById('live-question-title').textContent = data.question;
+      const ended = data.active === false;
+      document.getElementById('live-badge').classList.toggle('hidden', ended);
+      document.getElementById('ended-badge').classList.toggle('hidden', !ended);
+      const classBadge = document.getElementById('live-class-badge');
+      if (data.className) {
+        classBadge.textContent = 'Klasse ' + data.className;
+        classBadge.classList.remove('hidden');
+      } else {
+        classBadge.classList.add('hidden');
+      }
+      updateBeamerButtonUI(data.showOnBeamer);
+      updateBeamerNamesUI(data.showNamesOnBeamer === true);
+      updateLockButtonUI(isInputClosed(data));
+      document.getElementById('btn-clear-spotlight').classList.toggle('hidden', !data.spotlightKey);
+      updateRevealButtonUI();
+      updateReviseButtonUI(data.allowRevise === true);
+      startCountdown('teacher-timer-badge', data, () => { updateLockButtonUI(isInputClosed(data)); renderProjectionBar(); });
+      if (projectionOn) startCountdown('beamer-timer-badge', data);
+      renderLiveResponses();
+    }
+
+    function renderLiveResponses() {
+      if (!currentSessionData) return;
+      renderMissingStudents(currentSessionData, currentResponses);
+      renderTeacherResponses(currentSessionData, currentResponses);
+      syncProjection();
+    }
+
+    // =========================================================================
+    // 6b. PROJEKTIONSMODUS (Tablet wird gespiegelt: nur Beamer-Inhalte, keine Namen)
+    // =========================================================================
+    let projectionOn = false;
+
+    function enterProjectionMode() {
+      if (!currentRoomCode) return;
+      projectionOn = true;
+      document.getElementById('beamer-code').textContent = currentRoomCode;
+      renderQR('qr-beamer', studentLink(currentRoomCode));
+      document.getElementById('app-header').classList.add('hidden');
+      document.getElementById('demo-banner').classList.add('hidden');
+      document.getElementById('projection-bar').classList.remove('hidden');
+      document.getElementById('app-main').classList.add('pb-32');
+      showView('view-beamer');
+      if (currentSessionData) startCountdown('beamer-timer-badge', currentSessionData);
+      syncProjection();
+      window.scrollTo(0, 0);
+      try { document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
+    }
+
+    function exitProjectionMode() {
+      if (!projectionOn) return;
+      projectionOn = false;
+      clearInterval(timers['beamer-timer-badge']);
+      document.getElementById('app-header').classList.remove('hidden');
+      document.getElementById('projection-bar').classList.add('hidden');
+      document.getElementById('app-main').classList.remove('pb-32');
+      try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {}
+      renderHeader();
+      showView('view-teacher');
+    }
+
+    function syncProjection() {
+      if (!projectionOn || !currentSessionData) return;
+      beamerSession = currentSessionData;
+      beamerResponses = Object.fromEntries(currentResponses.map(r => [r.id, r]));
+      beamerSolution = currentSolution;
+      renderBeamer();
+      renderProjectionBar();
+    }
+
+    function renderProjectionBar() {
+      if (!projectionOn || !currentSessionData) return;
+      const d = currentSessionData;
+      const roster = Array.isArray(d.roster) ? d.roster : null;
+      let status = `${currentResponses.length} Antworten`;
+      if (roster && roster.length) {
+        const names = new Set(currentResponses.map(r => (r.name || '').trim().toLowerCase()));
+        status = `${roster.filter(n => names.has(n.toLowerCase())).length} / ${roster.length} abgegeben`;
+      }
+      document.getElementById('pj-status').textContent = status;
+      const res = document.getElementById('pj-results');
+      res.textContent = d.showOnBeamer ? '🙈 Ergebnisse ausblenden' : '👁️ Ergebnisse zeigen';
+      res.classList.toggle('bg-indigo-600', !!d.showOnBeamer);
+      res.classList.toggle('text-white', !!d.showOnBeamer);
+      res.classList.toggle('bg-white', !d.showOnBeamer);
+      res.classList.toggle('text-indigo-700', !d.showOnBeamer);
+      document.getElementById('pj-spotlight').classList.toggle('hidden', !d.spotlightKey);
+      updateRevealButtonUI();
+      const closed = isInputClosed(d);
+      const lock = document.getElementById('pj-lock');
+      lock.textContent = closed ? '🔒 Gesperrt – öffnen' : '🔓 Eingabe sperren';
+      lock.classList.toggle('bg-amber-100', closed);
+      lock.classList.toggle('border-amber-300', closed);
+    }
+
+    function studentLink(code) {
+      return IS_DEMO ? `${getBaseUrl()}?demo` : `${getBaseUrl()}?code=${code}`;
+    }
+
+    function renderMissingStudents(data, responses) {
+      const bar = document.getElementById('missing-students-bar');
+      const roster = Array.isArray(data.roster) ? data.roster : null;
+      if (!roster || roster.length === 0) {
+        bar.classList.add('hidden');
+        return;
+      }
+      bar.classList.remove('hidden');
+      const submittedNames = new Set(responses.map(r => (r.name || '').trim().toLowerCase()));
+      document.getElementById('missing-class-name').textContent = data.className || '';
+      const doneCount = roster.filter(n => submittedNames.has(n.toLowerCase())).length;
+      const nAbs = absentOfSession(data).length;
+      document.getElementById('missing-counter-text').textContent = `${doneCount} / ${roster.length} abgegeben` + (nAbs ? ` · ${nAbs} abwesend` : '');
+      document.getElementById('missing-students-pills').innerHTML = roster.map(name => {
+        const isDone = submittedNames.has(name.toLowerCase());
+        const style = isDone
+          ? 'bg-emerald-100 text-emerald-800 border-emerald-200 line-through opacity-75'
+          : 'bg-rose-50 text-rose-800 border-rose-200 font-semibold';
+        return `<span class="text-xs px-2.5 py-1 rounded-full border ${style}">${escapeHTML(name)}</span>`;
+      }).join('') + absentOfSession(data).map(name => `<span title="abwesend" class="text-xs px-2.5 py-1 rounded-full border border-slate-200 bg-slate-100 text-slate-400">${escapeHTML(name)} · abw.</span>`).join('');
+    }
+
+    const AMPEL_LABELS = { '1': '🟢 Alles klar', '2': '🟡 Meistens klar', '3': '🟠 Unsicher', '4': '🔴 Hilfe nötig' };
+    const ORDER_SEP = ' → ';
+
+    // Kurzer Hash eines Antwort-Schlüssels (für Spotlight)
+    const spotHash = {};
+    async function hashId(id) {
+      if (spotHash[id]) return spotHash[id];
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('lightning-spot:' + id));
+      const h = [...new Uint8Array(buf)].slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join('');
+      spotHash[id] = h;
+      return h;
+    }
+    function ensureHashes(ids, after) {
+      const missing = ids.filter(id => !spotHash[id]);
+      if (missing.length) Promise.all(missing.map(hashId)).then(after).catch(() => {});
+    }
+    function spotlightIdFrom(data, ids) {
+      if (!data || !data.spotlightKey) return null;
+      return ids.find(id => spotHash[id] === data.spotlightKey) || null;
+    }
+
+    // Feedback-Optionen im Startformular (werden auf dem Gerät gemerkt)
+    function saveFeedbackOptions() {
+      try {
+        localStorage.setItem('lightning_opt_revise', document.getElementById('opt-allow-revise').checked ? '1' : '0');
+        localStorage.setItem('lightning_opt_spotnote', document.getElementById('opt-spotlight-notice').checked ? '1' : '0');
+      } catch (e) {}
+    }
+    function loadFeedbackOptions() {
+      try {
+        const r = localStorage.getItem('lightning_opt_revise'), n = localStorage.getItem('lightning_opt_spotnote');
+        if (r !== null) document.getElementById('opt-allow-revise').checked = r === '1';
+        if (n !== null) document.getElementById('opt-spotlight-notice').checked = n === '1';
+      } catch (e) {}
+    }
+
+    // Kommentar an einzelne Schüler, mit Textbausteinen
+    const DEFAULT_PHRASES = ['Super gemacht!', 'Gut begründet!', 'Lies die Frage nochmals genau.', 'Zeitform prüfen.', 'Gross-/Kleinschreibung prüfen.', 'Satzzeichen prüfen.', 'Rechtschreibung prüfen.', 'Begründe deine Antwort.', 'Ein Detail fehlt noch.', 'Schau dir das Beispiel nochmals an.'];
+    let customPhrases = null;
+    let feedbackTarget = null;
+    async function loadCustomPhrases() {
+      if (customPhrases) return customPhrases;
+      try {
+        const s = await teacherRef().collection('settings').doc('feedback').get();
+        customPhrases = s.exists && Array.isArray(s.data().phrases) ? s.data().phrases : [];
+      } catch (e) { customPhrases = []; }
+      return customPhrases;
+    }
+    async function openFeedbackModal(respId) {
+      const item = currentResponses.find(r => r.id === respId);
+      if (!item) return;
+      feedbackTarget = respId;
+      document.getElementById('fb-name').textContent = showNamesInTeacherView ? (item.name || 'Anonym') : 'diese Person';
+      const ans = currentSessionData && currentSessionData.type === 'ampel' ? (AMPEL_LABELS[item.answer] || item.answer) + (item.comment ? ' – ' + item.comment : '') : item.answer;
+      document.getElementById('fb-answer').textContent = ans || '';
+      const ta = document.getElementById('fb-text');
+      ta.value = item.feedback || '';
+      document.getElementById('fb-count').textContent = ta.value.length + ' / 120';
+      document.getElementById('fb-remove').classList.toggle('hidden', !item.feedback);
+      document.getElementById('feedback-modal').classList.remove('hidden');
+      renderPhraseChips();
+      await loadCustomPhrases();
+      renderPhraseChips();
+      ta.focus();
+    }
+    function closeFeedbackModal() {
+      document.getElementById('feedback-modal').classList.add('hidden');
+      feedbackTarget = null;
+    }
+    function renderPhraseChips() {
+      const custom = customPhrases || [];
+      const chip = (p, i, own) => `<span class="inline-flex items-center rounded-full border ${own ? 'border-indigo-200 bg-indigo-50' : 'border-slate-200 bg-slate-50'} text-xs">
+          <button type="button" onclick="addPhrase(${own ? 'customPhrases' : 'DEFAULT_PHRASES'}[${i}])" class="px-2.5 py-1 hover:underline">${escapeHTML(p)}</button>${own ? `<button type="button" onclick="removePhrase(${i})" title="Baustein löschen" class="pr-2 text-slate-400 hover:text-rose-600">×</button>` : ''}</span>`;
+      document.getElementById('fb-chips').innerHTML = custom.map((p, i) => chip(p, i, true)).join('') + DEFAULT_PHRASES.map((p, i) => chip(p, i, false)).join('');
+    }
+    function addPhrase(p) {
+      const ta = document.getElementById('fb-text');
+      const next = (ta.value.trim() ? ta.value.trim() + ' ' : '') + p;
+      ta.value = next.slice(0, 120);
+      document.getElementById('fb-count').textContent = ta.value.length + ' / 120';
+      ta.focus();
+    }
+    async function saveFeedbackPhrase() {
+      const txt = document.getElementById('fb-text').value.trim();
+      if (!txt) return toast('Zuerst einen Text eingeben.');
+      await loadCustomPhrases();
+      if (customPhrases.includes(txt) || DEFAULT_PHRASES.includes(txt)) return toast('Diesen Baustein gibt es schon.');
+      customPhrases = [txt, ...customPhrases].slice(0, 30);
+      try { await teacherRef().collection('settings').doc('feedback').set({ phrases: customPhrases }); toast('Baustein gespeichert'); }
+      catch (e) { toast('Baustein konnte nicht gespeichert werden.'); }
+      renderPhraseChips();
+    }
+    async function removePhrase(i) {
+      customPhrases = customPhrases.filter((_, k) => k !== i);
+      try { await teacherRef().collection('settings').doc('feedback').set({ phrases: customPhrases }); } catch (e) {}
+      renderPhraseChips();
+    }
+    function sendFeedback(remove) {
+      if (!currentRoomCode || !feedbackTarget) return;
+      const txt = remove ? '' : document.getElementById('fb-text').value.trim().slice(0, 120);
+      const id = feedbackTarget;
+      closeFeedbackModal();
+      updateResponse(id, { feedback: txt }, 'Kommentar')
+        .then(() => toast(txt ? 'Kommentar gesendet' : 'Kommentar entfernt'))
+        .catch(() => toast('Kommentar konnte nicht gesendet werden.'));
+    }
+
+    function renderTeacherResponses(data, responses) {
+      const entries = [...responses].sort((a, b) => tsMillis(b.updatedAt) - tsMillis(a.updatedAt));
+      document.getElementById('response-counter').textContent = entries.length;
+
+      const summaryBox = document.getElementById('live-summary-box');
+      if (SUMMARY_TYPES.includes(data.type)) {
+        summaryBox.classList.remove('hidden');
+        summaryBox.innerHTML = buildSummaryHTML(data, entries, currentSolution);
+      } else {
+        summaryBox.classList.add('hidden');
+      }
+
+      const grid = document.getElementById('live-responses-grid');
+      if (entries.length === 0) {
+        grid.innerHTML = '<div class="col-span-full text-center py-8 text-sm text-slate-400">Warte auf erste Antworten der Klasse...</div>';
+        return;
+      }
+
+      const correctStr = ((currentSolution && currentSolution.order) || []).join(ORDER_SEP);
+      const statusColors = {
+        none: 'border-slate-200 bg-white',
+        good: 'border-emerald-400 bg-emerald-50/40',
+        warn: 'border-amber-400 bg-amber-50/40',
+        bad: 'border-rose-400 bg-rose-50/40'
+      };
+
+      grid.innerHTML = entries.map(item => {
+        const isSpotlight = !!data.spotlightKey && spotHash[item.id] === data.spotlightKey;
+        const cardStyle = isSpotlight ? 'border-amber-500 ring-2 ring-amber-300 bg-amber-50/40' : (statusColors[item.mark] || statusColors.none);
+        const displayName = showNamesInTeacherView ? escapeHTML(item.name || 'Anonym') : '••••••••';
+
+        let answerDisplay = '';
+        if (data.type === 'ampel') {
+          answerDisplay = `<div class="font-semibold text-sm">${AMPEL_LABELS[item.answer] || escapeHTML(item.answer)}</div>`;
+          if (item.comment) answerDisplay += `<p class="text-sm text-slate-700 mt-1 bg-white/80 p-2 rounded-lg border border-slate-200">${escapeHTML(item.comment)}</p>`;
+        } else if (data.type === 'order') {
+          const known = !!(currentSolution && currentSolution.order);
+          const isExact = known && item.answer === correctStr;
+          answerDisplay = `
+            ${known ? `<div class="text-xs font-bold mb-1 ${isExact ? 'text-emerald-700' : 'text-amber-700'}">${isExact ? '✓ Exakte Reihenfolge' : '△ Abweichung'}</div>` : ''}
+            <p class="text-sm text-slate-900 font-medium break-words">${escapeHTML(item.answer)}</p>`;
+        } else if (data.type === 'cloud') {
+          answerDisplay = `<div class="flex flex-wrap gap-1">${splitMulti(item.answer).map(t => `<span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-900 text-sm font-medium">${escapeHTML(t)}</span>`).join('')}</div>`;
+        } else {
+          answerDisplay = `<p class="text-base text-slate-900 font-medium break-words whitespace-pre-wrap">${escapeHTML(displayAnswer(data, item))}</p>`;
+        }
+
+        return `
+          <div class="rounded-xl border p-4 flex flex-col justify-between gap-3 transition ${cardStyle}">
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-1.5">
+                <span class="text-xs font-bold text-indigo-700">${displayName}</span>
+                <div class="flex items-center gap-0.5">
+                  <button onclick="markResponse('${item.id}', 'good')" title="Richtig (Schüler sieht es)" class="w-7 h-7 rounded hover:bg-emerald-100 text-sm ${item.mark === 'good' ? 'bg-emerald-200' : ''}">✅</button>
+                  <button onclick="markResponse('${item.id}', 'warn')" title="Fast (Schüler sieht es)" class="w-7 h-7 rounded hover:bg-amber-100 text-sm ${item.mark === 'warn' ? 'bg-amber-200' : ''}">⚠️</button>
+                  <button onclick="markResponse('${item.id}', 'bad')" title="Noch nicht (Schüler sieht es)" class="w-7 h-7 rounded hover:bg-rose-100 text-sm ${item.mark === 'bad' ? 'bg-rose-200' : ''}">❌</button>
+                  <button onclick="returnResponse('${item.id}')" title="${item.returned ? 'Zurückgeben aufheben' : 'Zum Überarbeiten zurückgeben'}" class="w-7 h-7 rounded hover:bg-sky-100 text-sm ${item.returned ? 'bg-sky-200' : ''}">↩︎</button>
+                  <button onclick="openFeedbackModal('${item.id}')" title="Kommentar an Schüler" class="w-7 h-7 rounded hover:bg-indigo-100 text-sm ${item.feedback ? 'bg-indigo-100' : ''}">💬</button>
+                  <button onclick="toggleSpotlight('${item.id}')" title="Anonym am Beamer zeigen (Spotlight)" class="w-7 h-7 rounded hover:bg-amber-100 text-sm ${isSpotlight ? 'bg-amber-200' : ''}">⭐</button>
+                  <button onclick="deleteResponse('${item.id}')" title="Löschen" class="w-7 h-7 rounded hover:bg-rose-100 text-xs text-slate-400">✕</button>
+                </div>
+              </div>
+              ${item.returned ? '<div class="inline-block text-[11px] font-bold text-sky-800 bg-sky-100 px-2 py-0.5 rounded-full mb-1">↩︎ zurückgegeben – wartet auf Überarbeitung</div>' : ''}
+              ${item.revised && item.mark === 'none' && !item.returned ? '<div class="inline-block text-[11px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full mb-1">✏️ überarbeitet</div>' : ''}
+              ${answerDisplay}
+              ${item.feedback ? `<p class="text-xs text-indigo-800 mt-2 bg-indigo-50 border border-indigo-100 rounded-lg px-2 py-1.5">💬 ${escapeHTML(item.feedback)}</p>` : ''}
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    const SUMMARY_TYPES = ['mc', 'ampel', 'order', 'tf', 'cloud', 'number'];
+    const MULTI_SEP = '\n';
+    function splitMulti(a) { return String(a || '').split(MULTI_SEP).map(x => x.trim()).filter(Boolean); }
+    function fmtNum(n) { return n.toLocaleString('de-CH', { maximumFractionDigits: 2, useGrouping: Math.abs(n) >= 10000 }); }
+    function displayAnswer(data, item) {
+      const a = item.answer;
+      if (!data) return a;
+      if (data.type === 'ampel') return AMPEL_LABELS[a] || a;
+      if (data.type === 'mc' && data.multi) return splitMulti(a).join(', ');
+      if (data.type === 'cloud') return splitMulti(a).join(', ');
+      if (data.type === 'tf') return a === 'Richtig' ? '✅ Richtig' : a === 'Falsch' ? '❌ Falsch' : a;
+      if (data.type === 'number') { const n = parseNum(a); return (n === null || Number.isNaN(n) ? a : fmtNum(n)) + (data.unit ? ' ' + data.unit : ''); }
+      return a;
+    }
+
+    function barRow(label, count, total, color, mark) {
+      const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+      return `
+          <div>
+            <div class="flex justify-between gap-3 text-xs sm:text-sm font-medium mb-1">
+              <span>${mark ? '<span class="text-emerald-600 font-bold">✓</span> ' : ''}${escapeHTML(label)}</span>
+              <span class="shrink-0">${count} (${pct}%)</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+              <div class="${color || 'bg-indigo-600'} h-3 rounded-full transition-all duration-300" style="width: ${pct}%"></div>
+            </div>
+          </div>`;
+    }
+
+    function wordCloudHTML(entries) {
+      const counts = new Map();
+      entries.forEach(e => {
+        const seen = new Set();
+        splitMulti(e.answer).forEach(t => {
+          const key = t.toLowerCase().replace(/\s+/g, ' ');
+          if (seen.has(key)) return;
+          seen.add(key);
+          const c = counts.get(key) || { label: t, n: 0 };
+          c.n++;
+          counts.set(key, c);
+        });
+      });
+      const words = [...counts.values()].sort((a, b) => b.n - a.n || a.label.localeCompare(b.label, 'de')).slice(0, 60);
+      if (!words.length) return '<div class="text-sm text-slate-400 text-center py-6">Noch keine Begriffe.</div>';
+      const max = words[0].n, min = words[words.length - 1].n;
+      const colors = ['text-indigo-700', 'text-emerald-700', 'text-amber-600', 'text-rose-600', 'text-sky-700', 'text-violet-700', 'text-teal-700'];
+      // grosse Begriffe in die Mitte
+      const arranged = [];
+      words.forEach((w, i) => { if (i % 2) arranged.push(w); else arranged.unshift(w); });
+      return `<div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 py-4 leading-none">` + arranged.map(w => {
+        const f = max === min ? 1 : (w.n - min) / (max - min);
+        const size = Math.round(15 + f * 45);
+        const color = colors[Math.abs([...w.label].reduce((h, c) => h * 31 + c.charCodeAt(0), 7)) % colors.length];
+        return `<span class="font-bold ${color}" style="font-size:${size}px" title="${w.n}×">${escapeHTML(w.label)}</span>`;
+      }).join('') + `</div>`;
+    }
+
+    function numberSummaryHTML(data, entries, sol) {
+      const vals = entries.map(e => parseNum(e.answer)).filter(v => v !== null && !Number.isNaN(v)).sort((a, b) => a - b);
+      if (!vals.length) return '<div class="text-sm text-slate-400">Noch keine Zahlen.</div>';
+      const unit = data.unit ? ' ' + escapeHTML(data.unit) : '';
+      const mid = Math.floor(vals.length / 2);
+      const median = vals.length % 2 ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2;
+      const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+      const hasSol = sol && typeof sol.num === 'number';
+      const lo = Math.min(vals[0], hasSol ? sol.num : vals[0]), hi = Math.max(vals[vals.length - 1], hasSol ? sol.num : vals[0]);
+      let bins = [];
+      if (lo === hi) bins = [{ a: lo, b: hi, n: vals.length }];
+      else {
+        const k = Math.min(8, Math.max(3, Math.ceil(Math.sqrt(vals.length))));
+        const w = (hi - lo) / k;
+        bins = Array.from({ length: k }, (_, i) => ({ a: lo + i * w, b: lo + (i + 1) * w, n: 0 }));
+        vals.forEach(v => { bins[Math.min(k - 1, Math.floor((v - lo) / w))].n++; });
+      }
+      const round = (x) => Math.abs(hi - lo) >= 20 ? Math.round(x) : Math.round(x * 10) / 10;
+      const within = hasSol ? vals.filter(v => Math.abs(v - sol.num) <= (sol.tol || 0) + 1e-9).length : 0;
+      return `
+          <div class="flex flex-wrap gap-x-5 gap-y-1 text-sm">
+            <span><b>${vals.length}</b> Antworten</span>
+            <span>Median <b>${fmtNum(median)}${unit}</b></span>
+            <span>Mittelwert <b>${fmtNum(Math.round(mean * 100) / 100)}${unit}</b></span>
+            <span>Bereich <b>${fmtNum(vals[0])}–${fmtNum(vals[vals.length - 1])}${unit}</b></span>
+            ${hasSol ? `<span class="text-emerald-700">✓ Richtig: <b>${fmtNum(sol.num)}${unit}</b>${sol.tol ? ' (±' + fmtNum(sol.tol) + ')' : ''} · ${within} getroffen</span>` : ''}
+          </div>` + bins.map(bn => {
+            const hit = hasSol && sol.num >= bn.a && (sol.num < bn.b || bn === bins[bins.length - 1]);
+            const label = lo === hi ? fmtNum(lo) : `${fmtNum(round(bn.a))} – ${fmtNum(round(bn.b))}`;
+            return barRow(label + (data.unit ? ' ' + data.unit : ''), bn.n, vals.length, hit ? 'bg-emerald-600' : 'bg-indigo-600', hit);
+          }).join('');
+    }
+
+    function buildSummaryHTML(data, entries, sol) {
+      const total = entries.length;
+      if (data.type === 'order') {
+        const order = sol && sol.order;
+        if (!order) return '<div class="text-xs text-slate-500">Lösung nicht verfügbar.</div>';
+        const correctStr = order.join(ORDER_SEP);
+        const exactCount = entries.filter(e => e.answer === correctStr).length;
+        return `<div class="text-xs font-bold uppercase tracking-wider text-slate-500">Ziel-Reihenfolge: <span class="text-slate-900 normal-case">${escapeHTML(correctStr)}</span></div>` +
+          barRow('Komplett richtig sortiert', exactCount, total, 'bg-emerald-600');
+      }
+      if (data.type === 'cloud') return wordCloudHTML(entries);
+      if (data.type === 'number') return numberSummaryHTML(data, entries, sol);
+      if (data.type === 'mc') {
+        const correct = (sol && sol.mcCorrect) || [];
+        const head = data.multi ? '<div class="text-[11px] text-slate-500">Mehrfachauswahl – Prozent der Schüler, die die Option gewählt haben</div>' : '';
+        return head + (data.options || []).map(opt => barRow(opt, entries.filter(e => (data.multi ? splitMulti(e.answer).includes(opt) : e.answer === opt)).length, total, correct.includes(opt) ? 'bg-emerald-600' : 'bg-indigo-600', correct.includes(opt))).join('');
+      }
+      if (data.type === 'tf') {
+        const right = sol && sol.tf ? (sol.tf === 'true' ? 'Richtig' : 'Falsch') : null;
+        return ['Richtig', 'Falsch'].map(v => barRow((v === 'Richtig' ? '✅ ' : '❌ ') + v, entries.filter(e => e.answer === v).length, total, right === v ? 'bg-emerald-600' : 'bg-indigo-600', right === v)).join('');
+      }
+      if (data.type === 'ampel') {
+        return ['1', '2', '3', '4'].map(k => barRow(`${AMPEL_LABELS[k]} (${k})`, entries.filter(e => e.answer === k).length, total)).join('');
+      }
+      return '';
+    }
+
+    // ---------- Automatische Rückmeldung (läuft auf dem Gerät der Lehrperson) ----------
+    const autoSeen = {};
+    function normText(t, keepPunct) {
+      let x = String(t || '').toLowerCase().replace(/[’`´]/g, "'").replace(/\s+/g, ' ').trim();
+      if (!keepPunct) x = x.replace(/[.!?]+$/, '').trim();
+      return x;
+    }
+    function evaluateAnswer(data, sol, answer) {
+      if (!data || !sol) return null;
+      if (data.type === 'mc' && Array.isArray(sol.mcCorrect) && sol.mcCorrect.length) {
+        if (!data.multi) return { mark: sol.mcCorrect.includes(answer) ? 'good' : 'bad' };
+        const chosen = new Set(splitMulti(answer)), corr = new Set(sol.mcCorrect);
+        const hits = [...chosen].filter(x => corr.has(x)).length;
+        if (hits === corr.size && chosen.size === corr.size) return { mark: 'good' };
+        if (hits > 0) return { mark: 'warn', feedback: `${hits} von ${corr.size} richtigen Antworten gefunden${chosen.size > hits ? ', aber auch falsche gewählt' : ''}.` };
+        return { mark: 'bad' };
+      }
+      if (data.type === 'tf' && sol.tf) return { mark: answer === (sol.tf === 'true' ? 'Richtig' : 'Falsch') ? 'good' : 'bad' };
+      if (data.type === 'number' && typeof sol.num === 'number') {
+        const v = parseNum(answer);
+        if (v === null || Number.isNaN(v)) return null;
+        return { mark: Math.abs(v - sol.num) <= (sol.tol || 0) + 1e-9 ? 'good' : 'bad' };
+      }
+      if (data.type === 'order' && Array.isArray(sol.order)) {
+        const got = String(answer || '').split(ORDER_SEP);
+        if (got.join(ORDER_SEP) === sol.order.join(ORDER_SEP)) return { mark: 'good' };
+        const k = sol.order.filter((x, i) => got[i] === x).length;
+        return { mark: k >= sol.order.length / 2 ? 'warn' : 'bad', feedback: `${k} von ${sol.order.length} an der richtigen Stelle.` };
+      }
+      if ((data.type === 'text' || data.type === 'fix') && Array.isArray(sol.accepted) && sol.accepted.length) {
+        const keep = data.type === 'fix';
+        const a = normText(answer, keep);
+        if (sol.accepted.some(x => normText(x, keep) === a)) return { mark: 'good' };
+      }
+      return null;
+    }
+    function autoEvaluate() {
+      const data = currentSessionData, sol = currentSolution;
+      if (!currentRoomCode || !data || !sol) return;
+      currentResponses.forEach(r => {
+        if (r.mark && r.mark !== 'none') { autoSeen[r.id] = r.answer; return; }
+        if (autoSeen[r.id] === r.answer) return;
+        autoSeen[r.id] = r.answer;
+        const res = evaluateAnswer(data, sol, r.answer);
+        if (!res) return;
+        const upd = { mark: res.mark, revised: false };
+        if (res.feedback && !r.feedback) upd.feedback = res.feedback;
+        else if (r.feedback && /an der richtigen Stelle\.$|richtigen Antworten gefunden/.test(r.feedback)) upd.feedback = res.feedback || '';
+        sessionRef(currentRoomCode).collection('responses').doc(r.id).update(upd).catch(() => {});
+        if (IS_DEMO) demoReactToFeedback(r.id, res.mark);
+      });
+    }
+
+    // ---------- Lösung zeigen ----------
+    function solutionLabel(data, sol) {
+      if (!data || !sol) return '';
+      if (data.type === 'mc' && sol.mcCorrect && sol.mcCorrect.length) return sol.mcCorrect.join(', ');
+      if (data.type === 'tf' && sol.tf) return sol.tf === 'true' ? 'Richtig' : 'Falsch';
+      if (data.type === 'number' && typeof sol.num === 'number') return fmtNum(sol.num) + (data.unit ? ' ' + data.unit : '') + (sol.tol ? ' (±' + fmtNum(sol.tol) + ')' : '');
+      if (data.type === 'order' && sol.order) return sol.order.join(ORDER_SEP);
+      if ((data.type === 'text' || data.type === 'fix') && sol.accepted && sol.accepted.length) return sol.accepted.join(' / ');
+      return '';
+    }
+    function toggleRevealSolution() {
+      const d = currentSessionData;
+      if (!d) return;
+      const label = solutionLabel(d, currentSolution);
+      if (!label && !d.revealed) return toast('Für diese Frage ist keine Lösung hinterlegt.');
+      updateSession({ revealed: d.revealed ? null : label.slice(0, 600) });
+    }
+    function updateRevealButtonUI() {
+      const d = currentSessionData;
+      const has = !!(d && (d.revealed || solutionLabel(d, currentSolution)));
+      ['btn-reveal', 'pj-reveal'].forEach(id => {
+        const b = document.getElementById(id);
+        if (!b) return;
+        b.classList.toggle('hidden', !has);
+        b.textContent = d && d.revealed ? '🙈 Lösung ausblenden' : '💡 Lösung zeigen';
+        b.classList.toggle('bg-emerald-100', !!(d && d.revealed));
+        b.classList.toggle('border-emerald-400', !!(d && d.revealed));
+      });
+    }
+
+    // ---------- Rückgängig (solange die App offen ist) ----------
+    let undoStack = [];
+    function pushUndo(label, run) {
+      undoStack.push({ label, run });
+      if (undoStack.length > 25) undoStack.shift();
+      updateUndoBtn();
+    }
+    function updateUndoBtn() {
+      const b = document.getElementById('btn-undo');
+      const show = undoStack.length > 0 && mode === 'teacher' && !!currentUser && isTeacherUser(currentUser);
+      b.classList.toggle('hidden', !show);
+      b.title = show ? 'Rückgängig: ' + undoStack[undoStack.length - 1].label : '';
+    }
+    async function undoLast() {
+      const u = undoStack.pop();
+      updateUndoBtn();
+      if (!u) return;
+      try { await u.run(); toast('↶ Rückgängig: ' + u.label); }
+      catch (e) { toast('Rückgängig nicht möglich: ' + (e.message || e)); }
+    }
+    const SESSION_FIELD_LABELS = { locked: 'Sperren/Öffnen', durationSec: 'Zeitlimit', roster: 'Anwesenheit', active: 'Beenden/Öffnen', allowRevise: 'Nachbessern',
+      spotlightNotice: '⭐-Hinweis', showOnBeamer: 'Beamer-Ergebnisse', showNamesOnBeamer: 'Namen am Beamer', spotlightKey: 'Spotlight', revealed: 'Lösung zeigen' };
+    function recordSessionUndo(code, prevData, fields) {
+      if (!prevData) return;
+      const prev = {};
+      Object.keys(fields).forEach(k => { prev[k] = prevData[k] === undefined ? null : prevData[k]; });
+      const label = Object.keys(fields).map(k => SESSION_FIELD_LABELS[k]).filter(Boolean)[0] || 'Einstellung';
+      pushUndo(label, async () => {
+        await sessionRef(code).update(prev);
+        // Anwesenheit auch im Gerätespeicher zurücksetzen
+        if ('roster' in prev && prevData.classId && cachedClasses[prevData.classId] && Array.isArray(prev.roster)) {
+          const present = new Set(prev.roster);
+          setAbsent(prevData.classId, (cachedClasses[prevData.classId].students || []).filter(n => !present.has(n)));
+        }
+      });
+    }
+    function updateResponse(respId, fields, label) {
+      if (!currentRoomCode) return Promise.resolve();
+      const code = currentRoomCode;
+      const cur = currentResponses.find(r => r.id === respId);
+      if (cur) {
+        const prev = {};
+        Object.keys(fields).forEach(k => { prev[k] = cur[k] === undefined ? (k === 'feedback' ? '' : k === 'mark' ? 'none' : false) : cur[k]; });
+        pushUndo(label, () => sessionRef(code).collection('responses').doc(respId).update(prev));
+      }
+      return sessionRef(code).collection('responses').doc(respId).update(fields);
+    }
+
+    function updateSession(fields, noUndo) {
+      if (!currentRoomCode) return Promise.resolve();
+      if (!noUndo) recordSessionUndo(currentRoomCode, currentSessionData, fields);
+      return sessionRef(currentRoomCode).update(fields).catch(() => toast('Änderung konnte nicht gespeichert werden.'));
+    }
+
+    // Spotlight: In der (öffentlich lesbaren) Session steht nur ein Hash des Antwort-Schlüssels,
+    // nie der geheime Geräteschlüssel selbst.
+    async function toggleSpotlight(respId) {
+      if (!currentSessionData) return;
+      const h = await hashId(respId);
+      updateSession({ spotlightKey: currentSessionData.spotlightKey === h ? null : h }, true);
+    }
+
+    function clearSpotlight() {
+      updateSession({ spotlightKey: null }, true);
+    }
+
+    function toggleAllowRevise() {
+      if (!currentSessionData) return;
+      updateSession({ allowRevise: !(currentSessionData.allowRevise === true) });
+    }
+    function updateReviseButtonUI(on) {
+      if (!document.getElementById('live-settings-modal').classList.contains('hidden')) renderLiveSettings();
+      const btn = document.getElementById('btn-allow-revise');
+      if (!btn) return;
+      btn.textContent = on ? '✏️ Nachbessern: an' : '✏️ Nachbessern: aus';
+      btn.classList.toggle('bg-indigo-50', on);
+      btn.classList.toggle('border-indigo-300', on);
+      btn.classList.toggle('text-indigo-800', on);
+    }
+
+    function addTimerSeconds(sec) {
+      const d = currentSessionData;
+      if (!d) return;
+      const dl = deadlineMs(d);
+      if (dl && dl > Date.now()) {
+        updateSession({ durationSec: (d.durationSec || 0) + sec, locked: false });
+      } else {
+        updateSession({ durationSec: sec, startedAt: FV.serverTimestamp(), locked: false });
+      }
+    }
+
+    function toggleInputLock() {
+      const d = currentSessionData;
+      if (!d) return;
+      if (isInputClosed(d)) {
+        // Wieder öffnen: abgelaufenen Timer entfernen
+        updateSession({ locked: false, durationSec: isTimeUp(d) ? 0 : (d.durationSec || 0) });
+      } else {
+        updateSession({ locked: true });
+      }
+    }
+
+    function updateLockButtonUI(isLocked) {
+      const btn = document.getElementById('btn-lock-input');
+      if (isLocked) {
+        btn.textContent = '🔒 Eingabe gesperrt';
+        btn.classList.add('bg-amber-100', 'border-amber-300', 'text-amber-900');
+      } else {
+        btn.textContent = '🔓 Eingabe offen';
+        btn.classList.remove('bg-amber-100', 'border-amber-300', 'text-amber-900');
+      }
+    }
+
+    function markResponse(respId, mark) {
+      if (!currentRoomCode) return;
+      const current = currentResponses.find(r => r.id === respId);
+      const nextMark = current && current.mark === mark ? 'none' : mark;
+      updateResponse(respId, { mark: nextMark, revised: false }, 'Bewertung')
+        .catch(() => toast('Markierung konnte nicht gespeichert werden.'));
+      if (IS_DEMO) demoReactToFeedback(respId, nextMark);
+    }
+
+    function returnResponse(respId) {
+      const cur = currentResponses.find(r => r.id === respId);
+      if (!cur) return;
+      const on = !cur.returned;
+      updateResponse(respId, { returned: on, revised: false }, on ? 'Zurückgeben' : 'Zurückgeben aufheben')
+        .then(() => { if (on) { toast('Zurückgegeben – Kommentar optional'); openFeedbackModal(respId); } })
+        .catch(() => toast('Konnte nicht zurückgegeben werden.'));
+      if (on && IS_DEMO) demoReactToReturn(respId);
+    }
+
+    function deleteResponse(respId) {
+      if (!currentRoomCode) return;
+      if (!confirm('Diese Antwort löschen?')) return;
+      if (currentSessionData && currentSessionData.spotlightKey && spotHash[respId] === currentSessionData.spotlightKey) clearSpotlight();
+      const code = currentRoomCode;
+      const cur = currentResponses.find(r => r.id === respId);
+      const backup = cur ? { ...cur } : null;
+      if (backup) delete backup.id;
+      sessionRef(code).collection('responses').doc(respId).delete()
+        .then(() => {
+          if (!backup) return;
+          const restore = () => sessionRef(code).collection('responses').doc(respId).set(backup);
+          pushUndo('Antwort gelöscht', restore);
+          toast('Antwort gelöscht.', 'Rückgängig', () => undoLast());
+        })
+        .catch(() => toast('Antwort konnte nicht gelöscht werden.'));
+    }
+
+    function toggleBeamerResults() {
+      if (!currentSessionData) return;
+      updateSession({ showOnBeamer: !currentSessionData.showOnBeamer });
+    }
+
+    function goHome() {
+      if (mode === 'beamer' || !currentUser || !isTeacherUser(currentUser)) return;
+      if (mode !== 'teacher') switchRole('teacher');
+      if (currentRoomCode) backToSetup();   // Frage läuft weiter – siehe «Deine Fragen»
+      window.scrollTo({ top: 0 });
+    }
+    function toggleBeamerNames() {
+      if (!currentSessionData) return;
+      updateSession({ showNamesOnBeamer: !(currentSessionData.showNamesOnBeamer === true) });
+    }
+    function updateBeamerNamesUI(on) {
+      const btn = document.getElementById('btn-beamer-names');
+      btn.textContent = on ? '👤 Namen am Beamer: AN' : '👤 Namen am Beamer: AUS';
+      btn.classList.toggle('bg-indigo-600', on); btn.classList.toggle('text-white', on);
+      btn.classList.toggle('bg-white', !on); btn.classList.toggle('text-indigo-700', !on);
+      const pj = document.getElementById('pj-names');
+      pj.textContent = on ? '👤 Namen ausblenden' : '👤 Namen zeigen';
+      pj.classList.toggle('bg-indigo-600', on); pj.classList.toggle('text-white', on);
+      pj.classList.toggle('bg-white', !on); pj.classList.toggle('text-indigo-700', !on);
+    }
+    function updateBeamerButtonUI(isShown) {
+      const btn = document.getElementById('btn-toggle-beamer');
+      if (isShown) {
+        btn.textContent = '👁️ Beamer-Ergebnisse: AN';
+        btn.classList.add('bg-indigo-600', 'text-white');
+        btn.classList.remove('bg-white', 'text-indigo-700');
+      } else {
+        btn.textContent = '👁️ Beamer-Ergebnisse: AUS';
+        btn.classList.remove('bg-indigo-600', 'text-white');
+        btn.classList.add('bg-white', 'text-indigo-700');
+      }
+    }
+
+    // ---------- Anwesenheit (pro Gerät, nur für heute) ----------
+    function todayISO() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+    function absentKey(classId) { return `lightning_absent_${currentUser ? currentUser.uid : 'x'}_${classId}`; }
+    function getAbsent(classId) {
+      if (!classId) return [];
+      try {
+        const v = JSON.parse(localStorage.getItem(absentKey(classId)) || 'null');
+        if (v && v.date === todayISO() && Array.isArray(v.absent)) return v.absent;
+      } catch (e) {}
+      if (IS_DEMO && classId === 'demo2a' && !demoAbsentSeeded) { demoAbsentSeeded = true; setAbsent(classId, ['Tim', 'Nina']); return ['Tim', 'Nina']; }
+      return [];
+    }
+    let demoAbsentSeeded = false;
+    function setAbsent(classId, list) {
+      try { localStorage.setItem(absentKey(classId), JSON.stringify({ date: todayISO(), absent: [...new Set(list)] })); } catch (e) {}
+    }
+    function presentStudents(classId) {
+      const cls = cachedClasses[classId];
+      if (!cls) return [];
+      const absent = new Set(getAbsent(classId));
+      return (cls.students || []).filter(n => !absent.has(n));
+    }
+    function absentOfSession(data) {
+      if (!data || !data.classId || !cachedClasses[data.classId] || !Array.isArray(data.roster)) return [];
+      const present = new Set(data.roster);
+      return (cachedClasses[data.classId].students || []).filter(n => !present.has(n));
+    }
+    function chipsHTML(students, absentSet, where) {
+      return students.map((n, i) => {
+        const abs = absentSet.has(n);
+        return `<button type="button" onclick="toggleAttendance('${where}', ${i})" class="text-sm px-3 py-1.5 rounded-full border transition ${abs ? 'bg-slate-100 border-slate-200 text-slate-400 line-through' : 'bg-white border-indigo-200 text-slate-900 hover:bg-indigo-50 font-medium'}">${escapeHTML(n)}</button>`;
+      }).join('');
+    }
+    function renderSetupAttendance() {
+      const classId = document.getElementById('select-session-class').value;
+      const box = document.getElementById('attendance-box');
+      const cls = cachedClasses[classId];
+      if (!cls || !(cls.students || []).length) { box.classList.add('hidden'); return; }
+      box.classList.remove('hidden');
+      const students = cls.students || [];
+      const absent = new Set(getAbsent(classId));
+      document.getElementById('attendance-chips').innerHTML = chipsHTML(students, absent, 'setup');
+      const n = students.filter(s => !absent.has(s)).length;
+      document.getElementById('attendance-count').textContent = `${n} von ${students.length} anwesend`;
+    }
+    function toggleAttendance(where, i) {
+      const classId = where === 'setup' ? document.getElementById('select-session-class').value : (currentSessionData && currentSessionData.classId);
+      const cls = cachedClasses[classId];
+      if (!cls) return;
+      const name = (cls.students || [])[i];
+      const absent = new Set(getAbsent(classId));
+      if (absent.has(name)) absent.delete(name); else absent.add(name);
+      setAbsent(classId, [...absent]);
+      if (where === 'setup') renderSetupAttendance();
+      else applyLiveRoster(classId);
+    }
+    function setAllPresent(where) {
+      const classId = where === 'setup' ? document.getElementById('select-session-class').value : (currentSessionData && currentSessionData.classId);
+      if (!cachedClasses[classId]) return;
+      setAbsent(classId, []);
+      if (where === 'setup') renderSetupAttendance();
+      else applyLiveRoster(classId);
+    }
+    function applyLiveRoster(classId) {
+      const roster = presentStudents(classId);
+      if (!roster.length) { toast('Mindestens eine Person muss anwesend sein.'); setAbsent(classId, (cachedClasses[classId].students || []).slice(1)); }
+      updateSession({ roster: presentStudents(classId) });
+      if (currentSessionData) currentSessionData.roster = presentStudents(classId);
+      renderLiveSettings();
+    }
+
+    // ---------- Einstellungen während der Frage ----------
+    function openLiveSettings() {
+      if (!currentSessionData) return;
+      document.getElementById('live-settings-modal').classList.remove('hidden');
+      renderLiveSettings();
+    }
+    function closeLiveSettings() { document.getElementById('live-settings-modal').classList.add('hidden'); }
+    function renderLiveSettings() {
+      const d = currentSessionData;
+      if (!d) return;
+      const cls = d.classId ? cachedClasses[d.classId] : null;
+      const att = document.getElementById('ls-attendance');
+      att.classList.toggle('hidden', !cls);
+      if (cls) {
+        const students = cls.students || [];
+        const present = new Set(Array.isArray(d.roster) ? d.roster : students);
+        const absent = new Set(students.filter(n => !present.has(n)));
+        document.getElementById('ls-attendance-chips').innerHTML = chipsHTML(students, absent, 'live');
+        document.getElementById('ls-attendance-count').textContent = `${students.length - absent.size} von ${students.length} anwesend`;
+      }
+      document.getElementById('ls-revise').checked = d.allowRevise === true;
+      document.getElementById('ls-spotnote').checked = d.spotlightNotice === true;
+      document.getElementById('ls-names').checked = showNamesInTeacherView;
+      const dl = deadlineMs(d);
+      const left = dl ? Math.max(0, Math.round((dl - Date.now()) / 1000)) : null;
+      document.getElementById('ls-timer-state').textContent = left === null ? 'Aktuell: kein Zeitlimit' : (left > 0 ? `Aktuell: noch ${left} s` : 'Aktuell: Zeit abgelaufen');
+    }
+    function setLiveOption(key, val) {
+      updateSession({ [key]: !!val });
+    }
+    function setNamesVisible(on) {
+      if (showNamesInTeacherView !== !!on) toggleNamesTeacher();
+    }
+    function applyLiveTimer() {
+      const sec = parseInt(document.getElementById('ls-timer').value, 10) || 0;
+      if (sec > 0) updateSession({ durationSec: sec, startedAt: FV.serverTimestamp(), locked: false });
+      else updateSession({ durationSec: 0, locked: false });
+      toast(sec > 0 ? `Zeitlimit: noch ${sec} Sekunden` : 'Zeitlimit entfernt');
+      setTimeout(renderLiveSettings, 400);
+    }
+
+    // ---------- QR-Code bildschirmfüllend ----------
+    function openQrFull() {
+      const code = currentRoomCode || (document.getElementById('beamer-code') || {}).textContent;
+      if (!code || code === '----') return;
+      const link = studentLink(code);
+      renderQR('qr-full-code', link);
+      document.getElementById('qr-full-room').textContent = code;
+      document.getElementById('qr-full-url').textContent = IS_DEMO ? link : link.replace(/^https?:\/\//, '');
+      document.getElementById('qr-full').classList.remove('hidden');
+    }
+    function closeQrFull() { document.getElementById('qr-full').classList.add('hidden'); }
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeQrFull(); });
+
+    // ---------- Liste «Deine Fragen» (live, alle Geräte) ----------
+    let cachedSessions = [];
+    function startSessionList() {
+      teacherUnsubs.push(db.collection(SESSIONS).where('ownerUid', '==', currentUser.uid).onSnapshot((snap) => {
+        const cutoff = Date.now() - SESSION_MAX_AGE_MS;
+        cachedSessions = snap.docs.map(d => ({ code: d.id, ...d.data({ serverTimestamps: 'estimate' }) }))
+          .filter(x => !tsMillis(x.createdAt) || tsMillis(x.createdAt) > cutoff)
+          .sort((a, b) => tsMillis(b.createdAt) - tsMillis(a.createdAt));
+        renderSessionList();
+      }, () => {}));
+    }
+    const TYPE_ICONS = { text: '✍️', mc: '📊', ampel: '🚦', fix: '🛠️', order: '🔢', tf: '⚖️', cloud: '☁️', number: '🔟' };
+    function renderSessionList() {
+      const card = document.getElementById('session-list-card');
+      const open = cachedSessions.filter(x => x.active !== false);
+      const today = todayISO();
+      const done = cachedSessions.filter(x => x.active === false && (() => { const t = tsMillis(x.createdAt); if (!t) return false; const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === today; })());
+      card.classList.toggle('hidden', !open.length && !done.length);
+      const row = (x, isOpen) => {
+        const t = tsMillis(x.createdAt);
+        const time = t ? new Date(t).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) : '';
+        return `<div class="flex flex-wrap items-center gap-2 p-2.5 rounded-xl border ${isOpen ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-200 bg-slate-50'}">
+            ${isOpen ? '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>' : ''}
+            <span class="font-mono font-bold text-slate-900">${escapeHTML(x.code)}</span>
+            <span class="text-sm">${TYPE_ICONS[x.type] || ''}</span>
+            <span class="flex-1 min-w-[10rem] text-sm text-slate-800 truncate">${escapeHTML(x.question || '')}</span>
+            <span class="text-xs text-slate-500">${x.className ? 'Klasse ' + escapeHTML(x.className) + ' · ' : ''}${time}</span>
+            <span class="flex gap-1.5 ml-auto">
+              ${isOpen
+                ? `<button onclick="openSessionFromList('${x.code}')" class="btn-primary px-3 py-1.5 text-xs">Öffnen</button>
+                   <button onclick="endSessionFromList('${x.code}')" class="px-3 py-1.5 rounded-lg border border-rose-200 bg-white text-rose-700 text-xs font-semibold hover:bg-rose-50">Beenden</button>`
+                : `<button onclick="openSessionFromList('${x.code}')" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold hover:bg-slate-50">Ergebnisse</button>
+                   <button onclick="reopenSessionFromList('${x.code}')" class="px-3 py-1.5 rounded-lg border border-indigo-200 bg-white text-indigo-700 text-xs font-semibold hover:bg-indigo-50">Wieder öffnen</button>
+                   <button onclick="deleteSessionFromList('${x.code}')" title="Frage und Antworten löschen" class="px-2.5 py-1.5 rounded-lg border border-rose-200 bg-white text-rose-700 text-xs font-semibold hover:bg-rose-50">🗑</button>`}
+            </span>
+          </div>`;
+      };
+      document.getElementById('session-list-open').innerHTML = open.length ? open.map(x => row(x, true)).join('') : '<div class="text-xs text-slate-400">Keine laufende Frage.</div>';
+      document.getElementById('session-list-done-wrap').classList.toggle('hidden', !done.length);
+      document.getElementById('session-list-done').innerHTML = done.map(x => row(x, false)).join('');
+    }
+    function openSessionFromList(code) {
+      const x = cachedSessions.find(s => s.code === code);
+      if (x && x.active !== false && !IS_DEMO) localStorage.setItem('lightning_activeSession_' + currentUser.uid, code);
+      showTeacherLiveDashboard(code);
+      window.scrollTo({ top: 0 });
+    }
+    async function endSessionFromList(code) {
+      if (!confirm(`Frage ${code} beenden? Die Antworten bleiben noch 24 Stunden gespeichert.`)) return;
+      await sessionRef(code).update({ active: false }).catch(() => toast('Konnte nicht beendet werden.'));
+      pushUndo('Beenden', () => sessionRef(code).update({ active: true }));
+      if (localStorage.getItem('lightning_activeSession_' + currentUser.uid) === code) localStorage.removeItem('lightning_activeSession_' + currentUser.uid);
+    }
+    async function deleteSessionFromList(code) {
+      if (!confirm(`Frage ${code} mit allen Antworten jetzt löschen?`)) return;
+      try {
+        // Sicherung für «Rückgängig» (solange die App offen ist)
+        const ss = await sessionRef(code).get();
+        const rs = await sessionRef(code).collection('responses').get();
+        const sol = await teacherRef().collection('solutions').doc(code).get().catch(() => null);
+        const sData = ss.exists ? ss.data() : null;
+        const rData = rs.docs.map(d => [d.id, d.data()]);
+        const solData = sol && sol.exists ? sol.data() : null;
+        await deleteSessionCompletely(code);
+        if (sData) {
+          pushUndo('Frage gelöscht', async () => {
+            await sessionRef(code).set(sData);
+            for (const [id, d] of rData) await sessionRef(code).collection('responses').doc(id).set(d);
+            if (solData) await teacherRef().collection('solutions').doc(code).set(solData);
+          });
+          toast(`Frage ${code} gelöscht.`, 'Rückgängig', () => undoLast());
+        }
+      } catch (e) { toast('Löschen fehlgeschlagen.'); }
+    }
+    async function reopenSessionFromList(code) {
+      await sessionRef(code).update({ active: true, locked: false, durationSec: 0 }).catch(() => toast('Konnte nicht geöffnet werden.'));
+      openSessionFromList(code);
+    }
+    function reopenSession() {
+      if (!currentRoomCode) return;
+      updateSession({ active: true, locked: false, durationSec: 0 });
+      if (!IS_DEMO) localStorage.setItem('lightning_activeSession_' + currentUser.uid, currentRoomCode);
+      toast('Frage ' + currentRoomCode + ' wieder geöffnet.');
+    }
+
+    function toggleNamesTeacher() {
+      showNamesInTeacherView = !showNamesInTeacherView;
+      document.getElementById('btn-teacher-names').textContent = showNamesInTeacherView ? 'Namen sichtbar' : 'Namen verborgen';
+      renderLiveResponses();
+    }
+
+    function openBeamerWindow() {
+      if (!currentRoomCode) return;
+      if (IS_DEMO) { toast('In der Demo gibt es nur den Projektionsmodus.'); enterProjectionMode(); return; }
+      window.open(`${getBaseUrl()}?beamer=${currentRoomCode}`, '_blank');
+    }
+
+    function copyStudentLink() {
+      if (!currentRoomCode) return;
+      const url = studentLink(currentRoomCode);
+      navigator.clipboard.writeText(url).then(() => toast('Schüler-Link kopiert')).catch(() => prompt('Link kopieren:', url));
+    }
+
+    function exportCSV() {
+      if (!currentResponses.length) return toast('Keine Antworten vorhanden.');
+      const q = (s) => `"${String(s || '').replace(/"/g, '""')}"`;
+      const markLabels = { good: 'Richtig', warn: 'Fast', bad: 'Noch nicht', none: '' };
+      const rows = [['Name', 'Antwort', 'Zusatzkommentar', 'Feedback', 'Kommentar Lehrperson', 'Nachgebessert', 'Zeit'].map(q).join(';')];
+      const sorted = [...currentResponses].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
+      sorted.forEach(r => {
+        const answer = displayAnswer(currentSessionData, r);
+        const t = tsMillis(r.updatedAt) ? new Date(tsMillis(r.updatedAt)).toLocaleTimeString('de-CH') : '';
+        rows.push([r.name, answer, r.comment, markLabels[r.mark] || '', r.feedback || '', r.revised ? 'ja' : '', t].map(q).join(';'));
+      });
+      // BOM, damit Excel Umlaute korrekt anzeigt
+      const blob = new Blob(['﻿' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `lightning_${currentRoomCode}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    async function endSession() {
+      if (!currentRoomCode) return;
+      if (!confirm('Session beenden? Die Antworten bleiben noch 24 Stunden gespeichert und werden dann automatisch gelöscht. Exportiere sie vorher als CSV, wenn du sie brauchst.')) return;
+      const code = currentRoomCode;
+      await updateSession({ active: false });
+      localStorage.removeItem('lightning_activeSession_' + currentUser.uid);
+      backToSetup();
+      toast('Session ' + code + ' beendet.');
+    }
+
+    function backToSetup() {
+      exitProjectionMode();
+      stopDemoBots();
+      stopLive();
+      currentRoomCode = null;
+      currentSessionData = null;
+      currentResponses = [];
+      currentSolution = null;
+      document.getElementById('teacher-live').classList.add('hidden');
+      document.getElementById('teacher-setup').classList.remove('hidden');
+    }
+
+    // =========================================================================
+    // 7. VORLAGEN & KI-IMPORT
+    // =========================================================================
+    function saveTemplate() {
+      const form = collectFormData();
+      if (!form.question) return toast('Bitte zuerst eine Frage eingeben.');
+      teacherRef().collection('templates').add({ ...form, createdAt: FV.serverTimestamp() })
+        .then(() => toast('Vorlage gespeichert'))
+        .catch(() => toast('Vorlage konnte nicht gespeichert werden.'));
+    }
+
+    const TYPE_LABELS = { text: 'Kurzantwort', mc: 'Multiple Choice', ampel: 'Ampel', fix: 'Satz-Korrektur', order: 'Reihenfolge', tf: 'Richtig/Falsch', cloud: 'Wortwolke', number: 'Zahl/Schätzung' };
+
+    function renderTemplates() {
+      document.getElementById('template-count').textContent = cachedTemplates.length;
+      const list = document.getElementById('template-list');
+      if (cachedTemplates.length === 0) {
+        list.innerHTML = '<div class="text-xs text-slate-400 italic">Noch keine Vorlagen gespeichert.</div>';
+        return;
+      }
+      list.innerHTML = cachedTemplates.map(t => `
+        <div class="p-3 rounded-xl border border-slate-200 hover:border-indigo-300 bg-slate-50/60 flex items-start justify-between gap-2">
+          <button onclick="applyTemplate('${t.id}')" class="text-left flex-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-600">${escapeHTML(TYPE_LABELS[t.type] || t.type)}</span>
+            <p class="text-xs font-medium text-slate-800 line-clamp-2 mt-0.5">${escapeHTML(t.question)}</p>
+          </button>
+          <button onclick="deleteTemplate('${t.id}')" class="text-xs text-slate-400 hover:text-rose-600 px-1">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function applyTemplate(id) {
+      const tpl = cachedTemplates.find(t => t.id === id);
+      if (!tpl) return;
+      fillForm(tpl);
+    }
+
+    function deleteTemplate(id) {
+      if (!confirm('Vorlage löschen?')) return;
+      teacherRef().collection('templates').doc(id).delete().catch(() => toast('Vorlage konnte nicht gelöscht werden.'));
+    }
+
+    function openImportModal() { document.getElementById('import-modal').classList.remove('hidden'); }
+    function closeImportModal() { document.getElementById('import-modal').classList.add('hidden'); }
+
+    function processQuickImport() {
+      const raw = document.getElementById('import-raw-text').value.trim();
+      if (!raw) return;
+      try {
+        let t;
+        if (raw.startsWith('{')) {
+          const obj = JSON.parse(raw);
+          const type = String(obj.type || 'text').toLowerCase();
+          const options = Array.isArray(obj.options) ? obj.options.map(String) : [];
+          const sol = {};
+          const corr = obj.correct != null ? [].concat(obj.correct) : [];
+          if (type === 'mc' && corr.length) sol.mcCorrect = corr.map(c => typeof c === 'number' ? options[c] : String(c)).filter(Boolean);
+          if (type === 'tf' && obj.correct != null) sol.tf = /^(true|richtig|wahr|r|1)$/i.test(String(obj.correct)) ? 'true' : 'false';
+          if (type === 'number' && obj.correct != null) { const n = parseNum(obj.correct); if (n !== null && !Number.isNaN(n)) sol.num = n; if (obj.tolerance != null) sol.tol = Math.abs(parseNum(obj.tolerance) || 0); }
+          if ((type === 'text' || type === 'fix') && obj.solution) sol.accepted = [].concat(obj.solution).map(String);
+          if (type === 'order') sol.order = options;
+          t = { type, question: obj.question || '', options, initialText: obj.initialText || '', multi: !!obj.multi, maxTerms: obj.maxTerms, unit: obj.unit || '', solution: sol };
+        } else {
+          // Pipe-Format: typ | frage | ...
+          const parts = raw.split('|').map(x => x.trim()).filter(Boolean);
+          const type = (parts[0] || '').toLowerCase();
+          const rest = parts.slice(2);
+          t = { type, question: parts[1] || '', options: [], initialText: '', solution: {} };
+          if (type === 'mc') {
+            t.options = rest.map(o => o.replace(/^\*\s*/, ''));
+            const corr = rest.filter(o => o.startsWith('*')).map(o => o.replace(/^\*\s*/, ''));
+            t.multi = corr.length > 1;
+            if (corr.length) t.solution.mcCorrect = corr;
+          } else if (type === 'order') { t.options = rest; t.solution.order = rest; }
+          else if (type === 'fix') { t.initialText = rest[0] || ''; if (rest[1]) t.solution.accepted = [rest[1]]; }
+          else if (type === 'text') { if (rest[0]) t.solution.accepted = rest; }
+          else if (type === 'tf') { if (rest[0]) t.solution.tf = /^(true|richtig|wahr|r|1)$/i.test(rest[0]) ? 'true' : 'false'; }
+          else if (type === 'cloud') { t.maxTerms = Number(rest[0]) || 3; }
+          else if (type === 'number') { const n = parseNum(rest[0]); if (n !== null && !Number.isNaN(n)) t.solution.num = n; if (rest[1]) t.solution.tol = Math.abs(parseNum(rest[1]) || 0); t.unit = rest[2] || ''; }
+        }
+        if (!TYPES.includes(t.type)) t.type = 'text';
+        fillForm(t);
+        document.getElementById('import-raw-text').value = '';
+        closeImportModal();
+      } catch (e) {
+        toast('Format konnte nicht gelesen werden.');
+      }
+    }
+
+    // =========================================================================
+    // 8. KLASSENLISTEN (PRIVAT PRO LEHRPERSON)
+    // =========================================================================
+    function openClassModal() {
+      resetClassForm();
+      renderSavedClassesModal();
+      document.getElementById('class-modal').classList.remove('hidden');
+    }
+    function closeClassModal() { document.getElementById('class-modal').classList.add('hidden'); }
+
+    function resetClassForm() {
+      editingClassId = null;
+      document.getElementById('new-class-name').value = '';
+      document.getElementById('new-class-students').value = '';
+      document.getElementById('btn-save-class').textContent = 'Klasse speichern';
+      document.getElementById('btn-cancel-class-edit').classList.add('hidden');
+    }
+
+    function editClassList(id) {
+      const cls = cachedClasses[id];
+      if (!cls) return;
+      editingClassId = id;
+      document.getElementById('new-class-name').value = cls.name || '';
+      document.getElementById('new-class-students').value = (cls.students || []).join('\n');
+      document.getElementById('btn-save-class').textContent = 'Änderungen speichern';
+      document.getElementById('btn-cancel-class-edit').classList.remove('hidden');
+    }
+
+    function saveClassList() {
+      const name = document.getElementById('new-class-name').value.trim();
+      const rawStudents = document.getElementById('new-class-students').value.trim();
+      if (!name || !rawStudents) return toast('Bitte Klassenname und Schülernamen eingeben.');
+      const seen = new Set();
+      const students = rawStudents.split(/[\n,;]+/).map(s => s.trim().slice(0, 40)).filter(s => {
+        if (!s || seen.has(s.toLowerCase())) return false;
+        seen.add(s.toLowerCase());
+        return true;
+      });
+      const col = teacherRef().collection('classes');
+      const ref = editingClassId ? col.doc(editingClassId) : col.doc();
+      ref.set({ name, students, updatedAt: FV.serverTimestamp() }).then(() => {
+        toast(`Klasse ${name} gespeichert (${students.length} SuS)`);
+        resetClassForm();
+      }).catch(() => toast('Klasse konnte nicht gespeichert werden.'));
+    }
+
+    function deleteClassList(id) {
+      const cls = cachedClasses[id];
+      if (!confirm(`Klasse ${cls ? cls.name : ''} löschen?`)) return;
+      teacherRef().collection('classes').doc(id).delete().catch(() => toast('Klasse konnte nicht gelöscht werden.'));
+      if (editingClassId === id) resetClassForm();
+    }
+
+    function sortedClassEntries() {
+      return Object.entries(cachedClasses).sort((a, b) => (a[1].name || '').localeCompare(b[1].name || '', 'de', { numeric: true }));
+    }
+
+    function renderSavedClassesModal() {
+      const box = document.getElementById('saved-classes-list');
+      const entries = sortedClassEntries();
+      if (entries.length === 0) {
+        box.innerHTML = '<p class="text-xs text-slate-400 italic">Keine Klassen hinterlegt.</p>';
+        return;
+      }
+      box.innerHTML = entries.map(([id, cls]) => `
+        <div class="flex items-center justify-between gap-2 text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+          <span><strong>${escapeHTML(cls.name)}</strong> (${(cls.students || []).length} SuS)</span>
+          <span class="flex items-center gap-3">
+            <button onclick="editClassList('${id}')" class="text-indigo-600 hover:underline">Bearbeiten</button>
+            <button onclick="deleteClassList('${id}')" class="text-rose-600 hover:underline">Löschen</button>
+          </span>
+        </div>
+      `).join('');
+    }
+
+    function renderClassDropdowns() {
+      const sel = document.getElementById('select-session-class');
+      const currentVal = sel.value;
+      sel.innerHTML = '<option value="">Ohne Klassenliste (freie Namenseingabe)</option>' +
+        sortedClassEntries().map(([id, cls]) => `<option value="${id}">Klasse ${escapeHTML(cls.name)} (${(cls.students || []).length} SuS)</option>`).join('');
+      if (cachedClasses[currentVal]) sel.value = currentVal;
+      renderSetupAttendance();
+    }
+
+    // =========================================================================
+    // 9. SCHÜLER-LOGIK (OHNE LOGIN)
+    // =========================================================================
+    function joinRoomByInput() {
+      const code = document.getElementById('join-code-input').value.trim();
+      if (!/^\d{4,6}$/.test(code)) return toast('Bitte den Code eingeben (6 Ziffern).');
+      connectStudentToRoom(code);
+    }
+
+    function showStudentClosed(title, text) {
+      clearInterval(timers['student-timer-pill']);
+      document.getElementById('student-answer-box').classList.add('hidden');
+      document.getElementById('student-join-box').classList.add('hidden');
+      document.getElementById('student-closed-title').textContent = title;
+      document.getElementById('student-closed-text').textContent = text;
+      document.getElementById('student-closed-box').classList.remove('hidden');
+    }
+
+    function connectStudentToRoom(code) {
+      if (studentUnsub) { studentUnsub(); studentUnsub = null; }
+      studentRoomCode = code;
+      studentSession = null;
+      studentHasSubmitted = false;
+      const area = document.getElementById('student-input-area');
+      area.dataset.signature = '';
+      area.innerHTML = '';
+      document.getElementById('student-sent-banner').classList.add('hidden');
+      document.getElementById('btn-handover').classList.add('hidden');
+      document.getElementById('btn-student-submit').textContent = 'Antwort absenden';
+      document.getElementById('student-join-box').classList.add('hidden');
+      document.getElementById('student-closed-box').classList.add('hidden');
+      document.getElementById('student-answer-box').classList.remove('hidden');
+      document.getElementById('student-room-label').textContent = code;
+      document.getElementById('student-question-text').textContent = 'Lade Frage...';
+
+      studentUnsub = sessionRef(code).onSnapshot((snap) => {
+        if (!snap.exists) {
+          showStudentClosed('Code nicht gefunden', IS_DEMO
+            ? 'In der Demo gibt es keine Verbindung zwischen Geräten. Starte die Frage auf diesem Gerät unter «Lehrperson» und wechsle dann zu «Teilnehmen».'
+            : 'Prüfe den Code an der Wandtafel und versuche es nochmals.');
+          return;
+        }
+        const data = snap.data({ serverTimestamps: 'estimate' });
+        if (data.active === false) {
+          showStudentClosed('Session beendet', 'Diese Umfrage wurde von der Lehrperson geschlossen.');
+          return;
+        }
+        studentSession = data;
+        document.getElementById('student-closed-box').classList.add('hidden');
+        document.getElementById('student-answer-box').classList.remove('hidden');
+        document.getElementById('student-question-text').textContent = data.question;
+        setupStudentNameInput(data);
+        renderStudentInputFields(data);
+        startCountdown('student-timer-pill', data, () => { updateStudentLockState(); renderStudentFeedback(); });
+        updateStudentLockState();
+        renderStudentFeedback();
+      }, () => {
+        showStudentClosed('Keine Verbindung', 'Die Session konnte nicht geladen werden. Bitte Seite neu laden.');
+      });
+
+      // Eigene Antwort beobachten: Abgabe nach Neuladen erkennen und Feedback der Lehrperson anzeigen
+      if (studentRespUnsub) { studentRespUnsub(); studentRespUnsub = null; }
+      studentResp = null;
+      lastFeedbackSig = null;
+      hashId(deviceId).then(() => renderStudentFeedback());
+      studentRespUnsub = sessionRef(code).collection('responses').doc(deviceId).onSnapshot((s) => {
+        if (studentRoomCode !== code) return;
+        studentResp = s.exists ? s.data() : null;
+        if (s.exists) { studentHasSubmitted = true; showSentState(); }
+        renderStudentFeedback();
+        updateStudentLockState();
+      }, () => {});
+    }
+
+    const FEEDBACK_TEXT = {
+      good: { cls: 'border-emerald-400 bg-emerald-50 text-emerald-900', title: '✅ Richtig! 👍' },
+      warn: { cls: 'border-amber-400 bg-amber-50 text-amber-900', title: '⚠️ Fast! Schau nochmals genau hin.' },
+      bad: { cls: 'border-rose-400 bg-rose-50 text-rose-900', title: '❌ Noch nicht richtig.' }
+    };
+    function isReturned() { return !!(studentResp && studentResp.returned === true && studentSession && studentSession.active !== false); }
+    function feedbackLocksAnswer() {
+      if (isReturned()) return false;
+      if (!studentResp || !studentResp.mark || studentResp.mark === 'none') return false;
+      return !(studentSession && studentSession.allowRevise === true && (studentResp.mark === 'warn' || studentResp.mark === 'bad'));
+    }
+    let prefilledFor = null;
+    // bisherige Antwort ins Formular übernehmen (beim Zurückgeben)
+    function prefillStudentAnswer(r) {
+      const d = studentSession;
+      if (!r || !d) return;
+      const a = r.answer || '';
+      try {
+        if (d.type === 'text' || d.type === 'fix') { const t = document.getElementById('student-text-answer'); if (t) t.value = a; }
+        else if (d.type === 'mc' && d.multi) { splitMulti(a).forEach(o => { const i = (d.options || []).indexOf(o); if (i >= 0 && !selectedMcSet.has(i)) chooseMcOption(i); }); }
+        else if (d.type === 'mc') { const i = (d.options || []).indexOf(a); if (i >= 0) chooseMcOption(i); }
+        else if (d.type === 'tf') { if (a === 'Richtig' || a === 'Falsch') chooseTf(a); }
+        else if (d.type === 'ampel') { if (['1', '2', '3', '4'].includes(a)) chooseAmpel(a); const c = document.getElementById('student-ampel-comment'); if (c) c.value = r.comment || ''; }
+        else if (d.type === 'order') { const parts = a.split(ORDER_SEP); if (parts.length === (d.options || []).length) { studentOrderItems = parts; renderStudentOrderList(); } }
+        else if (d.type === 'cloud') { splitMulti(a).forEach((t, i) => { const el = document.getElementById('stu-cloud-' + i); if (el) el.value = t; }); }
+        else if (d.type === 'number') { const el = document.getElementById('stu-number'); if (el) el.value = a; }
+      } catch (e) {}
+    }
+    function renderStudentFeedback() {
+      const solBox = document.getElementById('student-solution-box');
+      const rev = studentSession && studentSession.revealed;
+      solBox.classList.toggle('hidden', !rev);
+      if (rev) solBox.textContent = '💡 Lösung: ' + rev;
+      const box = document.getElementById('student-feedback-box');
+      const note = document.getElementById('student-spotlight-note');
+      const r = studentResp;
+      const mark = r && r.mark && r.mark !== 'none' ? r.mark : null;
+      const fbText = r && r.feedback ? r.feedback : '';
+      const spot = !!(studentSession && studentSession.spotlightNotice === true && studentSession.spotlightKey && spotHash[deviceId] === studentSession.spotlightKey && r);
+      note.classList.toggle('hidden', !spot);
+      if (isReturned()) {
+        box.className = 'rounded-xl border-2 p-4 space-y-1.5 border-sky-400 bg-sky-50 text-sky-900';
+        box.innerHTML = '<div class="font-bold text-base">↩︎ Deine Lehrperson hat dir die Antwort zurückgegeben.</div>' +
+          (fbText ? `<div class="text-sm">💬 ${escapeHTML(fbText)}</div>` : '') +
+          '<div class="text-sm font-semibold pt-1">✏️ Überarbeite sie und sende sie nochmals.</div>';
+        if (!prefilledFor || prefilledFor !== studentResp.updatedAt?.toMillis?.()) { prefillStudentAnswer(studentResp); prefilledFor = studentResp.updatedAt?.toMillis?.() || 1; }
+      } else if (!mark && !fbText) {
+        box.classList.add('hidden');
+      } else {
+        const cfg = FEEDBACK_TEXT[mark] || { cls: 'border-indigo-300 bg-indigo-50 text-indigo-900', title: '💬 Rückmeldung der Lehrperson' };
+        const canRevise = (mark === 'warn' || mark === 'bad') && studentSession && studentSession.allowRevise === true && !isStudentClosed();
+        box.className = 'rounded-xl border-2 p-4 space-y-1.5 ' + cfg.cls;
+        box.innerHTML = `<div class="font-bold text-base">${cfg.title}</div>` +
+          (fbText ? `<div class="text-sm">💬 ${escapeHTML(fbText)}</div>` : '') +
+          (canRevise ? '<div class="text-sm font-semibold pt-1">✏️ Du darfst deine Antwort verbessern und nochmals senden.</div>' : '');
+      }
+      // kurze Vibration, wenn neues Feedback kommt (nicht beim ersten Laden)
+      const sig = JSON.stringify([mark, fbText, spot, isReturned()]);
+      if (lastFeedbackSig !== null && sig !== lastFeedbackSig && (mark || fbText || spot) && navigator.vibrate) { try { navigator.vibrate(120); } catch (e) {} }
+      lastFeedbackSig = sig;
+    }
+
+    function setupStudentNameInput(data) {
+      const sel = document.getElementById('student-name-select');
+      const inp = document.getElementById('student-name');
+      const roster = Array.isArray(data.roster) && data.roster.length ? data.roster : null;
+      const saved = localStorage.getItem('lightning_student_name') || '';
+      if (roster) {
+        const sig = roster.join('\u0001');
+        if (sel.dataset.roster !== sig) {
+          const prev = sel.value || saved;
+          sel.dataset.roster = sig;
+          sel.innerHTML = '<option value="">-- Bitte deinen Namen wählen --</option>' +
+            roster.map(n => `<option value="${escapeHTML(n)}">${escapeHTML(n)}</option>`).join('');
+          if (prev && roster.includes(prev)) sel.value = prev;
+        }
+        sel.classList.remove('hidden');
+        inp.classList.add('hidden');
+      } else {
+        if (!inp.value && saved) inp.value = saved;
+        sel.classList.add('hidden');
+        inp.classList.remove('hidden');
+      }
+    }
+
+    function isStudentClosed() {
+      return !studentSession || isInputClosed(studentSession);
+    }
+
+    function updateStudentLockState() {
+      const fbLock = !isStudentClosed() && feedbackLocksAnswer();
+      const locked = (isStudentClosed() && !isReturned()) || fbLock;
+      document.getElementById('student-locked-banner').textContent = fbLock
+        ? '✔️ Deine Antwort wurde bewertet – Änderungen sind nicht mehr möglich.'
+        : (studentSession && isTimeUp(studentSession) ? '⏱️ Die Zeit ist abgelaufen – Antworten sind gesperrt.' : '🔒 Die Eingabe ist gesperrt.');
+      document.getElementById('student-locked-banner').classList.toggle('hidden', !locked);
+      const btn = document.getElementById('btn-student-submit');
+      btn.disabled = locked;
+      btn.classList.toggle('opacity-40', locked);
+      btn.classList.toggle('cursor-not-allowed', locked);
+    }
+
+    function renderStudentInputFields(data) {
+      const area = document.getElementById('student-input-area');
+      const signature = JSON.stringify([data.type, data.question, data.initialText || '', data.options || [], !!data.multi, data.maxTerms || 0, data.unit || '']);
+      if (area.dataset.signature === signature) return;
+      area.dataset.signature = signature;
+      area.dataset.type = data.type;
+      selectedMcIndex = null;
+      selectedAmpelValue = null;
+      selectedMcSet = new Set();
+      selectedTf = null;
+
+      if (data.type === 'tf') {
+        area.innerHTML = `<label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Stimmt diese Aussage?</label>
+          <div class="grid grid-cols-2 gap-3">
+            <button type="button" onclick="chooseTf('Richtig')" id="stu-tf-Richtig" class="stu-tf-btn p-5 rounded-2xl border-2 border-slate-300 text-lg font-bold hover:bg-emerald-50 transition">✅ Richtig</button>
+            <button type="button" onclick="chooseTf('Falsch')" id="stu-tf-Falsch" class="stu-tf-btn p-5 rounded-2xl border-2 border-slate-300 text-lg font-bold hover:bg-rose-50 transition">❌ Falsch</button>
+          </div>`;
+        return;
+      }
+      if (data.type === 'cloud') {
+        const n = [1, 2, 3, 5].includes(Number(data.maxTerms)) ? Number(data.maxTerms) : 3;
+        area.innerHTML = `<label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">${n === 1 ? 'Dein Begriff' : `Deine Begriffe (1 bis ${n})`}</label>` +
+          Array.from({ length: n }, (_, i) => `<input type="text" id="stu-cloud-${i}" maxlength="40" placeholder="${n === 1 ? 'Ein Wort oder kurzer Begriff' : 'Begriff ' + (i + 1) + (i ? ' (optional)' : '')}" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500" />`).join('');
+        return;
+      }
+      if (data.type === 'number') {
+        area.innerHTML = `<label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Deine Zahl</label>
+          <div class="flex items-center gap-2"><input type="text" id="stu-number" inputmode="decimal" maxlength="20" placeholder="z. B. 42" class="flex-1 min-w-0 rounded-xl border border-slate-300 px-3.5 py-3 text-xl font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500" />${data.unit ? `<span class="text-base font-semibold text-slate-600">${escapeHTML(data.unit)}</span>` : ''}</div>`;
+        return;
+      }
+
+      if (data.type === 'text') {
+        area.innerHTML = `
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Deine Antwort</label>
+          <textarea id="student-text-answer" rows="3" maxlength="1000" placeholder="Antwort hier eintippen..." class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>`;
+      } else if (data.type === 'fix') {
+        area.innerHTML = `
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Korrigiere den Satz direkt im Feld</label>
+          <textarea id="student-text-answer" rows="3" maxlength="1000" class="w-full rounded-xl border-2 border-indigo-200 bg-indigo-50/20 px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500">${escapeHTML(data.initialText || '')}</textarea>`;
+      } else if (data.type === 'order') {
+        studentOrderItems = shuffle(data.options || []);
+        renderStudentOrderList();
+      } else if (data.type === 'mc') {
+        area.innerHTML = `<label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">${data.multi ? 'Wähle alle passenden Antworten' : 'Wähle eine Antwort'}</label>` +
+          (data.options || []).map((opt, idx) => `
+            <button type="button" onclick="chooseMcOption(${idx})" id="stu-mc-${idx}" class="stu-mc-btn w-full text-left p-3.5 rounded-xl border border-slate-300 font-medium text-sm hover:bg-slate-50 transition">
+              ${escapeHTML(opt)}
+            </button>`).join('');
+      } else if (data.type === 'ampel') {
+        const choices = [
+          { val: '1', text: '🟢 Alles klar – ich habe es verstanden' },
+          { val: '2', text: '🟡 Meistens klar – kleine Unsicherheiten' },
+          { val: '3', text: '🟠 Noch unsicher – brauche Übung' },
+          { val: '4', text: '🔴 Unklar – bitte nochmals erklären' }
+        ];
+        area.innerHTML = `<label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Deine Einschätzung</label>` +
+          choices.map(c => `
+            <button type="button" onclick="chooseAmpel('${c.val}')" id="stu-ampel-${c.val}" class="stu-ampel-btn w-full text-left p-3 rounded-xl border border-slate-300 font-medium text-sm transition">
+              ${c.text}
+            </button>`).join('') +
+          `<div class="pt-2">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Was ist noch unklar? (optional)</label>
+            <input type="text" id="student-ampel-comment" maxlength="300" placeholder="Kurze Stichworte..." class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+          </div>`;
+      }
+    }
+
+    function renderStudentOrderList() {
+      const area = document.getElementById('student-input-area');
+      area.innerHTML = `<label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Bringe die Elemente in die richtige Reihenfolge</label>` +
+        studentOrderItems.map((item, idx) => `
+          <div class="flex items-center justify-between gap-2 p-3 rounded-xl border border-slate-300 bg-white">
+            <span class="text-sm font-medium text-slate-900"><strong class="text-indigo-600 mr-1.5">${idx + 1}.</strong> ${escapeHTML(item)}</span>
+            <div class="flex items-center gap-1 shrink-0">
+              <button type="button" onclick="moveOrderItem(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} class="px-2.5 py-1.5 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-xs font-bold">↑</button>
+              <button type="button" onclick="moveOrderItem(${idx}, 1)" ${idx === studentOrderItems.length - 1 ? 'disabled' : ''} class="px-2.5 py-1.5 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-xs font-bold">↓</button>
+            </div>
+          </div>`).join('');
+    }
+
+    function moveOrderItem(idx, dir) {
+      const target = idx + dir;
+      if (target < 0 || target >= studentOrderItems.length) return;
+      [studentOrderItems[idx], studentOrderItems[target]] = [studentOrderItems[target], studentOrderItems[idx]];
+      renderStudentOrderList();
+    }
+
+    function chooseTf(v) {
+      selectedTf = v;
+      document.querySelectorAll('.stu-tf-btn').forEach(b => b.classList.remove('pill-active'));
+      document.getElementById('stu-tf-' + v).classList.add('pill-active');
+    }
+
+    function chooseMcOption(idx) {
+      if (studentSession && studentSession.multi) {
+        if (selectedMcSet.has(idx)) selectedMcSet.delete(idx); else selectedMcSet.add(idx);
+        document.getElementById('stu-mc-' + idx).classList.toggle('pill-active', selectedMcSet.has(idx));
+        return;
+      }
+      selectedMcIndex = idx;
+      document.querySelectorAll('.stu-mc-btn').forEach(b => b.classList.remove('pill-active'));
+      document.getElementById('stu-mc-' + idx).classList.add('pill-active');
+    }
+
+    function chooseAmpel(val) {
+      selectedAmpelValue = val;
+      document.querySelectorAll('.stu-ampel-btn').forEach(b => b.classList.remove('pill-active'));
+      document.getElementById('stu-ampel-' + val).classList.add('pill-active');
+    }
+
+    function showSentState() {
+      document.getElementById('student-sent-banner').classList.remove('hidden');
+      document.getElementById('btn-student-submit').textContent = 'Antwort aktualisieren';
+      document.getElementById('btn-handover').classList.toggle('hidden', isTeacherUser(currentUser));
+    }
+
+    async function submitStudentAnswer() {
+      if (!studentSession || !studentRoomCode) return;
+      if (isStudentClosed() && !isReturned()) return updateStudentLockState();
+      const sel = document.getElementById('student-name-select');
+      const name = (!sel.classList.contains('hidden') ? sel.value : document.getElementById('student-name').value).trim();
+      if (!name) return toast('Bitte gib deinen Namen an.');
+
+      let answer = '';
+      let comment = '';
+      const type = studentSession.type;
+      if (type === 'text' || type === 'fix') {
+        answer = document.getElementById('student-text-answer').value.trim();
+        if (!answer) return toast('Bitte gib eine Antwort ein.');
+      } else if (type === 'order') {
+        answer = studentOrderItems.join(ORDER_SEP);
+      } else if (type === 'mc' && studentSession.multi) {
+        if (!selectedMcSet.size) return toast('Bitte wähle mindestens eine Option aus.');
+        answer = [...selectedMcSet].sort((a, b) => a - b).map(i => (studentSession.options || [])[i]).filter(Boolean).join(MULTI_SEP);
+      } else if (type === 'mc') {
+        if (selectedMcIndex === null) return toast('Bitte wähle eine Option aus.');
+        answer = (studentSession.options || [])[selectedMcIndex] || '';
+      } else if (type === 'tf') {
+        if (!selectedTf) return toast('Bitte wähle Richtig oder Falsch.');
+        answer = selectedTf;
+      } else if (type === 'cloud') {
+        const seen = new Set();
+        const terms = [...document.querySelectorAll('[id^="stu-cloud-"]')].map(i => i.value.trim().replace(/\s+/g, ' ')).filter(t => t && !seen.has(t.toLowerCase()) && seen.add(t.toLowerCase()));
+        if (!terms.length) return toast('Bitte gib mindestens einen Begriff ein.');
+        answer = terms.join(MULTI_SEP);
+      } else if (type === 'number') {
+        const n = parseNum(document.getElementById('stu-number').value);
+        if (n === null || Number.isNaN(n)) return toast('Bitte gib eine gültige Zahl ein.');
+        answer = String(n);
+      } else if (type === 'ampel') {
+        if (!selectedAmpelValue) return toast('Bitte wähle eine Stufe aus.');
+        answer = selectedAmpelValue;
+        comment = (document.getElementById('student-ampel-comment')?.value || '').trim();
+      }
+
+      localStorage.setItem('lightning_student_name', name);
+      const ref = sessionRef(studentRoomCode).collection('responses').doc(deviceId);
+      const payload = { name, answer, comment, updatedAt: FV.serverTimestamp() };
+      // Nachbessern nach ⚠️/❌: Bewertung zurücksetzen, damit die Lehrperson die neue Version sieht
+      if (studentResp && (studentResp.mark === 'warn' || studentResp.mark === 'bad')) { payload.mark = 'none'; payload.revised = true; }
+      if (isReturned()) { payload.mark = 'none'; payload.revised = true; payload.returned = false; }
+      const btn = document.getElementById('btn-student-submit');
+      btn.disabled = true;
+      try {
+        if (studentHasSubmitted) {
+          try { await ref.update(payload); }
+          catch (e) { await ref.set({ name, answer, comment, updatedAt: FV.serverTimestamp(), mark: 'none' }); }   // z. B. von Lehrperson gelöscht
+        } else {
+          await ref.set({ ...payload, mark: 'none' });
+        }
+        studentHasSubmitted = true;
+        showSentState();
+        if (payload.revised) toast('Verbesserte Antwort gesendet');
+      } catch (e) {
+        toast(e.code === 'permission-denied'
+          ? 'Abgabe nicht möglich: Die Eingabe ist gesperrt oder die Zeit ist abgelaufen.'
+          : 'Abgabe fehlgeschlagen. Bitte nochmals versuchen.');
+      } finally {
+        updateStudentLockState();
+      }
+    }
+
+    // Geteiltes Gerät: neuer Geräteschlüssel für die nächste Person
+    function handOverDevice() {
+      const code = studentRoomCode;
+      deviceId = newDeviceId();
+      localStorage.setItem('lightning_device_id', deviceId);
+      localStorage.removeItem('lightning_student_name');
+      document.getElementById('student-name').value = '';
+      document.getElementById('student-name-select').value = '';
+      if (code) connectStudentToRoom(code);
+      toast('Bereit für die nächste Person');
+    }
+
+    function leaveStudentRoom() {
+      clearInterval(timers['student-timer-pill']);
+      if (studentUnsub) { studentUnsub(); studentUnsub = null; }
+      if (studentRespUnsub) { studentRespUnsub(); studentRespUnsub = null; }
+      studentResp = null;
+      document.getElementById('student-feedback-box').classList.add('hidden');
+      document.getElementById('student-spotlight-note').classList.add('hidden');
+      document.getElementById('student-solution-box').classList.add('hidden');
+      studentRoomCode = null;
+      studentSession = null;
+      document.getElementById('student-answer-box').classList.add('hidden');
+      document.getElementById('student-closed-box').classList.add('hidden');
+      document.getElementById('student-join-box').classList.remove('hidden');
+      document.getElementById('student-sent-banner').classList.add('hidden');
+      document.getElementById('btn-handover').classList.add('hidden');
+      document.getElementById('join-code-input').value = '';
+      if (paramCode) history.replaceState(null, '', getBaseUrl());
+    }
+
+    // =========================================================================
+    // 10. BEAMER-ANSICHT (ANONYMISIERT & SPOTLIGHT)
+    // =========================================================================
+    let beamerSession = null;
+    let beamerResponses = {};
+    let beamerSolution = null;
+
+    function initBeamerView(code) {
+      document.getElementById('beamer-code').textContent = code;
+      renderQR('qr-beamer', `${getBaseUrl()}?code=${code}`);
+
+      sessionRef(code).onSnapshot((snap) => {
+        if (!snap.exists) { beamerSession = null; renderBeamer(); return; }
+        beamerSession = snap.data({ serverTimestamps: 'estimate' });
+        startCountdown('beamer-timer-badge', beamerSession);
+        renderBeamer();
+      }, () => toast('Keine Berechtigung für diese Session.'));
+
+      sessionRef(code).collection('responses').onSnapshot((snap) => {
+        beamerResponses = {};
+        snap.forEach(d => { beamerResponses[d.id] = d.data(); });
+        renderBeamer();
+        ensureHashes(Object.keys(beamerResponses), renderBeamer);
+      }, () => {});
+
+      db.collection(TEACHERS).doc(currentUser.uid).collection('solutions').doc(code).get()
+        .then(s => { beamerSolution = s.exists ? s.data() : null; renderBeamer(); })
+        .catch(() => {});
+    }
+
+    function renderBeamer() {
+      const data = beamerSession;
+      const closed = !data || data.active === false;
+      document.getElementById('beamer-closed').classList.toggle('hidden', !closed);
+      document.getElementById('beamer-spotlight-box').classList.toggle('hidden', true);
+      document.getElementById('beamer-normal-area').classList.toggle('hidden', closed);
+      if (!data) {
+        document.getElementById('beamer-question').textContent = 'Session nicht gefunden';
+        return;
+      }
+      document.getElementById('beamer-question').textContent = data.question;
+      const solEl = document.getElementById('beamer-solution');
+      solEl.classList.toggle('hidden', !data.revealed || data.active === false);
+      solEl.textContent = data.revealed ? '💡 Lösung: ' + data.revealed : '';
+      const entries = Object.values(beamerResponses);
+      document.getElementById('beamer-count').textContent = entries.length;
+      if (closed) return;
+
+      // Spotlight hat Vorrang
+      const spotlightBox = document.getElementById('beamer-spotlight-box');
+      const normalArea = document.getElementById('beamer-normal-area');
+      const spotId = spotlightIdFrom(data, Object.keys(beamerResponses));
+      if (spotId && beamerResponses[spotId]) {
+        const item = beamerResponses[spotId];
+        spotlightBox.classList.remove('hidden');
+        normalArea.classList.add('hidden');
+        const origBox = document.getElementById('beamer-spotlight-original');
+        if (data.type === 'fix' && data.initialText) {
+          origBox.textContent = 'Ausgangssatz: ' + data.initialText;
+          origBox.classList.remove('hidden');
+        } else {
+          origBox.classList.add('hidden');
+        }
+        const answer = displayAnswer(data, item);
+        document.getElementById('beamer-spotlight-label').textContent = data.showNamesOnBeamer === true && item.name
+          ? `⭐ Fokus-Antwort von ${item.name}` : '⭐ Fokus-Antwort zur gemeinsamen Besprechung (anonym)';
+        document.getElementById('beamer-spotlight-text').textContent = item.comment ? `${answer} – «${item.comment}»` : answer;
+        return;
+      }
+      spotlightBox.classList.add('hidden');
+      normalArea.classList.remove('hidden');
+
+      const hiddenBox = document.getElementById('beamer-results-hidden');
+      const visibleBox = document.getElementById('beamer-results-visible');
+      if (!data.showOnBeamer) {
+        hiddenBox.classList.remove('hidden');
+        visibleBox.classList.add('hidden');
+        return;
+      }
+      hiddenBox.classList.add('hidden');
+      visibleBox.classList.remove('hidden');
+
+      const summary = document.getElementById('beamer-summary');
+      const cards = document.getElementById('beamer-cards');
+      if (SUMMARY_TYPES.includes(data.type)) {
+        summary.classList.remove('hidden');
+        summary.innerHTML = buildSummaryHTML(data, entries, beamerSolution);
+      } else {
+        summary.classList.add('hidden');
+      }
+
+      cards.innerHTML = Object.entries(beamerResponses).map(([id, item]) => {
+        if (!['text', 'fix', 'ampel'].includes(data.type)) return '';
+        if (data.type === 'ampel' && !item.comment) return '';
+        const text = data.type === 'ampel' ? item.comment : item.answer;
+        const border = item.mark === 'good' ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 bg-white';
+        const click = projectionOn ? ` onclick="toggleSpotlight('${id}')" role="button"` : '';
+        const nameTag = data.showNamesOnBeamer === true ? `<div class="text-sm font-bold text-indigo-700 mb-1 whitespace-normal">${escapeHTML(item.name || '')}</div>` : '';
+        return `<div${click} class="rounded-2xl border-2 ${border} p-5 text-lg font-medium text-slate-900 shadow-sm break-words whitespace-pre-wrap ${projectionOn ? 'cursor-pointer hover:border-amber-400' : ''}">${nameTag}${escapeHTML(text)}</div>`;
+      }).join('');
+    }
+
+    // =========================================================================
+    // 11. TIMER & HELFER
+    // =========================================================================
+    function tsMillis(t) {
+      if (!t) return 0;
+      if (typeof t === 'number') return t;
+      if (typeof t.toMillis === 'function') return t.toMillis();
+      return 0;
+    }
+
+    // Ende des Zeitfensters (Serverzeit des Starts + Dauer). 0 = kein Zeitlimit.
+    function deadlineMs(d) {
+      if (!d || !d.durationSec || d.durationSec <= 0) return 0;
+      const start = tsMillis(d.startedAt);
+      return start ? start + d.durationSec * 1000 : 0;
+    }
+    function isTimeUp(d) {
+      const dl = deadlineMs(d);
+      return !!dl && Date.now() >= dl;
+    }
+    function isInputClosed(d) {
+      return !!d && (d.locked === true || d.active === false || isTimeUp(d));
+    }
+
+    function startCountdown(badgeId, data, onExpire) {
+      clearInterval(timers[badgeId]);
+      const badge = document.getElementById(badgeId);
+      const dl = deadlineMs(data);
+      if (!dl) {
+        badge.classList.add('hidden');
+        return;
+      }
+      badge.classList.remove('hidden');
+      let fired = false;
+      const tick = () => {
+        const diff = Math.max(0, Math.ceil((dl - Date.now()) / 1000));
+        const min = String(Math.floor(diff / 60)).padStart(2, '0');
+        const sec = String(diff % 60).padStart(2, '0');
+        badge.textContent = diff > 0 ? `⏱️ ${min}:${sec}` : '⏱️ Zeit abgelaufen';
+        if (diff <= 0 && !fired) {
+          fired = true;
+          clearInterval(timers[badgeId]);
+          if (typeof onExpire === 'function') onExpire();
+        }
+      };
+      tick();
+      timers[badgeId] = setInterval(tick, 500);
+    }
+
+    function renderQR(elId, text) {
+      const box = document.getElementById(elId);
+      try {
+        const qr = qrcode(0, 'M');
+        qr.addData(text);
+        qr.make();
+        box.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+      } catch (e) {
+        box.textContent = '';
+      }
+    }
+
+    let toastTimer = null;
+    function toast(msg, actionLabel, action) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      if (actionLabel && action) {
+        const b = document.createElement('button');
+        b.textContent = actionLabel;
+        b.className = 'ml-3 underline font-semibold text-amber-300';
+        b.onclick = () => { el.classList.add('hidden'); action(); };
+        el.appendChild(b);
+      }
+      el.classList.remove('hidden');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.add('hidden'), 3500);
+    }
+
+    function escapeHTML(str) {
+      return String(str ?? '').replace(/[&<>"']/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s]));
+    }
+
+    // =========================================================================
+    // 12. DEMO-MODUS (?demo): Datenbank nur im Arbeitsspeicher + simulierte Klasse
+    // =========================================================================
+    function createFakeDb() {
+      const store = new Map();          // Pfad -> Daten
+      const listeners = new Set();
+      const SERVER_TS = { __serverTs: true };
+      let autoCounter = 0;
+      const mkTs = (ms) => ({ __fakeTs: true, toMillis: () => ms });
+      const parentOf = (path) => path.split('/').slice(0, -1).join('/');
+      const autoId = () => 'd' + Date.now().toString(36) + (autoCounter++).toString(36) + Math.random().toString(36).slice(2, 8);
+
+      function clone(v) {
+        if (v === SERVER_TS) return mkTs(Date.now());
+        if (v && v.__fakeTs) return v;
+        if (Array.isArray(v)) return v.map(clone);
+        if (v && typeof v === 'object') {
+          const o = {};
+          for (const k of Object.keys(v)) o[k] = clone(v[k]);
+          return o;
+        }
+        return v;
+      }
+      function docSnap(path) {
+        const d = store.get(path);
+        return { id: path.split('/').pop(), exists: d !== undefined, ref: docRef(path), data: () => (d === undefined ? undefined : clone(d)) };
+      }
+      function colSnap(path, filter) {
+        const docs = [...store.keys()].filter(k => parentOf(k) === path).map(docSnap).filter(sn => !filter || filter(sn.data()));
+        return { docs, size: docs.length, empty: docs.length === 0, forEach: (f) => docs.forEach(f) };
+      }
+      function notify(path) {
+        setTimeout(() => {
+          for (const l of [...listeners]) {
+            if (l.type === 'doc' && l.path === path) l.cb(docSnap(path));
+            if (l.type === 'col' && l.path === parentOf(path)) l.cb(colSnap(l.path));
+          }
+        }, 0);
+      }
+      function docRef(path) {
+        return {
+          id: path.split('/').pop(),
+          path,
+          collection: (name) => colRef(path + '/' + name),
+          get: async () => docSnap(path),
+          set: async (data, opts) => {
+            store.set(path, opts && opts.merge ? { ...(store.get(path) || {}), ...clone(data) } : clone(data));
+            notify(path);
+          },
+          update: async (fields) => {
+            if (!store.has(path)) { const e = new Error('not-found'); e.code = 'not-found'; throw e; }
+            store.set(path, { ...store.get(path), ...clone(fields) });
+            notify(path);
+          },
+          delete: async () => { store.delete(path); notify(path); },
+          onSnapshot: (cb) => {
+            const l = { type: 'doc', path, cb };
+            listeners.add(l);
+            setTimeout(() => listeners.has(l) && cb(docSnap(path)), 0);
+            return () => listeners.delete(l);
+          }
+        };
+      }
+      function colRef(path) {
+        return {
+          doc: (id) => docRef(path + '/' + (id || autoId())),
+          add: async (data) => { const r = docRef(path + '/' + autoId()); await r.set(data); return r; },
+          get: async () => colSnap(path),
+          where: (field, op, value) => ({
+            get: async () => colSnap(path, d => d && d[field] === value),
+            onSnapshot: (cb) => {
+              const l = { type: 'col', path, cb: () => cb(colSnap(path, d => d && d[field] === value)) };
+              listeners.add(l);
+              setTimeout(() => listeners.has(l) && l.cb(), 0);
+              return () => listeners.delete(l);
+            }
+          }),
+          onSnapshot: (cb) => {
+            const l = { type: 'col', path, cb };
+            listeners.add(l);
+            setTimeout(() => listeners.has(l) && cb(colSnap(path)), 0);
+            return () => listeners.delete(l);
+          }
+        };
+      }
+      const fakeDb = {
+        collection: (name) => colRef(name),
+        runTransaction: async (fn) => fn({ get: (ref) => ref.get(), set: (ref, data) => { ref.set(data); } }),
+        batch: () => {
+          const ops = [];
+          return {
+            delete: (ref) => ops.push(() => ref.delete()),
+            set: (ref, data) => ops.push(() => ref.set(data)),
+            commit: async () => { for (const op of ops) await op(); }
+          };
+        }
+      };
+      return { db: fakeDb, SERVER_TS };
+    }
+
+    const DEMO_NAMES = ['Lena', 'Noah', 'Mia', 'Luca', 'Sara', 'Elias', 'Lara', 'Jan', 'Emma', 'Tim', 'Nina', 'Leon', 'Alina', 'David'];
+
+    function seedDemoData() {
+      const t = teacherRef();
+      t.collection('classes').doc('demo2a').set({ name: 'Demo 2A', students: DEMO_NAMES });
+      [
+        { type: 'mc', question: 'Welches Signalwort passt zum Present Perfect?', options: ['yesterday', 'since 2022', 'last week', 'ago'], initialText: '' },
+        { type: 'fix', question: 'Setze die fehlenden Kommas.', options: [], initialText: 'Obwohl es regnete ging sie ohne Schirm aus dem Haus weil sie es eilig hatte.' },
+        { type: 'ampel', question: 'Wie sicher fühlst du dich beim Present Perfect?', options: [], initialText: '' },
+        { type: 'order', question: 'Bringe die Schritte einer Bewerbung in die richtige Reihenfolge.', options: ['Lehrstelle suchen', 'Schnupperlehre machen', 'Bewerbung schreiben', 'Vorstellungsgespräch', 'Lehrvertrag unterschreiben'], initialText: '' },
+        { type: 'text', question: 'Schreibe einen korrekten Satz im Present Perfect mit «never».', options: [], initialText: '' },
+        { type: 'tf', question: 'Das Present Perfect verwendet man mit «yesterday».', options: [], initialText: '', solution: { tf: 'false' } },
+        { type: 'cloud', question: 'Was fällt dir zum Thema Ferien ein?', options: [], initialText: '', maxTerms: 3, solution: {} },
+        { type: 'number', question: 'In welchem Jahr wurde die Eidgenossenschaft gegründet?', options: [], initialText: '', unit: '', solution: { num: 1291, tol: 0 } },
+        { type: 'mc', question: 'Welche Wörter sind Signalwörter für das Present Perfect?', options: ['since', 'yesterday', 'already', 'last year', 'never'], initialText: '', multi: true, solution: { mcCorrect: ['since', 'already', 'never'] } }
+      ].forEach((tpl, i) => t.collection('templates').doc('demo' + i).set({ ...tpl, createdAt: Date.now() - i * 1000 }));
+      // Lösung der ersten Vorlage markieren
+      t.collection('templates').doc('demo0').set({ type: 'mc', question: 'Welches Signalwort passt zum Present Perfect?', options: ['yesterday', 'since 2022', 'last week', 'ago'], initialText: '', solution: { mcCorrect: ['since 2022'] }, createdAt: Date.now() });
+    }
+
+    let demoBotTimers = [];
+    function stopDemoBots() {
+      demoBotTimers.forEach(clearTimeout);
+      demoBotTimers = [];
+    }
+
+    function demoAnswerFor(form) {
+      const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+      const sol = form.solution || {};
+      if (form.type === 'mc' && form.multi) {
+        const corr = sol.mcCorrect || form.options.slice(0, 2);
+        const chosen = form.options.filter(o => corr.includes(o) ? Math.random() < 0.8 : Math.random() < 0.2);
+        return { answer: (chosen.length ? chosen : [pick(form.options)]).join(MULTI_SEP), comment: '' };
+      }
+      if (form.type === 'mc' && sol.mcCorrect && sol.mcCorrect.length) {
+        return { answer: Math.random() < 0.65 ? sol.mcCorrect[0] : pick(form.options), comment: '' };
+      }
+      if (form.type === 'tf') {
+        const right = sol.tf === 'false' ? 'Falsch' : 'Richtig';
+        return { answer: Math.random() < 0.7 ? right : (right === 'Richtig' ? 'Falsch' : 'Richtig'), comment: '' };
+      }
+      if (form.type === 'cloud') {
+        const pool = ['Meer', 'Sonne', 'Strand', 'Glace', 'Berge', 'Reisen', 'Freunde', 'Ausschlafen', 'Familie', 'Schwimmen', 'Sonne', 'Meer', 'Camping', 'Velo', 'Zelt'];
+        const n = 1 + Math.floor(Math.random() * (form.maxTerms || 3));
+        return { answer: [...new Set(Array.from({ length: n }, () => pick(pool)))].join(MULTI_SEP), comment: '' };
+      }
+      if (form.type === 'number') {
+        const base = typeof sol.num === 'number' ? sol.num : 50;
+        const spread = typeof sol.num === 'number' ? Math.max(5, Math.abs(base) * 0.05) : 30;
+        const v = Math.random() < 0.4 ? base : Math.round(base + (Math.random() - 0.5) * 2 * spread);
+        return { answer: String(v), comment: '' };
+      }
+      if (form.type === 'mc') {
+        // meist die zweite Option (oft die richtige), sonst zufällig
+        return { answer: Math.random() < 0.6 && form.options[1] ? form.options[1] : pick(form.options), comment: '' };
+      }
+      if (form.type === 'ampel') {
+        const answer = pick(['1', '1', '2', '2', '2', '3', '3', '4']);
+        const comments = ['', '', 'Wann since und wann for?', 'Die unregelmässigen Verben', 'Unterschied zum Past Simple', ''];
+        return { answer, comment: answer === '1' ? '' : pick(comments) };
+      }
+      if (form.type === 'order') {
+        const items = Math.random() < 0.55 ? [...form.options] : shuffle(form.options);
+        return { answer: items.join(ORDER_SEP), comment: '' };
+      }
+      if (form.type === 'fix') {
+        const base = form.initialText || '';
+        const variants = [base, base.replace(/ (weil|obwohl|dass|als|wenn|ging)\b/gi, ', $1').replace(/^, /, ''), base.replace(/ (weil|dass|wenn)\b/gi, ', $1')];
+        return { answer: pick(variants) || base, comment: '' };
+      }
+      return { answer: pick(['I have never been to London.', 'I never have eaten sushi.', 'She has never seen snow.', 'We have never played golf.', 'I have never went to Paris.', 'He has never met a famous person.']), comment: '' };
+    }
+
+    let demoForm = null;
+    function demoImprovedAnswer(form, old) {
+      const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+      const sol = form.solution || {};
+      if (form.type === 'mc' && form.multi) return (sol.mcCorrect || [form.options[0]]).join(MULTI_SEP);
+      if (form.type === 'mc' && sol.mcCorrect && sol.mcCorrect.length) return sol.mcCorrect[0];
+      if (form.type === 'mc') return form.options[1] && old !== form.options[1] ? form.options[1] : pick(form.options.filter(o => o !== old)) || old;
+      if (form.type === 'tf') return sol.tf === 'false' ? 'Falsch' : 'Richtig';
+      if (form.type === 'number') return typeof sol.num === 'number' ? String(sol.num) : old;
+      if (form.type === 'cloud') return old;
+      if ((form.type === 'text' || form.type === 'fix') && sol.accepted && sol.accepted.length) return sol.accepted[0];
+      if (form.type === 'order') return form.options.join(ORDER_SEP);
+      if (form.type === 'fix') return (form.initialText || '').replace(/ (weil|obwohl|dass|als|wenn|ging)\b/gi, ', $1').replace(/^, /, '');
+      if (form.type === 'ampel') return old;
+      return pick(['I have never been to London.', 'She has never seen snow.', 'We have never played golf.', 'He has never met a famous person.']);
+    }
+    function demoReactToReturn(respId) {
+      if (!respId.startsWith('bot') || !demoForm) return;
+      const code = currentRoomCode;
+      demoBotTimers.push(setTimeout(async () => {
+        const ref = sessionRef(code).collection('responses').doc(respId);
+        const r = await ref.get();
+        if (!r.exists || r.data().returned !== true) return;
+        ref.update({ answer: demoImprovedAnswer(demoForm, r.data().answer), mark: 'none', revised: true, returned: false, updatedAt: FV.serverTimestamp() });
+      }, 4000 + Math.random() * 3000));
+    }
+    function demoReactToFeedback(respId, mark) {
+      if (!respId.startsWith('bot') || !demoForm || (mark !== 'warn' && mark !== 'bad')) return;
+      const code = currentRoomCode;
+      demoBotTimers.push(setTimeout(async () => {
+        const s = await sessionRef(code).get();
+        const d = s.exists ? s.data() : null;
+        if (!d || isInputClosed(d) || d.allowRevise !== true) return;
+        const ref = sessionRef(code).collection('responses').doc(respId);
+        const r = await ref.get();
+        if (!r.exists || (r.data().mark !== 'warn' && r.data().mark !== 'bad')) return;
+        ref.update({ answer: demoImprovedAnswer(demoForm, r.data().answer), mark: 'none', revised: true, updatedAt: FV.serverTimestamp() });
+      }, 3000 + Math.random() * 3000));
+    }
+
+    function startDemoBots(code, form) {
+      stopDemoBots();
+      demoForm = form;
+      const classId = document.getElementById('select-session-class').value;
+      const roster = cachedClasses[classId] ? presentStudents(classId) : null;
+      const names = shuffle(roster || DEMO_NAMES.slice(0, 8));
+      // etwa 80 % antworten, die übrigen «fehlen» noch
+      const count = Math.max(1, Math.round(names.length * 0.8));
+      names.slice(0, count).forEach((name, i) => {
+        const delay = 1500 + i * (900 + Math.random() * 1400);
+        demoBotTimers.push(setTimeout(async () => {
+          const snap = await sessionRef(code).get();
+          const d = snap.exists ? snap.data() : null;
+          if (!d || isInputClosed(d)) return;   // gleiche Regel wie in der echten Datenbank
+          const { answer, comment } = demoAnswerFor(form);
+          sessionRef(code).collection('responses').doc('bot' + i + newDeviceId().slice(0, 18)).set({ name, answer, comment, updatedAt: FV.serverTimestamp(), mark: 'none' });
+        }, delay));
+      });
+    }
+
+    loadFeedbackOptions();
+    renderMcEditor();
+    renderOrderEditor();
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    }
+  </script>
+<script>
+/* Feedback: öffnet das anonyme Tally-Formular (App, Version und Gerät werden mitgegeben, keine Personendaten) */
+function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'1.9.1',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
+
+/* ===== Zurück-Geste (Handy): ein Schritt zurück statt App schliessen ===== */
+(function(){
+ let depth=0,ign=0,raf=0;
+ const isSub=()=>{try{return !!(document.querySelector('#class-modal:not(.hidden),#qr-full:not(.hidden),#live-settings-modal:not(.hidden),#feedback-modal:not(.hidden),#import-modal:not(.hidden)')||(mode==='teacher'&&currentRoomCode))}catch(e){return false}};
+ const goBack=()=>{try{const o=document.querySelectorAll('#class-modal,#qr-full,#live-settings-modal,#feedback-modal,#import-modal');let any=false;o.forEach(e=>{if(!e.classList.contains('hidden')){e.classList.add('hidden');any=true}});if(!any)goHome()}catch(e){}};
+ function sync(){
+  raf=0;const want=isSub();
+  if(want&&!depth){history.pushState({sub:1},'');depth=1}
+  else if(!want&&depth){depth=0;ign++;history.back()}
+ }
+ const sched=()=>{if(!raf)raf=requestAnimationFrame(sync)};
+ new MutationObserver(sched).observe(document.body,{attributes:true,subtree:true,childList:true,attributeFilter:['class','hidden','style']});
+ window.addEventListener('popstate',()=>{
+  if(ign>0){ign--;return}
+  if(depth){depth=0;goBack();sched()}
+ });
+})();
+</script>
+</body>
+</html>

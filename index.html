@@ -147,6 +147,14 @@
                 <div class="font-semibold text-xs sm:text-sm">🔟 Zahl/Schätzung</div>
                 <div class="text-[11px] text-slate-500 mt-0.5">Verteilung</div>
               </button>
+              <button type="button" onclick="selectType('gap')" id="type-gap" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
+                <div class="font-semibold text-xs sm:text-sm">🔤 Lückentext</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Wörter einsetzen</div>
+              </button>
+              <button type="button" onclick="selectType('match')" id="type-match" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
+                <div class="font-semibold text-xs sm:text-sm">🔗 Zuordnen</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Paare bilden</div>
+              </button>
             </div>
           </div>
 
@@ -154,6 +162,28 @@
           <div>
             <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">2. Frage oder Arbeitsauftrag</label>
             <textarea id="input-question" rows="2" maxlength="500" placeholder="z. B. Schreibe einen korrekten Satz im Present Perfect mit 'never'." class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+            <div class="flex flex-wrap items-center gap-2 mt-2">
+              <label class="text-xs px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 font-semibold cursor-pointer">🖼️ Bild zur Frage
+                <input type="file" accept="image/*" class="hidden" onchange="handleQuestionImage(this)" id="input-image-file" />
+              </label>
+              <button type="button" id="btn-image-remove" onclick="clearQuestionImage()" class="hidden text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">Bild entfernen</button>
+              <button type="button" onclick="presetOpenQuestions()" class="text-xs px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 font-semibold" title="Schüler stellen anonym Fragen (Namen bleiben am Beamer aus)">❓ Offene Fragen sammeln</button>
+            </div>
+            <img id="question-image-preview" alt="" class="hidden mt-2 max-h-40 rounded-lg border border-slate-200" />
+          </div>
+
+          <!-- Zusatzfeld: Lückentext -->
+          <div id="gap-box" class="hidden space-y-1.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Text mit Lücken</label>
+            <textarea id="gap-text" rows="3" maxlength="600" placeholder="z. B. I [have] lived here [for] three years. (Mehrere richtige Wörter: [color/colour])" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white"></textarea>
+            <p class="text-[11px] text-slate-500">Die einzusetzenden Wörter in eckige Klammern setzen (1–8 Lücken). Schüler sehen Lücken, die Lösung bleibt privat. Mehrere richtige Varianten mit / trennen.</p>
+          </div>
+
+          <!-- Zusatzfeld: Zuordnen -->
+          <div id="match-box" class="hidden space-y-1.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Paare (eine Zeile pro Paar: links = rechts)</label>
+            <textarea id="match-text" rows="5" maxlength="900" placeholder="z. B.&#10;go = went&#10;see = saw&#10;write = wrote" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white"></textarea>
+            <p class="text-[11px] text-slate-500">2–8 Paare, die rechten Seiten müssen verschieden sein. Schüler wählen zu jedem Begriff links die passende rechte Seite aus.</p>
           </div>
 
           <!-- Zusatzfeld: Multiple Choice -->
@@ -397,8 +427,8 @@
       <!-- Code-Eingabe -->
       <div id="student-join-box" class="card p-6 space-y-4">
         <h2 class="text-lg font-bold text-slate-900">Session beitreten</h2>
-        <p class="text-sm text-slate-500">Gib den 4-stelligen Code von der Wandtafel ein.</p>
-        <input type="text" id="join-code-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="z. B. 4829" onkeydown="if(event.key==='Enter')joinRoomByInput()" class="w-full text-center text-2xl font-mono tracking-widest rounded-xl border border-slate-300 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <p class="text-sm text-slate-500">Gib den Code von der Wandtafel ein.</p>
+        <input type="text" id="join-code-input" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="z. B. 482915" onkeydown="if(event.key==='Enter')joinRoomByInput()" class="w-full text-center text-2xl font-mono tracking-widest rounded-xl border border-slate-300 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         <button onclick="joinRoomByInput()" class="btn-primary w-full py-3 text-base">Weiter</button>
       </div>
 
@@ -927,7 +957,69 @@
     // =========================================================================
     // 5. LEHRPERSON: FRAGE ERSTELLEN & SESSION STARTEN
     // =========================================================================
-    const TYPES = ['text', 'mc', 'ampel', 'fix', 'order', 'tf', 'cloud', 'number'];
+    const TYPES = ['text', 'mc', 'ampel', 'fix', 'order', 'tf', 'cloud', 'number', 'gap', 'match'];
+    const GAP_SEP = ' | ';
+    let questionImage = '';
+
+    // Bild zur Frage: verkleinern (max. 900 px, JPEG), damit die Session klein bleibt
+    function handleQuestionImage(input) {
+      const f = input.files && input.files[0];
+      input.value = '';
+      if (!f) return;
+      const url = URL.createObjectURL(f);
+      const im = new Image();
+      im.onload = () => {
+        const sc = Math.min(1, 900 / Math.max(im.width, im.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(im.width * sc); c.height = Math.round(im.height * sc);
+        const x = c.getContext('2d');
+        x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+        x.drawImage(im, 0, 0, c.width, c.height);
+        let q = 0.78, out = c.toDataURL('image/jpeg', q);
+        while (out.length > 200000 && q > 0.3) { q -= 0.1; out = c.toDataURL('image/jpeg', q); }
+        URL.revokeObjectURL(url);
+        if (out.length > 260000) return toast('Das Bild ist zu gross. Bitte ein kleineres Bild wählen.');
+        setQuestionImage(out);
+      };
+      im.onerror = () => { URL.revokeObjectURL(url); toast('Das Bild konnte nicht gelesen werden.'); };
+      im.src = url;
+    }
+    function setQuestionImage(src) {
+      questionImage = src || '';
+      const pv = document.getElementById('question-image-preview');
+      pv.src = questionImage; pv.classList.toggle('hidden', !questionImage);
+      document.getElementById('btn-image-remove').classList.toggle('hidden', !questionImage);
+    }
+    function clearQuestionImage() { setQuestionImage(''); }
+    // Bild unter der Frage anzeigen (Schüler, Beamer, Lehrperson)
+    function showQuestionImage(headingId, src) {
+      const h = document.getElementById(headingId);
+      if (!h) return;
+      let im = document.getElementById(headingId + '-img');
+      if (!src) { if (im) im.remove(); return; }
+      if (!im) {
+        im = document.createElement('img');
+        im.id = headingId + '-img'; im.alt = '';
+        im.className = 'mt-3 max-h-72 sm:max-h-96 max-w-full rounded-xl border border-slate-200 mx-auto block';
+        h.insertAdjacentElement('afterend', im);
+      }
+      if (im.getAttribute('src') !== src) im.src = src;
+    }
+    function presetOpenQuestions() {
+      selectType('text');
+      document.getElementById('input-question').value = 'Was ist dir noch unklar? Stelle hier deine Frage (anonym).';
+      toast('Namen bleiben am Beamer aus – Fragen erscheinen anonym.');
+    }
+    function parseGapSource(raw) {
+      const gaps = [];
+      const initial = String(raw || '').replace(/\[([^\]]+)\]/g, (m, w) => { gaps.push(w.split('/').map(x => x.trim()).filter(Boolean)); return '___'; });
+      return { gaps: gaps.filter(g => g.length), initial };
+    }
+    function parseMatchSource(raw) {
+      const pairs = String(raw || '').split('\n').map(l => l.split('=')).filter(a => a.length >= 2).map(a => [a[0].trim(), a.slice(1).join('=').trim()]).filter(a => a[0] && a[1]);
+      return pairs;
+    }
+    function gapNorm(x) { return String(x || '').toLowerCase().replace(/[’`´]/g, "'").replace(/\s+/g, ' ').trim(); }
     let mcDraft = [{ text: '', correct: false }, { text: '', correct: false }, { text: '', correct: false }, { text: '', correct: false }];
     let orderDraft = ['', '', ''];
     let tfSolution = '';
@@ -943,6 +1035,8 @@
       document.getElementById('solution-box').classList.toggle('hidden', type !== 'text' && type !== 'fix');
       document.getElementById('tf-box').classList.toggle('hidden', type !== 'tf');
       document.getElementById('cloud-box').classList.toggle('hidden', type !== 'cloud');
+      document.getElementById('gap-box').classList.toggle('hidden', type !== 'gap');
+      document.getElementById('match-box').classList.toggle('hidden', type !== 'match');
       document.getElementById('number-box').classList.toggle('hidden', type !== 'number');
       document.getElementById('solution-hint').textContent = type === 'fix'
         ? 'Stimmt eine Antwort genau überein (Leerzeichen und Gross-/Kleinschreibung egal, Satzzeichen zählen), gibt es automatisch ✅. Sonst entscheidest du.'
@@ -1034,6 +1128,9 @@
       orderDraft = ['', '', ''];
       tfSolution = '';
       document.getElementById('cloud-max').value = '3';
+      document.getElementById('gap-text').value = '';
+      document.getElementById('match-text').value = '';
+      setQuestionImage('');
       ['num-correct', 'num-tol', 'num-unit'].forEach(id => { document.getElementById(id).value = ''; });
       renderMcEditor();
       renderOrderEditor();
@@ -1066,12 +1163,18 @@
         document.getElementById('num-tol').value = sol.tol ? String(sol.tol) : '';
         document.getElementById('num-unit').value = t.unit || '';
       }
+      if (type === 'gap') document.getElementById('gap-text').value = t.gapSource || '';
+      if (type === 'match') document.getElementById('match-text').value = t.matchSource || '';
+      setQuestionImage(t.image || '');
       if ((type === 'text' || type === 'fix') && Array.isArray(sol.accepted)) document.getElementById('solution-text').value = sol.accepted.join('\n');
       selectType(type);
     }
 
     function generateRoomCode() {
-      return Math.floor(1000 + Math.random() * 9000).toString();
+      // 6 Ziffern (statt 4): 1 Mio. mögliche Codes, schwerer zu erraten
+      const buf = new Uint32Array(1);
+      crypto.getRandomValues(buf);
+      return String(100000 + (buf[0] % 900000));
     }
 
     function getBaseUrl() {
@@ -1103,6 +1206,24 @@
         if (n !== null) form.solution.num = n;
         if (tol !== null && !Number.isNaN(tol)) form.solution.tol = Math.abs(tol);
       }
+      if (type === 'gap') {
+        const raw = document.getElementById('gap-text').value.trim();
+        const pg = parseGapSource(raw);
+        form.gapSource = raw;
+        form.initialText = pg.initial;
+        form.gapCount = pg.gaps.length;
+        if (pg.gaps.length) form.solution.gaps = pg.gaps;
+      } else if (type === 'match') {
+        const raw = document.getElementById('match-text').value.trim();
+        const pairs = parseMatchSource(raw);
+        form.matchSource = raw;
+        form.pairs = pairs;
+        form.initialText = pairs.map(x => x[0]).join('\n');
+        form.options = pairs.map(x => x[1]);
+        if (pairs.length) form.solution.match = pairs.map(x => x[1]);
+      }
+      if (form.type !== 'gap' && form.type !== 'match') { /* nichts */ }
+      form.image = questionImage || '';
       if (type === 'text' || type === 'fix') {
         const acc = document.getElementById('solution-text').value.split('\n').map(x => x.trim()).filter(Boolean).slice(0, 10);
         if (acc.length) form.solution.accepted = acc;
@@ -1137,6 +1258,10 @@
       if (form.type === 'order' && form.options.length < 3) return toast('Bitte mindestens 3 Elemente zum Sortieren eingeben.');
       if (form.type === 'order' && new Set(form.options).size !== form.options.length) return toast('Die Elemente müssen verschieden sein.');
 
+      if (form.type === 'gap' && (!form.gapCount || form.gapCount > 8)) return toast('Bitte 1 bis 8 Lücken in eckige Klammern setzen, z. B. I [have] lived here.');
+      if (form.type === 'match' && (form.pairs.length < 2 || form.pairs.length > 8)) return toast('Bitte 2 bis 8 Paare eingeben (links = rechts).');
+      if (form.type === 'match' && new Set(form.options).size !== form.options.length) return toast('Die rechten Seiten müssen verschieden sein.');
+
       const classId = document.getElementById('select-session-class').value;
       const cls = classId ? cachedClasses[classId] : null;
       if (cls && presentStudents(classId).length === 0) return toast('Es ist niemand als anwesend markiert.');
@@ -1147,7 +1272,8 @@
         type: form.type,
         question: form.question,
         // Bei «Reihenfolge» bekommen die Schüler nur die gemischten Elemente – die Lösung bleibt privat
-        options: form.type === 'order' ? shuffleDifferent(form.options) : (form.type === 'mc' ? form.options : []),
+        options: form.type === 'order' ? shuffleDifferent(form.options) : (form.type === 'match' ? shuffle(form.options) : (form.type === 'mc' ? form.options : [])),
+        image: form.image || null,
         initialText: form.initialText,
         roster: cls ? presentStudents(classId) : null,
         classId: cls ? classId : null,
@@ -1246,6 +1372,7 @@
       const data = currentSessionData;
       if (!data) return;
       document.getElementById('live-question-title').textContent = data.question;
+      showQuestionImage('live-question-title', data.image);
       const ended = data.active === false;
       document.getElementById('live-badge').classList.toggle('hidden', ended);
       document.getElementById('ended-badge').classList.toggle('hidden', !ended);
@@ -1515,6 +1642,12 @@
           answerDisplay = `
             ${known ? `<div class="text-xs font-bold mb-1 ${isExact ? 'text-emerald-700' : 'text-amber-700'}">${isExact ? '✓ Exakte Reihenfolge' : '△ Abweichung'}</div>` : ''}
             <p class="text-sm text-slate-900 font-medium break-words">${escapeHTML(item.answer)}</p>`;
+        } else if (data.type === 'gap') {
+          const gp = String(item.answer || '').split(GAP_SEP), gsol = (currentSolution && currentSolution.gaps) || null;
+          answerDisplay = `<div class="flex flex-wrap gap-1">${gp.map((v, i) => { const ok = gsol && gsol[i] ? gsol[i].some(x => gapNorm(x) === gapNorm(v)) : null; return `<span class="px-2 py-0.5 rounded-lg text-sm font-semibold ${ok === null ? 'bg-slate-100 text-slate-800' : ok ? 'bg-emerald-100 text-emerald-900' : 'bg-rose-100 text-rose-900'}">${escapeHTML(v || '–')}</span>`; }).join('')}</div>`;
+        } else if (data.type === 'match') {
+          const ml = String(data.initialText || '').split('\n'), mp = String(item.answer || '').split(MULTI_SEP), msol = (currentSolution && currentSolution.match) || null;
+          answerDisplay = `<div class="space-y-0.5 text-sm">${ml.map((l, i) => { const ok = msol ? msol[i] === mp[i] : null; return `<div class="${ok === null ? '' : ok ? 'text-emerald-800' : 'text-rose-800'}"><b>${escapeHTML(l)}</b> → ${escapeHTML(mp[i] || '–')}${ok === null ? '' : ok ? ' ✓' : ' ✗'}</div>`; }).join('')}</div>`;
         } else if (data.type === 'cloud') {
           answerDisplay = `<div class="flex flex-wrap gap-1">${splitMulti(item.answer).map(t => `<span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-900 text-sm font-medium">${escapeHTML(t)}</span>`).join('')}</div>`;
         } else {
@@ -1545,7 +1678,7 @@
       }).join('');
     }
 
-    const SUMMARY_TYPES = ['mc', 'ampel', 'order', 'tf', 'cloud', 'number'];
+    const SUMMARY_TYPES = ['mc', 'ampel', 'order', 'tf', 'cloud', 'number', 'gap', 'match'];
     const MULTI_SEP = '\n';
     function splitMulti(a) { return String(a || '').split(MULTI_SEP).map(x => x.trim()).filter(Boolean); }
     function fmtNum(n) { return n.toLocaleString('de-CH', { maximumFractionDigits: 2, useGrouping: Math.abs(n) >= 10000 }); }
@@ -1555,6 +1688,7 @@
       if (data.type === 'ampel') return AMPEL_LABELS[a] || a;
       if (data.type === 'mc' && data.multi) return splitMulti(a).join(', ');
       if (data.type === 'cloud') return splitMulti(a).join(', ');
+      if (data.type === 'match') return String(a || '').split(MULTI_SEP).join(' | ');
       if (data.type === 'tf') return a === 'Richtig' ? '✅ Richtig' : a === 'Falsch' ? '❌ Falsch' : a;
       if (data.type === 'number') { const n = parseNum(a); return (n === null || Number.isNaN(n) ? a : fmtNum(n)) + (data.unit ? ' ' + data.unit : ''); }
       return a;
@@ -1645,6 +1779,17 @@
         return `<div class="text-xs font-bold uppercase tracking-wider text-slate-500">Ziel-Reihenfolge: <span class="text-slate-900 normal-case">${escapeHTML(correctStr)}</span></div>` +
           barRow('Komplett richtig sortiert', exactCount, total, 'bg-emerald-600');
       }
+      if (data.type === 'gap' || data.type === 'match') {
+        const key = data.type === 'gap' ? 'gaps' : 'match';
+        if (!sol || !sol[key]) return '<div class="text-xs text-slate-500">Lösung nicht verfügbar.</div>';
+        const all = entries.filter(e => { const r = evaluateAnswer(data, sol, e.answer); return r && r.mark === 'good'; }).length;
+        const per = sol[key].map((c, i) => {
+          const n = entries.filter(e => itemCorrect(data, sol, e.answer, i)).length;
+          const lab = data.type === 'gap' ? `Lücke ${i + 1}: ${c[0]}` : `${String(data.initialText || '').split('\n')[i]} → ${c}`;
+          return barRow(lab, n, total, 'bg-indigo-600');
+        }).join('');
+        return barRow('Alles richtig', all, total, 'bg-emerald-600') + per;
+      }
       if (data.type === 'cloud') return wordCloudHTML(entries);
       if (data.type === 'number') return numberSummaryHTML(data, entries, sol);
       if (data.type === 'mc') {
@@ -1669,6 +1814,14 @@
       if (!keepPunct) x = x.replace(/[.!?]+$/, '').trim();
       return x;
     }
+    function itemCorrect(data, sol, answer, i) {
+      if (data.type === 'gap') {
+        const got = String(answer || '').split(GAP_SEP)[i];
+        return !!(sol.gaps && sol.gaps[i] && sol.gaps[i].some(x => gapNorm(x) === gapNorm(got)));
+      }
+      const got = String(answer || '').split(MULTI_SEP)[i];
+      return !!(sol.match && sol.match[i] === got);
+    }
     function evaluateAnswer(data, sol, answer) {
       if (!data || !sol) return null;
       if (data.type === 'mc' && Array.isArray(sol.mcCorrect) && sol.mcCorrect.length) {
@@ -1684,6 +1837,13 @@
         const v = parseNum(answer);
         if (v === null || Number.isNaN(v)) return null;
         return { mark: Math.abs(v - sol.num) <= (sol.tol || 0) + 1e-9 ? 'good' : 'bad' };
+      }
+      if ((data.type === 'gap' && Array.isArray(sol.gaps)) || (data.type === 'match' && Array.isArray(sol.match))) {
+        const n = (data.type === 'gap' ? sol.gaps : sol.match).length;
+        let k = 0;
+        for (let i = 0; i < n; i++) if (itemCorrect(data, sol, answer, i)) k++;
+        if (k === n) return { mark: 'good' };
+        return { mark: k >= n / 2 ? 'warn' : 'bad', feedback: data.type === 'gap' ? `${k} von ${n} Lücken richtig.` : `${k} von ${n} richtig zugeordnet.` };
       }
       if (data.type === 'order' && Array.isArray(sol.order)) {
         const got = String(answer || '').split(ORDER_SEP);
@@ -1709,7 +1869,7 @@
         if (!res) return;
         const upd = { mark: res.mark, revised: false };
         if (res.feedback && !r.feedback) upd.feedback = res.feedback;
-        else if (r.feedback && /an der richtigen Stelle\.$|richtigen Antworten gefunden/.test(r.feedback)) upd.feedback = res.feedback || '';
+        else if (r.feedback && /an der richtigen Stelle\.$|richtigen Antworten gefunden|Lücken richtig\.$|richtig zugeordnet\.$/.test(r.feedback)) upd.feedback = res.feedback || '';
         sessionRef(currentRoomCode).collection('responses').doc(r.id).update(upd).catch(() => {});
         if (IS_DEMO) demoReactToFeedback(r.id, res.mark);
       });
@@ -1722,6 +1882,8 @@
       if (data.type === 'tf' && sol.tf) return sol.tf === 'true' ? 'Richtig' : 'Falsch';
       if (data.type === 'number' && typeof sol.num === 'number') return fmtNum(sol.num) + (data.unit ? ' ' + data.unit : '') + (sol.tol ? ' (±' + fmtNum(sol.tol) + ')' : '');
       if (data.type === 'order' && sol.order) return sol.order.join(ORDER_SEP);
+      if (data.type === 'gap' && sol.gaps) return sol.gaps.map(g => g.join(' / ')).join(' | ');
+      if (data.type === 'match' && sol.match) return String(data.initialText || '').split('\n').map((l, i) => l + ' → ' + sol.match[i]).join('; ');
       if ((data.type === 'text' || data.type === 'fix') && sol.accepted && sol.accepted.length) return sol.accepted.join(' / ');
       return '';
     }
@@ -2217,7 +2379,7 @@
         .catch(() => toast('Vorlage konnte nicht gespeichert werden.'));
     }
 
-    const TYPE_LABELS = { text: 'Kurzantwort', mc: 'Multiple Choice', ampel: 'Ampel', fix: 'Satz-Korrektur', order: 'Reihenfolge', tf: 'Richtig/Falsch', cloud: 'Wortwolke', number: 'Zahl/Schätzung' };
+    const TYPE_LABELS = { text: 'Kurzantwort', mc: 'Multiple Choice', ampel: 'Ampel', fix: 'Satz-Korrektur', order: 'Reihenfolge', tf: 'Richtig/Falsch', cloud: 'Wortwolke', gap: 'Lückentext', match: 'Zuordnen', number: 'Zahl/Schätzung' };
 
     function renderTemplates() {
       document.getElementById('template-count').textContent = cachedTemplates.length;
@@ -2384,7 +2546,7 @@
     // =========================================================================
     function joinRoomByInput() {
       const code = document.getElementById('join-code-input').value.trim();
-      if (!/^\d{4}$/.test(code)) return toast('Bitte 4-stelligen Code eingeben.');
+      if (!/^\d{4,6}$/.test(code)) return toast('Bitte den Code eingeben (6 Ziffern).');
       connectStudentToRoom(code);
     }
 
@@ -2430,6 +2592,7 @@
         document.getElementById('student-closed-box').classList.add('hidden');
         document.getElementById('student-answer-box').classList.remove('hidden');
         document.getElementById('student-question-text').textContent = data.question;
+        showQuestionImage('student-question-text', data.image);
         setupStudentNameInput(data);
         renderStudentInputFields(data);
         startCountdown('student-timer-pill', data, () => { updateStudentLockState(); renderStudentFeedback(); });
@@ -2477,6 +2640,8 @@
         else if (d.type === 'tf') { if (a === 'Richtig' || a === 'Falsch') chooseTf(a); }
         else if (d.type === 'ampel') { if (['1', '2', '3', '4'].includes(a)) chooseAmpel(a); const c = document.getElementById('student-ampel-comment'); if (c) c.value = r.comment || ''; }
         else if (d.type === 'order') { const parts = a.split(ORDER_SEP); if (parts.length === (d.options || []).length) { studentOrderItems = parts; renderStudentOrderList(); } }
+        else if (d.type === 'gap') { a.split(GAP_SEP).forEach((t, i) => { const el = document.getElementById('stu-gap-' + i); if (el) el.value = t; }); }
+        else if (d.type === 'match') { a.split(MULTI_SEP).forEach((t, i) => { const el = document.getElementById('stu-match-' + i); if (el) el.value = t; }); }
         else if (d.type === 'cloud') { splitMulti(a).forEach((t, i) => { const el = document.getElementById('stu-cloud-' + i); if (el) el.value = t; }); }
         else if (d.type === 'number') { const el = document.getElementById('stu-number'); if (el) el.value = a; }
       } catch (e) {}
@@ -2566,6 +2731,18 @@
       selectedMcSet = new Set();
       selectedTf = null;
 
+      if (data.type === 'gap') {
+        const parts = String(data.initialText || '').split('___');
+        area.innerHTML = `<label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Setze die fehlenden Wörter ein</label>
+          <div class="text-base leading-[2.6rem] text-slate-900 whitespace-pre-wrap">` + parts.map((t, i) => escapeHTML(t) + (i < parts.length - 1 ? `<input type="text" id="stu-gap-${i}" maxlength="60" autocomplete="off" autocapitalize="off" class="mx-1 w-32 rounded-lg border-2 border-indigo-300 bg-indigo-50/30 px-2 py-1 text-base font-semibold text-center focus:outline-none focus:ring-2 focus:ring-indigo-500" />` : '')).join('') + '</div>';
+        return;
+      }
+      if (data.type === 'match') {
+        const lefts = String(data.initialText || '').split('\n');
+        area.innerHTML = `<label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Ordne zu</label>` + lefts.map((l, i) =>
+          `<div class="flex items-center gap-2"><span class="flex-1 min-w-0 font-semibold text-sm break-words">${escapeHTML(l)}</span><span class="text-slate-400">→</span><select id="stu-match-${i}" class="flex-1 min-w-0 rounded-xl border border-slate-300 px-2 py-2.5 text-sm bg-white"><option value="">– wählen –</option>` + (data.options || []).map(o => `<option value="${escapeHTML(o)}">${escapeHTML(o)}</option>`).join('') + '</select></div>').join('');
+        return;
+      }
       if (data.type === 'tf') {
         area.innerHTML = `<label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Stimmt diese Aussage?</label>
           <div class="grid grid-cols-2 gap-3">
@@ -2684,6 +2861,14 @@
       if (type === 'text' || type === 'fix') {
         answer = document.getElementById('student-text-answer').value.trim();
         if (!answer) return toast('Bitte gib eine Antwort ein.');
+      } else if (type === 'gap') {
+        const vals = [...document.querySelectorAll('[id^="stu-gap-"]')].map(i => i.value.trim().replace(/\|/g, '/'));
+        if (!vals.some(Boolean)) return toast('Bitte setze mindestens ein Wort ein.');
+        answer = vals.join(GAP_SEP);
+      } else if (type === 'match') {
+        const vals = [...document.querySelectorAll('[id^="stu-match-"]')].map(i => i.value);
+        if (vals.some(v => !v)) return toast('Bitte ordne alles zu.');
+        answer = vals.join(MULTI_SEP);
       } else if (type === 'order') {
         answer = studentOrderItems.join(ORDER_SEP);
       } else if (type === 'mc' && studentSession.multi) {
@@ -2809,6 +2994,7 @@
         return;
       }
       document.getElementById('beamer-question').textContent = data.question;
+      showQuestionImage('beamer-question', data.image);
       const solEl = document.getElementById('beamer-solution');
       solEl.classList.toggle('hidden', !data.revealed || data.active === false);
       solEl.textContent = data.revealed ? '💡 Lösung: ' + data.revealed : '';
@@ -3062,6 +3248,8 @@
         { type: 'ampel', question: 'Wie sicher fühlst du dich beim Present Perfect?', options: [], initialText: '' },
         { type: 'order', question: 'Bringe die Schritte einer Bewerbung in die richtige Reihenfolge.', options: ['Lehrstelle suchen', 'Schnupperlehre machen', 'Bewerbung schreiben', 'Vorstellungsgespräch', 'Lehrvertrag unterschreiben'], initialText: '' },
         { type: 'text', question: 'Schreibe einen korrekten Satz im Present Perfect mit «never».', options: [], initialText: '' },
+        { type: 'gap', question: 'Setze die passenden Wörter ein.', options: [], initialText: 'I ___ lived here ___ three years.', gapSource: 'I [have] lived here [for] three years.', solution: { gaps: [['have'], ['for']] } },
+        { type: 'match', question: 'Ordne das Simple Past zu.', options: ['went', 'saw', 'wrote', 'ate'], initialText: 'go\nsee\nwrite\neat', matchSource: 'go = went\nsee = saw\nwrite = wrote\neat = ate', solution: { match: ['went', 'saw', 'wrote', 'ate'] } },
         { type: 'tf', question: 'Das Present Perfect verwendet man mit «yesterday».', options: [], initialText: '', solution: { tf: 'false' } },
         { type: 'cloud', question: 'Was fällt dir zum Thema Ferien ein?', options: [], initialText: '', maxTerms: 3, solution: {} },
         { type: 'number', question: 'In welchem Jahr wurde die Eidgenossenschaft gegründet?', options: [], initialText: '', unit: '', solution: { num: 1291, tol: 0 } },
@@ -3112,6 +3300,15 @@
         const comments = ['', '', 'Wann since und wann for?', 'Die unregelmässigen Verben', 'Unterschied zum Past Simple', ''];
         return { answer, comment: answer === '1' ? '' : pick(comments) };
       }
+      if (form.type === 'gap') {
+        const gs = sol.gaps || [];
+        return { answer: gs.map(g => Math.random() < 0.7 ? g[0] : pick(['has', 'since', 'been', 'ago'])).join(GAP_SEP), comment: '' };
+      }
+      if (form.type === 'match') {
+        const ms = (sol.match || []).slice();
+        if (ms.length > 1 && Math.random() < 0.4) { const i = Math.floor(Math.random() * ms.length), j = (i + 1) % ms.length; [ms[i], ms[j]] = [ms[j], ms[i]]; }
+        return { answer: ms.join(MULTI_SEP), comment: '' };
+      }
       if (form.type === 'order') {
         const items = Math.random() < 0.55 ? [...form.options] : shuffle(form.options);
         return { answer: items.join(ORDER_SEP), comment: '' };
@@ -3136,6 +3333,8 @@
       if (form.type === 'cloud') return old;
       if ((form.type === 'text' || form.type === 'fix') && sol.accepted && sol.accepted.length) return sol.accepted[0];
       if (form.type === 'order') return form.options.join(ORDER_SEP);
+      if (form.type === 'gap') return (sol.gaps || []).map(g => g[0]).join(GAP_SEP);
+      if (form.type === 'match') return (sol.match || []).join(MULTI_SEP);
       if (form.type === 'fix') return (form.initialText || '').replace(/ (weil|obwohl|dass|als|wenn|ging)\b/gi, ', $1').replace(/^, /, '');
       if (form.type === 'ampel') return old;
       return pick(['I have never been to London.', 'She has never seen snow.', 'We have never played golf.', 'He has never met a famous person.']);
@@ -3194,7 +3393,7 @@
   </script>
 <script>
 /* Feedback: öffnet das anonyme Tally-Formular (App, Version und Gerät werden mitgegeben, keine Personendaten) */
-function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'1.9',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
+function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'2.0',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
 
 /* ===== Zurück-Geste (Handy): ein Schritt zurück statt App schliessen ===== */
 (function(){
