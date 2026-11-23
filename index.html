@@ -108,6 +108,9 @@
               <button type="button" onclick="openImportModal()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-semibold">
                 📋 KI-Import
               </button>
+              <button type="button" onclick="openAiModal()" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-semibold">
+                ✨ Mit KI erstellen
+              </button>
             </div>
           </div>
 
@@ -666,6 +669,35 @@
         <button onclick="closeImportModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-sm">Abbrechen</button>
         <button onclick="processQuickImport()" class="btn-primary px-4 py-2 text-sm">In Formular laden</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL: MIT KI ERSTELLEN (nur Lehrperson, eigener API-Schlüssel aus dem Konto) -->
+  <div id="ai-modal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-4 shadow-xl">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-lg text-slate-900">✨ Fragen mit KI erstellen</h3>
+        <button onclick="closeAiModal()" class="text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+      <p class="text-xs text-slate-600">Beschreibe, was du brauchst. Die KI schlägt Fragen vor. Du prüfst sie und lädst sie ins Formular oder speicherst sie als Vorlagen. Es wird dein eigener KI-Schlüssel aus dem Konto verwendet (wie im Sek Planer). Bitte keine Namen von Schülern eingeben.</p>
+      <textarea id="ai-wish" rows="3" maxlength="800" placeholder="z. B. 5 Fragen zum Present Perfect für Niveau B, mit Signalwörtern" class="w-full rounded-xl border border-slate-300 p-3 text-sm"></textarea>
+      <div class="flex flex-wrap gap-3 text-sm">
+        <label class="flex items-center gap-2">Typ
+          <select id="ai-type" class="rounded-lg border border-slate-300 px-2 py-1">
+            <option value="auto">gemischt</option><option value="mc">Multiple Choice</option><option value="text">Kurzantwort</option><option value="tf">Richtig/Falsch</option><option value="fix">Satz-Korrektur</option><option value="order">Reihenfolge</option><option value="number">Zahl/Schätzung</option><option value="cloud">Wortwolke</option><option value="ampel">Ampel</option>
+          </select>
+        </label>
+        <label class="flex items-center gap-2">Anzahl
+          <select id="ai-count" class="rounded-lg border border-slate-300 px-2 py-1"><option>1</option><option>3</option><option selected>5</option><option>8</option></select>
+        </label>
+      </div>
+      <div class="flex justify-end gap-2">
+        <button onclick="closeAiModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-sm">Schliessen</button>
+        <button id="ai-go" onclick="runAiQuestions()" class="btn-primary px-4 py-2 text-sm">Fragen erstellen</button>
+      </div>
+      <div id="ai-status" class="text-xs text-slate-500"></div>
+      <div id="ai-result" class="space-y-2"></div>
+      <div id="ai-saveall" class="hidden flex justify-end"><button onclick="saveAllAiAsTemplates()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-semibold">Alle als Vorlagen speichern</button></div>
     </div>
   </div>
 
@@ -2440,6 +2472,131 @@
       teacherRef().collection('templates').doc(id).delete().catch(() => toast('Vorlage konnte nicht gelöscht werden.'));
     }
 
+
+    // ---- Mit KI erstellen (nur Lehrperson; eigener Schlüssel aus dem Konto, wie im Sek Planer) ----
+    async function loadAiKeys(){
+      if(!currentUser)throw new Error('Bitte mit dem Lehrerkonto anmelden.');
+      if(!window.firebase||!firebase.firestore)throw new Error('Die Verbindung zum Konto ist nicht verfügbar.');
+      const snap=await firebase.firestore().collection('sekSync').doc('apikeys_'+currentUser.uid).get();
+      const d=snap.exists?(snap.data()||{}):{};
+      const clean=k=>String(k||'').trim().replace(/^["']|["']$/g,'');
+      const keys={gemini:clean(d.geminiKey),claude:clean(d.claudeKey),openai:clean(d.openaiKey),mistral:clean(d.mistralKey)};
+      const P=['gemini','claude','openai','mistral'];
+      const order=[...new Set([...(Array.isArray(d.aiOrder)?d.aiOrder:[]).filter(x=>P.includes(x)),...P])].filter(p=>keys[p]);
+      if(!order.length)throw new Error('Im Konto ist kein KI-Schlüssel gespeichert. Hinterlege ihn im Sek Planer (Einstellungen) mit demselben Konto.');
+      return{keys,order};
+    }
+    async function fetchT(url,opt,ms){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms||90000);try{return await fetch(url,Object.assign({signal:c.signal},opt));}finally{clearTimeout(t);}}
+    async function askAI(system,user){
+      const {keys,order}=await loadAiKeys();const errs=[];
+      for(const p of order){
+        try{
+          if(p==='claude'){
+            for(const m of ['claude-sonnet-5-5','claude-haiku-5-5']){
+              try{
+                const r=await fetchT('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':keys.claude,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:m,max_tokens:6000,system,messages:[{role:'user',content:user}]})});
+                const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error((j.error&&j.error.message)||('HTTP '+r.status));
+                const t=(j.content||[]).map(x=>x.text||'').join('');if(t)return t;
+              }catch(e){errs.push('Claude '+m+': '+e.message);}
+            }
+          }else if(p==='gemini'){
+            for(const m of ['gemini-flash-latest','gemini-2.5-flash']){
+              try{
+                const r=await fetchT('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':keys.gemini},body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:[{role:'user',parts:[{text:user}]}],generationConfig:{responseMimeType:'application/json'}})});
+                const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error((j.error&&j.error.message)||('HTTP '+r.status));
+                const t=((((j.candidates||[])[0]||{}).content||{}).parts||[]).map(x=>x.text||'').join('');if(t)return t;
+              }catch(e){errs.push('Gemini '+m+': '+e.message);}
+            }
+          }else{
+            const cfg=p==='openai'?{u:'https://api.openai.com/v1/chat/completions',m:['gpt-4o-mini']}:{u:'https://api.mistral.ai/v1/chat/completions',m:['mistral-large-latest','mistral-small-latest']};
+            for(const m of cfg.m){
+              try{
+                const r=await fetchT(cfg.u,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys[p]},body:JSON.stringify({model:m,messages:[{role:'system',content:system},{role:'user',content:user}]})});
+                const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error((j.error&&(j.error.message||j.error))||('HTTP '+r.status));
+                const t=(((j.choices||[])[0]||{}).message||{}).content;if(t)return t;
+              }catch(e){errs.push(p+' '+m+': '+e.message);}
+            }
+          }
+        }catch(e){errs.push(p+': '+e.message);}
+      }
+      throw new Error('Die KI hat nicht geantwortet. '+errs.slice(0,3).join(' | '));
+    }
+    let aiTpls = [];
+    function openAiModal() {
+      if (IS_DEMO) return toast('In der Demo nicht verfügbar.');
+      document.getElementById('ai-modal').classList.remove('hidden');
+    }
+    function closeAiModal() { document.getElementById('ai-modal').classList.add('hidden'); }
+    function aiObjToTpl(obj) {
+      const type = String(obj.type || 'text').toLowerCase();
+      const options = Array.isArray(obj.options) ? obj.options.map(String) : [];
+      const sol = {};
+      const corr = obj.correct != null ? [].concat(obj.correct) : [];
+      if (type === 'mc' && corr.length) sol.mcCorrect = corr.map(c => typeof c === 'number' ? options[c] : String(c)).filter(Boolean);
+      if (type === 'tf' && obj.correct != null) sol.tf = /^(true|richtig|wahr|r|1)$/i.test(String(obj.correct)) ? 'true' : 'false';
+      if (type === 'number' && obj.correct != null) { const n = parseNum(obj.correct); if (n !== null && !Number.isNaN(n)) sol.num = n; if (obj.tolerance != null) sol.tol = Math.abs(parseNum(obj.tolerance) || 0); }
+      if ((type === 'text' || type === 'fix') && obj.solution) sol.accepted = [].concat(obj.solution).map(String);
+      if (type === 'order') sol.order = options;
+      const t = { type: TYPES.includes(type) ? type : 'text', question: String(obj.question || ''), options, initialText: String(obj.initialText || ''), multi: !!obj.multi, unit: String(obj.unit || ''), solution: sol };
+      if (obj.maxTerms != null && !Number.isNaN(Number(obj.maxTerms))) t.maxTerms = Number(obj.maxTerms);
+      return JSON.parse(JSON.stringify(t));
+    }
+    function aiTplSummary(t) {
+      const sol = t.solution || {};
+      if (t.type === 'mc') return t.options.map(o => ((sol.mcCorrect || []).includes(o) ? '✔ ' : '• ') + o).join('<br>');
+      if (t.type === 'tf') return 'Lösung: ' + (sol.tf === 'true' ? 'richtig' : sol.tf === 'false' ? 'falsch' : '–');
+      if (t.type === 'number') return 'Lösung: ' + (sol.num != null ? sol.num : '–') + (t.unit ? ' ' + t.unit : '');
+      if (t.type === 'order') return t.options.map((o, i) => (i + 1) + '. ' + o).join('<br>');
+      if (t.type === 'fix') return 'Satz: ' + (t.initialText || '–') + (sol.accepted ? '<br>Lösung: ' + sol.accepted.join(' / ') : '');
+      if (t.type === 'text') return sol.accepted ? 'Musterlösung: ' + sol.accepted.join(' / ') : '';
+      if (t.type === 'cloud') return 'Begriffe pro Person: ' + (t.maxTerms || 3);
+      return '';
+    }
+    async function runAiQuestions() {
+      const wish = document.getElementById('ai-wish').value.trim();
+      const type = document.getElementById('ai-type').value;
+      const n = Number(document.getElementById('ai-count').value) || 5;
+      const st = document.getElementById('ai-status'), go = document.getElementById('ai-go');
+      if (!wish) return toast('Bitte beschreibe kurz, was du brauchst.');
+      if (!currentUser) return toast('Bitte mit dem Lehrerkonto anmelden.');
+      go.disabled = true; st.textContent = 'Die KI arbeitet … (bis zu einer Minute)';
+      document.getElementById('ai-result').innerHTML = ''; document.getElementById('ai-saveall').classList.add('hidden');
+      const system = 'Du bist eine erfahrene Lehrperson der Sekundarstufe I in der Schweiz (Schülerinnen und Schüler 13 bis 15 Jahre). Du erstellst kurze Fragen für eine Live-Abfrage im Unterricht. Schweizer Rechtschreibung (immer «ss», nie «ß»), einfache, altersgerechte Sprache, jede Frage fachlich korrekt und mit genau einer eindeutigen Lösung (ausser Wortwolke und Ampel). Antworte AUSSCHLIESSLICH mit einem JSON-Array, ohne Text davor oder danach und ohne Markdown. Jedes Element hat die Felder: "type" (text, mc, ampel, fix, order, tf, cloud, number), "question" (Fragetext). Zusätzlich je nach Typ: mc: "options" (3 bis 5 Antwortmöglichkeiten) und "correct" (Liste der Texte der richtigen Optionen, genau so wie in options); text: "solution" (Musterlösung als Text); tf: "correct" ("richtig" oder "falsch"); number: "correct" (Zahl) und optional "tolerance" und "unit"; fix: "initialText" (Satz mit genau einem Fehler) und "solution" (korrigierter Satz); order: "options" (Elemente in der richtigen Reihenfolge); cloud: "maxTerms" (1 bis 5); ampel: nur "question".';
+      const user = 'Wunsch: ' + wish + '\nAnzahl Fragen: genau ' + n + '\nTyp: ' + (type === 'auto' ? 'gemischt, passend zum Wunsch' : type);
+      try {
+        const txt = await askAI(system, user);
+        const i = txt.indexOf('['), j = txt.lastIndexOf(']');
+        if (i < 0 || j < i) throw new Error('Die Antwort der KI war nicht lesbar. Bitte nochmals versuchen.');
+        const arr = JSON.parse(txt.slice(i, j + 1));
+        aiTpls = (Array.isArray(arr) ? arr : []).map(aiObjToTpl).filter(t => t.question);
+        if (!aiTpls.length) throw new Error('Die KI hat keine brauchbaren Fragen geliefert. Bitte nochmals versuchen.');
+        document.getElementById('ai-result').innerHTML = aiTpls.map((t, k) => `
+          <div class="p-3 rounded-xl border border-slate-200 bg-slate-50/60 space-y-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-600">${escapeHTML(TYPE_LABELS[t.type] || t.type)}</span>
+            <p class="text-sm font-medium text-slate-800">${escapeHTML(t.question)}</p>
+            <div class="text-xs text-slate-600">${aiTplSummary(t).split('<br>').map(escapeHTML).join('<br>')}</div>
+            <div class="flex gap-2 pt-1"><button onclick="useAiTpl(${k})" class="text-xs btn-primary px-3 py-1.5">In Formular laden</button><button onclick="saveAiTpl(${k})" class="text-xs bg-white border border-slate-300 hover:bg-slate-100 px-3 py-1.5 rounded-lg font-semibold">Als Vorlage</button></div>
+          </div>`).join('');
+        document.getElementById('ai-saveall').classList.remove('hidden');
+        st.textContent = 'Bitte jede Frage und Lösung vor dem Einsatz kurz prüfen. Die KI kann sich irren.';
+      } catch (e) { st.textContent = e.message || 'Es hat nicht geklappt.'; }
+      go.disabled = false;
+    }
+    function useAiTpl(k) { if (!aiTpls[k]) return; fillForm(aiTpls[k]); closeAiModal(); toast('Frage ins Formular geladen. Bitte prüfen.'); }
+    function saveAiTpl(k) {
+      if (!aiTpls[k]) return;
+      teacherRef().collection('templates').add({ ...aiTpls[k], createdAt: FV.serverTimestamp() })
+        .then(() => toast('Vorlage gespeichert'))
+        .catch(() => toast('Vorlage konnte nicht gespeichert werden.'));
+    }
+    function saveAllAiAsTemplates() {
+      if (!aiTpls.length) return;
+      const col = teacherRef().collection('templates');
+      Promise.all(aiTpls.map(t => col.add({ ...t, createdAt: FV.serverTimestamp() })))
+        .then(() => toast(aiTpls.length + ' Vorlagen gespeichert'))
+        .catch(() => toast('Nicht alle Vorlagen konnten gespeichert werden.'));
+    }
+
     function openImportModal() { document.getElementById('import-modal').classList.remove('hidden'); }
     function closeImportModal() { document.getElementById('import-modal').classList.add('hidden'); }
 
@@ -3423,7 +3580,7 @@
   </script>
 <script>
 /* Feedback: öffnet das anonyme Tally-Formular (App, Version und Gerät werden mitgegeben, keine Personendaten) */
-function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'2.3',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
+function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'2.4',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
 
 /* ===== Zurück-Geste (Handy): ein Schritt zurück statt App schliessen ===== */
 (function(){

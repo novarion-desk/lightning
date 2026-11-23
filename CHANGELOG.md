@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 2.4 – 23.11.2026
+- Neu: «✨ Mit KI erstellen» im Lehrerbereich. Wunsch eintippen, die KI schlägt Fragen vor (alle Typen ausser Lückentext und Zuordnen). Jede Frage kann ins Formular geladen oder als Vorlage gespeichert werden, oder alle zusammen als Vorlagen. Benutzt den eigenen KI-Schlüssel aus dem Konto (wie im Sek Planer), nichts läuft über einen fremden Zwischenserver. Nicht in der Demo.
+- Keine Änderung an den Firebase-Regeln nötig
+
 ## Version 2.3 – 23.11.2026
 - Neu: Sessions und Antworten bleiben 30 Tage gespeichert (vorher 24 Stunden), danach werden sie automatisch gelöscht. «Beendet» zeigt die letzten 30 Tage, nach Datum gruppiert.
 - Neu: Der Cast-Knopf erscheint nur für die angemeldete Lehrperson (nicht für Schüler, nicht in der Beamer-Ansicht).
