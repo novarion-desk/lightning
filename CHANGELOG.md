@@ -1,5 +1,8 @@
 # Changelog
 
+## Version 3.3 – 23.11.2026
+- Neu: Gemeinsamer KI-Zugang (Mistral). «Mit KI erstellen» funktioniert auch ohne eigenen Schlüssel im Konto, mit Tageslimit. Eigene Schlüssel haben Vorrang
+
 ## Version 3.2 – 23.11.2026
 - Neu: In ⚙️ Einstellungen (nur Lehrerkonto) gibt es «Google Drive»: «Jetzt in Drive sichern» legt deine Klassen und Vorlagen als Datei (.json) im Drive-Ordner «Teaching Cockpit Backups / Lightning» ab. Eigener Zielordner wählbar, optionale Erinnerung beim Öffnen (höchstens 1× pro Woche). Laufende Sitzungen und Schülerantworten sind nicht enthalten
 - Neu, nur für den Besitzer: «Code dieser App sichern» (ZIP in Drive) mit optionaler Erinnerung
