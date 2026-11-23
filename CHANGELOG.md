@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 2.6 – 23.11.2026
+- Neu: Im Fenster «Mit KI erstellen» gibt es unter den Fragen «Änderung wünschen» (z. B. «Nr. 3 schwieriger», «nur Richtig-Falsch», «gib mir 10»). Die KI überarbeitet die ganze Liste, beliebig oft.
+- Keine Änderung an den Firebase-Regeln nötig
+
 ## Version 2.5 – 23.11.2026
 - Neu: «✨ Diese Frage mit KI ausfüllen» direkt unter dem Fragefeld (nur Lehrperson). Wunsch eintippen, die KI füllt genau diese eine Frage samt Lösung passend zum gewählten Fragetyp aus. Danach prüfen und ändern.
 - «Mit KI erstellen» kann jetzt auch Lückentext und Zuordnen und bis zu 15 Fragen auf einmal
