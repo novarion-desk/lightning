@@ -3432,6 +3432,8 @@ function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'2
 
 window.CAST_CFG = {
     bottom: 76,
+    // Cast-Knopf nur für die angemeldete Lehrperson (nicht für Schüler, nicht auf der Beamer-Seite)
+    show: () => { try { return mode === 'teacher' && !!currentUser && isTeacherUser(currentUser) && !document.getElementById('view-login')?.offsetParent; } catch (e) { return false; } },
     mirror: () => {
         const v = ['view-teacher', 'view-student', 'view-beamer'].map(id => document.getElementById(id)).find(e => e && !e.classList.contains('hidden'));
         return v ? { html: '<div style="max-width:80rem;margin:0 auto;padding:1.5rem">' + v.innerHTML + '</div>', dark: false } : null;
@@ -3480,6 +3482,9 @@ window.CAST_CFG = {
   const url = () => location.origin + location.pathname + '?cast=1';
   const ui = document.createElement('div');
   ui.style.cssText = 'position:fixed;left:12px;bottom:' + (CFG.bottom || 12) + 'px;z-index:55;font-family:inherit';
+  const vis = () => { const on = !CFG.show || CFG.show(); ui.style.display = on ? '' : 'none'; };
+  ui.style.display = 'none';
+  setInterval(vis, 600);
   ui.innerHTML = '<button type="button" id="castBtn" title="Auf Bildschirm senden" style="width:44px;height:44px;border-radius:9999px;border:1px solid #cbd5e1;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15);font-size:20px;cursor:pointer">📺</button>' +
     '<div id="castPanel" style="display:none;position:absolute;left:0;bottom:52px;width:260px;background:#fff;border:1px solid #cbd5e1;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.2);padding:12px;font-size:13px;color:#0f172a">' +
     '<div style="font-weight:800;margin-bottom:8px">Auf Bildschirm senden</div>' +
