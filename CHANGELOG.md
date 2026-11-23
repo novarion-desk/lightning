@@ -1,5 +1,8 @@
 # Changelog
 
+## Version 2.9 – 23.11.2026
+- «Mit KI erstellen», Satz-Korrektur: Die KI baut so viele Fehler ein, wie der Wunsch verlangt (vorher immer genau einen)
+
 ## Version 2.8 – 23.11.2026
 - Fix: «Mit KI erstellen» meldete bei Satz-Korrektur «keine brauchbaren Fragen», wenn die KI keinen Fragetext mitlieferte. Fehlt er, wird ein passender Auftrag ergänzt. Bei einer unlesbaren Antwort steht jetzt der Anfang der KI-Antwort in der Meldung.
 
