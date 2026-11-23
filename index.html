@@ -701,7 +701,7 @@
           </select>
         </label>
         <label class="flex items-center gap-2">Anzahl
-          <select id="ai-count" class="rounded-lg border border-slate-300 px-2 py-1"><option>1</option><option>3</option><option selected>5</option><option>8</option><option>10</option><option>15</option></select>
+          <select id="ai-count" class="rounded-lg border border-slate-300 px-2 py-1"><option>1</option><option selected>3</option><option>5</option><option>8</option><option>10</option><option>15</option></select>
         </label>
       </div>
       <div class="flex justify-end gap-2">
@@ -2615,7 +2615,7 @@
     async function runAiQuestions() {
       const wish = document.getElementById('ai-wish').value.trim();
       const type = document.getElementById('ai-type').value;
-      const n = Number(document.getElementById('ai-count').value) || 5;
+      const n = Number(document.getElementById('ai-count').value) || 3;
       const st = document.getElementById('ai-status'), go = document.getElementById('ai-go');
       if (!wish) return toast('Bitte beschreibe kurz, was du brauchst.');
       if (!currentUser) return toast('Bitte mit dem Lehrerkonto anmelden.');
@@ -3667,7 +3667,7 @@
   </script>
 <script>
 /* Feedback: öffnet das anonyme Tally-Formular (App, Version und Gerät werden mitgegeben, keine Personendaten) */
-function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'2.6',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
+function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'2.7',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
 
 /* ===== Zurück-Geste (Handy): ein Schritt zurück statt App schliessen ===== */
 (function(){

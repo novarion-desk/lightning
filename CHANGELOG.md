@@ -1,5 +1,8 @@
 # Changelog
 
+## Version 2.7 – 23.11.2026
+- «Mit KI erstellen»: Voreinstellung sind jetzt 3 Fragen (statt 5)
+
 ## Version 2.6 – 23.11.2026
 - Neu: Im Fenster «Mit KI erstellen» gibt es unter den Fragen «Änderung wünschen» (z. B. «Nr. 3 schwieriger», «nur Richtig-Falsch», «gib mir 10»). Die KI überarbeitet die ganze Liste, beliebig oft.
 - Keine Änderung an den Firebase-Regeln nötig
