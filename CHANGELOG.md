@@ -1,5 +1,10 @@
 # Changelog
 
+## Version 3.0 – 23.11.2026
+- Neu: «⚙️ Einstellungen» oben rechts (nur angemeldete Lehrperson, nicht in der Demo): KI-Schlüssel eintragen und «Zuerst fragen» wählen. Gleiches Lehrerkonto wie Sek Planer und Grammatik Trainer, die Schlüssel gelten überall.
+- Im KI-Fenster steht nach jeder Antwort, welcher Anbieter und welches Modell geantwortet hat und wie lange es dauerte
+- Keine Änderung an den Firebase-Regeln nötig
+
 ## Version 2.9 – 23.11.2026
 - «Mit KI erstellen», Satz-Korrektur: Die KI baut so viele Fehler ein, wie der Wunsch verlangt (vorher immer genau einen)
 

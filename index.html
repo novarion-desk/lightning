@@ -44,6 +44,7 @@
         <button onclick="switchRole('student')" id="nav-student" class="text-xs sm:text-sm px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-medium">
           Teilnehmen
         </button>
+        <button onclick="openAiSettings()" id="btn-settings" title="Einstellungen: KI-Schlüssel" class="hidden text-xs sm:text-sm px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-medium">⚙️ Einstellungen</button>
         <button onclick="logoutTeacher()" id="btn-logout" title="Abmelden" class="hidden text-xs sm:text-sm px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-medium text-slate-500">
           ⎋ Abmelden
         </button>
@@ -686,6 +687,29 @@
   </div>
 
   <!-- MODAL: MIT KI ERSTELLEN (nur Lehrperson, eigener API-Schlüssel aus dem Konto) -->
+  <div id="settings-modal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 space-y-3 shadow-xl">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-lg text-slate-900">⚙️ Einstellungen</h3>
+        <button onclick="closeAiSettings()" class="text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+      <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-500">KI für Fragen</h4>
+      <p class="text-xs text-slate-600">Die Schlüssel werden wie im Sek Planer und im Grammatik Trainer im Lehrerkonto gespeichert. Was du in einer App einträgst, gilt in allen. Hast du sie dort schon hinterlegt, siehst du sie hier.</p>
+      <label class="block text-xs font-semibold text-slate-600">Zuerst fragen
+        <select id="set-first" class="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-sm font-normal"><option value="gemini">Google Gemini</option><option value="claude">Anthropic Claude</option><option value="openai">OpenAI ChatGPT</option><option value="mistral">Mistral</option></select>
+      </label>
+      <label class="block text-xs font-semibold text-slate-600">Google Gemini<input id="set-k-gemini" type="password" autocomplete="off" placeholder="aistudio.google.com/apikey" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal" /></label>
+      <label class="block text-xs font-semibold text-slate-600">Anthropic Claude<input id="set-k-claude" type="password" autocomplete="off" placeholder="sk-ant-…" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal" /></label>
+      <label class="block text-xs font-semibold text-slate-600">OpenAI ChatGPT<input id="set-k-openai" type="password" autocomplete="off" placeholder="sk-…" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal" /></label>
+      <label class="block text-xs font-semibold text-slate-600">Mistral<input id="set-k-mistral" type="password" autocomplete="off" placeholder="console.mistral.ai" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal" /></label>
+      <div id="set-msg" class="text-xs text-slate-500"></div>
+      <div class="flex justify-end gap-2">
+        <button onclick="closeAiSettings()" class="px-4 py-2 rounded-xl border border-slate-300 text-sm">Schliessen</button>
+        <button id="set-save" onclick="saveAiSettings()" class="btn-primary px-4 py-2 text-sm">Speichern</button>
+      </div>
+    </div>
+  </div>
+
   <div id="ai-modal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-4 shadow-xl">
       <div class="flex items-center justify-between">
@@ -823,6 +847,7 @@
       const teacher = isTeacherUser(currentUser);
       document.getElementById('btn-classes').classList.toggle('hidden', !teacher || mode !== 'teacher');
       document.getElementById('btn-logout').classList.toggle('hidden', !teacher || IS_DEMO);
+      document.getElementById('btn-settings').classList.toggle('hidden', !teacher || IS_DEMO);
       document.getElementById('header-actions').classList.toggle('hidden', mode === 'beamer');
       document.getElementById('demo-banner').classList.toggle('hidden', !IS_DEMO);
     }
@@ -2494,6 +2519,41 @@
     }
 
 
+    // ---- Einstellungen (Lehrperson): KI-Schlüssel im Lehrerkonto, gleiche wie Sek Planer / Grammatik Trainer ----
+    const AI_KEYF = [['gemini', 'geminiKey'], ['claude', 'claudeKey'], ['openai', 'openaiKey'], ['mistral', 'mistralKey']];
+    let aiSetLoaded = false, aiOrderOld = [];
+    async function openAiSettings() {
+      if (IS_DEMO) return toast('In der Demo nicht verfügbar.');
+      if (!currentUser) return toast('Bitte mit dem Lehrerkonto anmelden.');
+      const msg = document.getElementById('set-msg');
+      AI_KEYF.forEach(k => { document.getElementById('set-k-' + k[0]).value = ''; });
+      msg.textContent = 'Lade …'; aiSetLoaded = false;
+      document.getElementById('settings-modal').classList.remove('hidden');
+      try {
+        const snap = await firebase.firestore().collection('sekSync').doc('apikeys_' + currentUser.uid).get();
+        const x = snap.exists ? (snap.data() || {}) : {};
+        AI_KEYF.forEach(k => { document.getElementById('set-k-' + k[0]).value = String(x[k[1]] || ''); });
+        if (Array.isArray(x.aiOrder) && x.aiOrder[0]) document.getElementById('set-first').value = x.aiOrder[0];
+        aiOrderOld = Array.isArray(x.aiOrder) ? x.aiOrder : [];
+        aiSetLoaded = true; msg.textContent = '';
+      } catch (e) { msg.textContent = 'Die gespeicherten Schlüssel konnten nicht geladen werden.'; }
+    }
+    function closeAiSettings() { document.getElementById('settings-modal').classList.add('hidden'); }
+    async function saveAiSettings() {
+      const msg = document.getElementById('set-msg'), b = document.getElementById('set-save');
+      if (!aiSetLoaded) { msg.textContent = 'Die vorhandenen Schlüssel sind nicht geladen. Bitte die Einstellungen neu öffnen.'; return; }
+      const clean = v => String(v || '').trim().replace(/^["']|["']$/g, '');
+      const P = ['gemini', 'claude', 'openai', 'mistral'], first = document.getElementById('set-first').value;
+      const data = { ownerUid: currentUser.uid, updatedAt: FV.serverTimestamp(), preferredAi: first, aiOrder: [...new Set([first, ...aiOrderOld.filter(x => P.includes(x)), ...P])] };
+      AI_KEYF.forEach(k => { data[k[1]] = clean(document.getElementById('set-k-' + k[0]).value); });
+      b.disabled = true;
+      try {
+        await firebase.firestore().collection('sekSync').doc('apikeys_' + currentUser.uid).set(data, { merge: true });
+        aiOrderOld = data.aiOrder; msg.textContent = 'Gespeichert.';
+      } catch (e) { msg.textContent = 'Nicht gespeichert (' + (e.code || e.message) + ').'; }
+      b.disabled = false;
+    }
+
     // ---- Mit KI erstellen (nur Lehrperson; eigener Schlüssel aus dem Konto, wie im Sek Planer) ----
     async function loadAiKeys(){
       if(!currentUser)throw new Error('Bitte mit dem Lehrerkonto anmelden.');
@@ -2509,7 +2569,8 @@
     }
     async function fetchT(url,opt,ms){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms||45000);try{return await fetch(url,Object.assign({signal:c.signal},opt));}finally{clearTimeout(t);}}
     async function askAI(system,user,onStatus){
-      const {keys,order}=await loadAiKeys();const errs=[];
+      const {keys,order}=await loadAiKeys();const errs=[];const t0=Date.now();
+      const done=(p,m,t)=>{window.aiLastInfo=(p==='claude'?'Claude':p==='gemini'?'Gemini':p==='openai'?'OpenAI':'Mistral')+' ('+m+'), '+((Date.now()-t0)/1000).toFixed(1)+' s';return t;};
       const NAMES={claude:'Claude',gemini:'Gemini',openai:'OpenAI',mistral:'Mistral'};
       for(const p of order){
         if(onStatus)onStatus('Die KI arbeitet (Anbieter: '+NAMES[p]+') …');
@@ -2519,7 +2580,7 @@
               try{
                 const r=await fetchT('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':keys.claude,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:m,max_tokens:6000,system,messages:[{role:'user',content:user}]})});
                 const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error((j.error&&j.error.message)||('HTTP '+r.status));
-                const t=(j.content||[]).map(x=>x.text||'').join('');if(t)return t;
+                const t=(j.content||[]).map(x=>x.text||'').join('');if(t)return done(p,m,t);
               }catch(e){errs.push('Claude '+m+': '+e.message);}
             }
           }else if(p==='gemini'){
@@ -2527,7 +2588,7 @@
               try{
                 const r=await fetchT('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':keys.gemini},body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:[{role:'user',parts:[{text:user}]}],generationConfig:Object.assign({responseMimeType:'application/json'},m==='gemini-2.5-flash'?{thinkingConfig:{thinkingBudget:0}}:{})})});
                 const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error((j.error&&j.error.message)||('HTTP '+r.status));
-                const t=((((j.candidates||[])[0]||{}).content||{}).parts||[]).map(x=>x.text||'').join('');if(t)return t;
+                const t=((((j.candidates||[])[0]||{}).content||{}).parts||[]).map(x=>x.text||'').join('');if(t)return done(p,m,t);
               }catch(e){errs.push('Gemini '+m+': '+e.message);}
             }
           }else{
@@ -2536,7 +2597,7 @@
               try{
                 const r=await fetchT(cfg.u,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys[p]},body:JSON.stringify({model:m,messages:[{role:'system',content:system},{role:'user',content:user}]})});
                 const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error((j.error&&(j.error.message||j.error))||('HTTP '+r.status));
-                const t=(((j.choices||[])[0]||{}).message||{}).content;if(t)return t;
+                const t=(((j.choices||[])[0]||{}).message||{}).content;if(t)return done(p,m,t);
               }catch(e){errs.push(p+' '+m+': '+e.message);}
             }
           }
@@ -2609,7 +2670,7 @@
         aiTpls = tpls; aiLastRaw = txt.slice(i, j + 1);
         renderAiResult();
         document.getElementById('ai-refine-wish').value = '';
-        st.textContent = 'Angepasst. Bitte weiterhin jede Frage und Lösung prüfen.';
+        st.textContent = 'Angepasst. Bitte weiterhin jede Frage und Lösung prüfen. [' + (window.aiLastInfo || '') + ']';
       } catch (e) { st.textContent = e.message || 'Es hat nicht geklappt.'; }
       go.disabled = false;
     }
@@ -2635,7 +2696,7 @@
         aiLastRaw = txt.slice(i, j + 1);
         document.getElementById('ai-saveall').classList.remove('hidden');
         document.getElementById('ai-refine').classList.remove('hidden');
-        st.textContent = 'Bitte jede Frage und Lösung vor dem Einsatz kurz prüfen. Die KI kann sich irren.';
+        st.textContent = 'Bitte jede Frage und Lösung vor dem Einsatz kurz prüfen. Die KI kann sich irren. [' + (window.aiLastInfo || '') + ']';
       } catch (e) { st.textContent = e.message || 'Es hat nicht geklappt.'; }
       go.disabled = false;
     }
@@ -2680,7 +2741,7 @@
         const tpl = aiObjToTpl(o);
         if (!tpl.question) throw new Error('Die KI hat keine brauchbare Frage geliefert. Bitte nochmals versuchen.');
         fillForm(tpl);
-        st.textContent = 'Ausgefüllt. Bitte Frage und Lösung vor dem Einsatz prüfen. Die KI kann sich irren.';
+        st.textContent = 'Ausgefüllt. Bitte Frage und Lösung vor dem Einsatz prüfen. Die KI kann sich irren. [' + (window.aiLastInfo || '') + ']';
       } catch (e) { st.textContent = e.message || 'Es hat nicht geklappt.'; }
       go.disabled = false;
     }
@@ -3668,7 +3729,7 @@
   </script>
 <script>
 /* Feedback: öffnet das anonyme Tally-Formular (App, Version und Gerät werden mitgegeben, keine Personendaten) */
-function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'2.9',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
+function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'3.0',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
 
 /* ===== Zurück-Geste (Handy): ein Schritt zurück statt App schliessen ===== */
 (function(){
