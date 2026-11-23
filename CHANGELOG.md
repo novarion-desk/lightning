@@ -1,5 +1,10 @@
 # Changelog
 
+## Version 3.2 – 23.11.2026
+- Neu: In ⚙️ Einstellungen (nur Lehrerkonto) gibt es «Google Drive»: «Jetzt in Drive sichern» legt deine Klassen und Vorlagen als Datei (.json) im Drive-Ordner «Teaching Cockpit Backups / Lightning» ab. Eigener Zielordner wählbar, optionale Erinnerung beim Öffnen (höchstens 1× pro Woche). Laufende Sitzungen und Schülerantworten sind nicht enthalten
+- Neu, nur für den Besitzer: «Code dieser App sichern» (ZIP in Drive) mit optionaler Erinnerung
+- Neue Datei drive-backup.js (gemeinsamer Baustein)
+
 ## Version 3.1 – 23.11.2026
 - Neu: Fragetyp «📏 Selbsteinschätzung»: mehrere Themen auflisten (1–8), jede Person schätzt jedes Thema auf 5 Stufen ein (sehr sicher … gar nicht). Ergebnis pro Thema als farbiger Balken mit Durchschnitt, dazu «Schwächstes Thema». Auch im Fenster «Mit KI erstellen» wählbar.
 - Neu: Anmeldung mit Kästchen «Angemeldet bleiben» (Standard an). Zusätzlich bittet die App den Browser, die Anmeldung dauerhaft zu speichern (hilft auf dem Tablet mit Chrome).

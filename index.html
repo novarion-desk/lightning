@@ -715,6 +715,7 @@
       <label class="block text-xs font-semibold text-slate-600">OpenAI ChatGPT<input id="set-k-openai" type="password" autocomplete="off" placeholder="sk-…" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal" /></label>
       <label class="block text-xs font-semibold text-slate-600">Mistral<input id="set-k-mistral" type="password" autocomplete="off" placeholder="console.mistral.ai" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal" /></label>
       <div id="set-msg" class="text-xs text-slate-500"></div>
+      <div id="driveMountLightning"></div>
       <div class="flex justify-end gap-2">
         <button onclick="closeAiSettings()" class="px-4 py-2 rounded-xl border border-slate-300 text-sm">Schliessen</button>
         <button id="set-save" onclick="saveAiSettings()" class="btn-primary px-4 py-2 text-sm">Speichern</button>
@@ -762,6 +763,7 @@
   <script src="vendor/firebase-app-compat.js"></script>
   <script src="vendor/firebase-auth-compat.js"></script>
   <script src="vendor/firebase-firestore-compat.js"></script>
+  <script src="drive-backup.js"></script>
   <script src="vendor/qrcode.js"></script>
 
   <script>
@@ -3806,7 +3808,28 @@
   </script>
 <script>
 /* Feedback: öffnet das anonyme Tally-Formular (App, Version und Gerät werden mitgegeben, keine Personendaten) */
-function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'3.1',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
+/* Google Drive: Sicherung (ab Version 3.2) */
+(function(){
+  function go(){
+    var host=document.getElementById('driveMountLightning'); if(!host||!window.DriveBackup||host.dataset.mounted)return; host.dataset.mounted='1';
+    DriveBackup.mountSection({host:host,app:'Lightning',repo:'lightning',
+      getEmail:function(){return currentUser?currentUser.email:'';},
+      isDemo:function(){return IS_DEMO||!currentUser;},
+      toast:function(m){toast(m);},
+      getBackup:async function(){
+        var classes={},templates=[];
+        var cs=await teacherRef().collection('classes').get(); cs.forEach(function(d){classes[d.id]=d.data();});
+        var ts=await teacherRef().collection('templates').get(); ts.forEach(function(d){templates.push(Object.assign({id:d.id},d.data()));});
+        var payload={app:'lightning',appVersion:'3.2',exportedAt:new Date().toISOString(),account:currentUser.email,classes:classes,templates:templates};
+        var blob=new Blob([JSON.stringify(payload)],{type:'application/json'});
+        var d=new Date();
+        return {blob:blob,name:'lightning-backup-'+d.toISOString().slice(0,10)+'.json',info:Object.keys(classes).length+' Klassen, '+templates.length+' Vorlagen'};
+      }});
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',go);else go();
+})();
+
+function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'3.2',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
 
 /* ===== Zurück-Geste (Handy): ein Schritt zurück statt App schliessen ===== */
 (function(){
