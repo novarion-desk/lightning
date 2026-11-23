@@ -1,5 +1,10 @@
 # Changelog
 
+## Version 3.1 – 23.11.2026
+- Neu: Fragetyp «📏 Selbsteinschätzung»: mehrere Themen auflisten (1–8), jede Person schätzt jedes Thema auf 5 Stufen ein (sehr sicher … gar nicht). Ergebnis pro Thema als farbiger Balken mit Durchschnitt, dazu «Schwächstes Thema». Auch im Fenster «Mit KI erstellen» wählbar.
+- Neu: Anmeldung mit Kästchen «Angemeldet bleiben» (Standard an). Zusätzlich bittet die App den Browser, die Anmeldung dauerhaft zu speichern (hilft auf dem Tablet mit Chrome).
+- Keine Änderung an den Firebase-Regeln nötig
+
 ## Version 3.0 – 23.11.2026
 - Neu: «⚙️ Einstellungen» oben rechts (nur angemeldete Lehrperson, nicht in der Demo): KI-Schlüssel eintragen und «Zuerst fragen» wählen. Gleiches Lehrerkonto wie Sek Planer und Grammatik Trainer, die Schlüssel gelten überall.
 - Im KI-Fenster steht nach jeder Antwort, welcher Anbieter und welches Modell geantwortet hat und wie lange es dauerte

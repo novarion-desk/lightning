@@ -74,6 +74,7 @@
         </div>
         <input type="email" id="login-email" autocomplete="username" required placeholder="E-Mail" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         <input type="password" id="login-password" autocomplete="current-password" required placeholder="Passwort" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer"><input type="checkbox" id="login-keep" checked class="w-4 h-4 accent-indigo-600" /> Angemeldet bleiben</label>
         <div id="login-error" class="hidden text-sm bg-rose-50 border border-rose-200 text-rose-800 rounded-xl p-3"></div>
         <div id="login-info" class="hidden text-sm bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-3"></div>
         <button type="submit" id="login-submit" class="btn-primary w-full py-3 text-base">Anmelden</button>
@@ -159,6 +160,10 @@
                 <div class="font-semibold text-xs sm:text-sm">🔗 Zuordnen</div>
                 <div class="text-[11px] text-slate-500 mt-0.5">Paare bilden</div>
               </button>
+              <button type="button" onclick="selectType('rate')" id="type-rate" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
+                <div class="font-semibold text-xs sm:text-sm">📏 Selbsteinschätzung</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Mehrere Themen, 5 Stufen</div>
+              </button>
             </div>
           </div>
 
@@ -201,6 +206,13 @@
             <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Paare (eine Zeile pro Paar: links = rechts)</label>
             <textarea id="match-text" rows="5" maxlength="900" placeholder="z. B.&#10;go = went&#10;see = saw&#10;write = wrote" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white"></textarea>
             <p class="text-[11px] text-slate-500">2–8 Paare, die rechten Seiten müssen verschieden sein. Schüler wählen zu jedem Begriff links die passende rechte Seite aus.</p>
+          </div>
+
+          <!-- Zusatzfeld: Selbsteinschätzung -->
+          <div id="rate-box" class="hidden space-y-1.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Themen (eine Zeile pro Thema)</label>
+            <textarea id="rate-text" rows="4" maxlength="600" placeholder="z. B.&#10;Present perfect&#10;Indefinite pronouns&#10;Quantifiers (some, any …)" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white"></textarea>
+            <p class="text-[11px] text-slate-500">1–8 Themen. Jede Person schätzt jedes Thema ein: 😄 sehr sicher · 🙂 sicher · 😐 geht so · 😕 unsicher · 😣 gar nicht. Du siehst pro Thema einen Balken mit Durchschnitt.</p>
           </div>
 
           <!-- Zusatzfeld: Multiple Choice -->
@@ -854,6 +866,7 @@
 
     auth.onAuthStateChanged((user) => {
       currentUser = user;
+      try { if (isTeacherUser(user) && !IS_DEMO && navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
       if (!isTeacherUser(user)) stopTeacherData();
       route();
     });
@@ -928,7 +941,10 @@
       document.getElementById('login-info').classList.add('hidden');
       btn.disabled = true; btn.textContent = 'Anmelden…';
       try {
-        await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+        const keep = document.getElementById('login-keep').checked;
+        await auth.setPersistence(keep ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION);
+        // Browser bitten, die Anmeldung nicht bei Speicherknappheit zu löschen (Tablet/Chrome)
+        try { if (keep && navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
         await auth.signInWithEmailAndPassword(email, password);
         document.getElementById('login-password').value = '';
       } catch (e) {
@@ -1037,7 +1053,7 @@
     // =========================================================================
     // 5. LEHRPERSON: FRAGE ERSTELLEN & SESSION STARTEN
     // =========================================================================
-    const TYPES = ['text', 'mc', 'ampel', 'fix', 'order', 'tf', 'cloud', 'number', 'gap', 'match'];
+    const TYPES = ['text', 'mc', 'ampel', 'fix', 'order', 'tf', 'cloud', 'number', 'gap', 'match', 'rate'];
     const GAP_SEP = ' | ';
     let questionImage = '';
 
@@ -1117,6 +1133,7 @@
       document.getElementById('cloud-box').classList.toggle('hidden', type !== 'cloud');
       document.getElementById('gap-box').classList.toggle('hidden', type !== 'gap');
       document.getElementById('match-box').classList.toggle('hidden', type !== 'match');
+      document.getElementById('rate-box').classList.toggle('hidden', type !== 'rate');
       document.getElementById('number-box').classList.toggle('hidden', type !== 'number');
       document.getElementById('solution-hint').textContent = type === 'fix'
         ? 'Stimmt eine Antwort genau überein (Leerzeichen und Gross-/Kleinschreibung egal, Satzzeichen zählen), gibt es automatisch ✅. Sonst entscheidest du.'
@@ -1210,6 +1227,7 @@
       document.getElementById('cloud-max').value = '3';
       document.getElementById('gap-text').value = '';
       document.getElementById('match-text').value = '';
+      document.getElementById('rate-text').value = '';
       setQuestionImage('');
       ['num-correct', 'num-tol', 'num-unit'].forEach(id => { document.getElementById(id).value = ''; });
       renderMcEditor();
@@ -1245,6 +1263,7 @@
       }
       if (type === 'gap') document.getElementById('gap-text').value = t.gapSource || '';
       if (type === 'match') document.getElementById('match-text').value = t.matchSource || '';
+      if (type === 'rate') document.getElementById('rate-text').value = t.initialText || '';
       setQuestionImage(t.image || '');
       if ((type === 'text' || type === 'fix') && Array.isArray(sol.accepted)) document.getElementById('solution-text').value = sol.accepted.join('\n');
       selectType(type);
@@ -1304,6 +1323,9 @@
         form.options = pairs.map(x => x[1]);
         if (pairs.length) form.solution.match = pairs.map(x => x[1]);
       }
+      if (type === 'rate') {
+        form.initialText = document.getElementById('rate-text').value.split('\n').map(x => x.trim().replace(/\|/g, '/')).filter(Boolean).join('\n');
+      }
       if (form.type !== 'gap' && form.type !== 'match') { /* nichts */ }
       form.image = questionImage || '';
       if (type === 'text' || type === 'fix') {
@@ -1341,6 +1363,7 @@
       if (form.type === 'order' && new Set(form.options).size !== form.options.length) return toast('Die Elemente müssen verschieden sein.');
 
       if (form.type === 'gap' && (!form.gapCount || form.gapCount > 8)) return toast('Bitte 1 bis 8 Lücken in eckige Klammern setzen, z. B. I [have] lived here.');
+      if (form.type === 'rate' && (form.initialText.split('\n').filter(Boolean).length < 1 || form.initialText.split('\n').length > 8)) return toast('Bitte 1 bis 8 Themen eingeben (eine Zeile pro Thema).');
       if (form.type === 'match' && (form.pairs.length < 2 || form.pairs.length > 8)) return toast('Bitte 2 bis 8 Paare eingeben (links = rechts).');
       if (form.type === 'match' && new Set(form.options).size !== form.options.length) return toast('Die rechten Seiten müssen verschieden sein.');
 
@@ -1743,6 +1766,9 @@
         } else if (data.type === 'match') {
           const ml = String(data.initialText || '').split('\n'), mp = String(item.answer || '').split(MULTI_SEP), msol = (currentSolution && currentSolution.match) || null;
           answerDisplay = `<div class="space-y-0.5 text-sm">${ml.map((l, i) => { const ok = msol ? msol[i] === mp[i] : null; return `<div class="${ok === null ? '' : ok ? 'text-emerald-800' : 'text-rose-800'}"><b>${escapeHTML(l)}</b> → ${escapeHTML(mp[i] || '–')}${ok === null ? '' : ok ? ' ✓' : ' ✗'}</div>`; }).join('')}</div>`;
+        } else if (data.type === 'rate') {
+          const rv = String(item.answer || '').split(MULTI_SEP);
+          answerDisplay = `<div class="space-y-1">${rateItems(data).map((t, i) => `<div class="flex items-center justify-between gap-2 text-sm"><span class="min-w-0 break-words font-medium">${escapeHTML(t)}</span><span class="shrink-0 px-2 py-0.5 rounded-lg text-xs font-bold" style="background:${RATE_COL[rv[i]] || '#e2e8f0'};color:${rv[i] === '3' || rv[i] === '4' ? '#1e293b' : '#fff'}">${RATE_SHORT[rv[i]] || '–'}</span></div>`).join('')}</div>`;
         } else if (data.type === 'cloud') {
           answerDisplay = `<div class="flex flex-wrap gap-1">${splitMulti(item.answer).map(t => `<span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-900 text-sm font-medium">${escapeHTML(t)}</span>`).join('')}</div>`;
         } else {
@@ -1773,7 +1799,11 @@
       }).join('');
     }
 
-    const SUMMARY_TYPES = ['mc', 'ampel', 'order', 'tf', 'cloud', 'number', 'gap', 'match'];
+    const SUMMARY_TYPES = ['mc', 'ampel', 'order', 'tf', 'cloud', 'number', 'gap', 'match', 'rate'];
+    const RATE_LABELS = { '5': '😄 Sehr sicher', '4': '🙂 Sicher', '3': '😐 Geht so', '2': '😕 Unsicher', '1': '😣 Gar nicht' };
+    const RATE_SHORT = { '5': 'Sehr sicher', '4': 'Sicher', '3': 'Geht so', '2': 'Unsicher', '1': 'Gar nicht' };
+    const RATE_COL = { '5': '#059669', '4': '#84cc16', '3': '#facc15', '2': '#fb923c', '1': '#e11d48' };
+    const rateItems = (data) => String((data && data.initialText) || '').split('\n').filter(Boolean);
     const MULTI_SEP = '\n';
     function splitMulti(a) { return String(a || '').split(MULTI_SEP).map(x => x.trim()).filter(Boolean); }
     function fmtNum(n) { return n.toLocaleString('de-CH', { maximumFractionDigits: 2, useGrouping: Math.abs(n) >= 10000 }); }
@@ -1784,6 +1814,7 @@
       if (data.type === 'mc' && data.multi) return splitMulti(a).join(', ');
       if (data.type === 'cloud') return splitMulti(a).join(', ');
       if (data.type === 'match') return String(a || '').split(MULTI_SEP).join(' | ');
+      if (data.type === 'rate') { const v = String(a || '').split(MULTI_SEP); return rateItems(data).map((t, i) => t + ': ' + (RATE_SHORT[v[i]] || '–')).join(' | '); }
       if (data.type === 'tf') return a === 'Richtig' ? '✅ Richtig' : a === 'Falsch' ? '❌ Falsch' : a;
       if (data.type === 'number') { const n = parseNum(a); return (n === null || Number.isNaN(n) ? a : fmtNum(n)) + (data.unit ? ' ' + data.unit : ''); }
       return a;
@@ -1884,6 +1915,22 @@
           return barRow(lab, n, total, 'bg-indigo-600');
         }).join('');
         return barRow('Alles richtig', all, total, 'bg-emerald-600') + per;
+      }
+      if (data.type === 'rate') {
+        const rows = rateItems(data).map((t, i) => {
+          const vals = entries.map(e => Number(String(e.answer || '').split(MULTI_SEP)[i])).filter(v => v >= 1 && v <= 5);
+          const mean = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+          return { t, vals, mean };
+        });
+        const bar = (r) => {
+          const n = r.vals.length;
+          const segs = ['5', '4', '3', '2', '1'].map(k => { const c = r.vals.filter(v => String(v) === k).length; return c ? `<div style="width:${(c / n) * 100}%;background:${RATE_COL[k]};color:${k === '3' || k === '4' ? '#1e293b' : '#fff'}" class="flex items-center justify-center text-[11px] font-bold" title="${RATE_SHORT[k]}: ${c}">${c}</div>` : ''; }).join('');
+          return `<div><div class="flex justify-between gap-3 text-xs sm:text-sm font-medium mb-1"><span class="min-w-0 break-words">${escapeHTML(r.t)}</span><span class="shrink-0">${n ? 'Ø ' + (Math.round(r.mean * 10) / 10).toFixed(1).replace('.', ',') + ' von 5' : 'noch keine Antworten'}</span></div><div class="flex w-full rounded-full overflow-hidden" style="height:22px;background:#f1f5f9">${segs}</div></div>`;
+        };
+        const have = rows.filter(r => r.vals.length);
+        const weakest = have.length > 1 ? have.slice().sort((a, b) => a.mean - b.mean)[0] : null;
+        const legend = `<div style="display:flex;flex-wrap:wrap;gap:4px 14px" class="text-[11px] text-slate-600">${['5', '4', '3', '2', '1'].map(k => `<span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${RATE_COL[k]}"></span>${RATE_SHORT[k]}</span>`).join('')}</div>`;
+        return rows.map(bar).join('') + legend + (weakest ? `<div class="text-xs font-semibold text-rose-700">Schwächstes Thema: ${escapeHTML(weakest.t)}</div>` : '');
       }
       if (data.type === 'cloud') return wordCloudHTML(entries);
       if (data.type === 'number') return numberSummaryHTML(data, entries, sol);
@@ -2326,7 +2373,7 @@
         renderSessionList();
       }, () => {}));
     }
-    const TYPE_ICONS = { text: '✍️', mc: '📊', ampel: '🚦', fix: '🛠️', order: '🔢', tf: '⚖️', cloud: '☁️', number: '🔟' };
+    const TYPE_ICONS = { text: '✍️', mc: '📊', ampel: '🚦', fix: '🛠️', order: '🔢', tf: '⚖️', cloud: '☁️', number: '🔟', rate: '📏' };
     function renderSessionList() {
       const card = document.getElementById('session-list-card');
       const open = cachedSessions.filter(x => x.active !== false);
@@ -2487,7 +2534,7 @@
         .catch(() => toast('Vorlage konnte nicht gespeichert werden.'));
     }
 
-    const TYPE_LABELS = { text: 'Kurzantwort', mc: 'Multiple Choice', ampel: 'Ampel', fix: 'Satz-Korrektur', order: 'Reihenfolge', tf: 'Richtig/Falsch', cloud: 'Wortwolke', gap: 'Lückentext', match: 'Zuordnen', number: 'Zahl/Schätzung' };
+    const TYPE_LABELS = { text: 'Kurzantwort', mc: 'Multiple Choice', ampel: 'Ampel', fix: 'Satz-Korrektur', order: 'Reihenfolge', tf: 'Richtig/Falsch', cloud: 'Wortwolke', gap: 'Lückentext', match: 'Zuordnen', number: 'Zahl/Schätzung', rate: 'Selbsteinschätzung' };
 
     function renderTemplates() {
       document.getElementById('template-count').textContent = cachedTemplates.length;
@@ -2623,6 +2670,8 @@
       if (type === 'order') sol.order = options;
       const t = { type: TYPES.includes(type) ? type : 'text', question: String(obj.question || obj.frage || obj.prompt || obj.task || obj.aufgabe || ''), options, initialText: String(obj.initialText || obj.sentence || obj.satz || ''), multi: !!obj.multi, unit: String(obj.unit || ''), solution: sol };
       if (!t.question) { if (t.type === 'fix' && t.initialText) t.question = 'Korrigiere den Fehler im Satz.'; else if (t.type === 'gap') t.question = 'Setze die fehlenden Wörter ein.'; else if (t.type === 'match') t.question = 'Ordne richtig zu.'; }
+      if (type === 'rate' && Array.isArray(obj.items)) t.initialText = obj.items.map(x => String(x).replace(/\|/g, '/')).slice(0, 8).join('\n');
+      if (!t.question && t.type === 'rate') t.question = 'Wie sicher bist du bei diesen Themen?';
       if (type === 'gap' && obj.gapText) t.gapSource = String(obj.gapText);
       if (type === 'match' && Array.isArray(obj.pairs)) t.matchSource = obj.pairs.map(x => Array.isArray(x) ? x.join(' = ') : (x && typeof x === 'object' ? (x.left || x.a || '') + ' = ' + (x.right || x.b || '') : String(x))).join('\n');
       if (obj.maxTerms != null && !Number.isNaN(Number(obj.maxTerms))) t.maxTerms = Number(obj.maxTerms);
@@ -2637,11 +2686,12 @@
       if (t.type === 'fix') return 'Satz: ' + (t.initialText || '–') + (sol.accepted ? '<br>Lösung: ' + sol.accepted.join(' / ') : '');
       if (t.type === 'text') return sol.accepted ? 'Musterlösung: ' + sol.accepted.join(' / ') : '';
       if (t.type === 'cloud') return 'Begriffe pro Person: ' + (t.maxTerms || 3);
+      if (t.type === 'rate') return (t.initialText || '').split('\n').join('<br>');
       if (t.type === 'gap') return t.gapSource || '';
       if (t.type === 'match') return (t.matchSource || '').split('\n').join('<br>');
       return '';
     }
-    const AI_SYS_LIST = 'Du bist eine erfahrene Lehrperson der Sekundarstufe I in der Schweiz (Schülerinnen und Schüler 13 bis 15 Jahre). Du erstellst kurze Fragen für eine Live-Abfrage im Unterricht. Schweizer Rechtschreibung (immer «ss», nie «ß»), einfache, altersgerechte Sprache, jede Frage fachlich korrekt und mit genau einer eindeutigen Lösung (ausser Wortwolke und Ampel). Antworte AUSSCHLIESSLICH mit einem JSON-Array, ohne Text davor oder danach und ohne Markdown. Jedes Element hat die Felder: "type" (text, mc, ampel, fix, order, tf, cloud, number, gap, match), "question" (Fragetext oder Arbeitsauftrag, bei JEDEM Typ Pflicht; bei fix zum Beispiel «Korrigiere den Fehler im Satz.»). Zusätzlich je nach Typ: mc: "options" (3 bis 5 Antwortmöglichkeiten) und "correct" (Liste der Texte der richtigen Optionen, genau so wie in options); text: "solution" (Musterlösung als Text); tf: "correct" ("richtig" oder "falsch"); number: "correct" (Zahl) und optional "tolerance" und "unit"; fix: "initialText" (Satz mit so vielen Fehlern, wie der Wunsch verlangt; ohne Angabe genau ein Fehler) und "solution" (korrigierter Satz); order: "options" (Elemente in der richtigen Reihenfolge); cloud: "maxTerms" (1 bis 5); ampel: nur "question"; gap: "gapText" (Satz oder kurzer Text, die einzusetzenden Wörter in eckigen Klammern, 1 bis 8 Lücken, mehrere richtige Varianten mit / getrennt) und "question" (Arbeitsauftrag); match: "pairs" (Liste von 2 bis 8 Paaren als [links, rechts], die rechten Seiten verschieden) und "question".';
+    const AI_SYS_LIST = 'Du bist eine erfahrene Lehrperson der Sekundarstufe I in der Schweiz (Schülerinnen und Schüler 13 bis 15 Jahre). Du erstellst kurze Fragen für eine Live-Abfrage im Unterricht. Schweizer Rechtschreibung (immer «ss», nie «ß»), einfache, altersgerechte Sprache, jede Frage fachlich korrekt und mit genau einer eindeutigen Lösung (ausser Wortwolke und Ampel). Antworte AUSSCHLIESSLICH mit einem JSON-Array, ohne Text davor oder danach und ohne Markdown. Jedes Element hat die Felder: "type" (text, mc, ampel, fix, order, tf, cloud, number, gap, match, rate), "question" (Fragetext oder Arbeitsauftrag, bei JEDEM Typ Pflicht; bei fix zum Beispiel «Korrigiere den Fehler im Satz.»). Zusätzlich je nach Typ: mc: "options" (3 bis 5 Antwortmöglichkeiten) und "correct" (Liste der Texte der richtigen Optionen, genau so wie in options); text: "solution" (Musterlösung als Text); tf: "correct" ("richtig" oder "falsch"); number: "correct" (Zahl) und optional "tolerance" und "unit"; fix: "initialText" (Satz mit so vielen Fehlern, wie der Wunsch verlangt; ohne Angabe genau ein Fehler) und "solution" (korrigierter Satz); order: "options" (Elemente in der richtigen Reihenfolge); cloud: "maxTerms" (1 bis 5); ampel: nur "question"; gap: "gapText" (Satz oder kurzer Text, die einzusetzenden Wörter in eckigen Klammern, 1 bis 8 Lücken, mehrere richtige Varianten mit / getrennt) und "question" (Arbeitsauftrag); match: "pairs" (Liste von 2 bis 8 Paaren als [links, rechts], die rechten Seiten verschieden) und "question"; rate (Selbsteinschätzung): "items" (1 bis 8 Themen als Liste) und "question".';
     let aiLastRaw = '';
     function renderAiResult() {
         document.getElementById('ai-result').innerHTML = aiTpls.map((t, k) => `
@@ -2729,7 +2779,7 @@
       if (!currentUser) return toast('Bitte mit dem Lehrerkonto anmelden.');
       const type = currentQuestionType || 'text';
       const have = document.getElementById('input-question').value.trim();
-      const system = 'Du bist eine erfahrene Lehrperson der Sekundarstufe I in der Schweiz (Schülerinnen und Schüler 13 bis 15 Jahre). Du erstellst GENAU EINE kurze Frage für eine Live-Abfrage im Unterricht. Schweizer Rechtschreibung (immer «ss», nie «ß»), einfache, altersgerechte Sprache, fachlich korrekt, mit genau einer eindeutigen Lösung (ausser Wortwolke und Ampel). Antworte AUSSCHLIESSLICH mit einem einzigen JSON-Objekt, ohne Text davor oder danach und ohne Markdown. Felder: "type" (immer der verlangte Typ), "question" (Fragetext oder Arbeitsauftrag). Zusätzlich je nach Typ: mc: "options" (3 bis 5 Möglichkeiten) und "correct" (Liste der Texte der richtigen Optionen, genau wie in options); text: "solution" (Musterlösung); tf: "correct" ("richtig" oder "falsch"); number: "correct" (Zahl), optional "tolerance" und "unit"; fix: "initialText" (Satz mit so vielen Fehlern, wie der Wunsch verlangt; ohne Angabe genau ein Fehler) und "solution" (korrigierter Satz); order: "options" (Elemente in der richtigen Reihenfolge); cloud: "maxTerms" (1 bis 5); ampel: nur "question"; gap: "gapText" (Text mit den einzusetzenden Wörtern in eckigen Klammern, 1 bis 8 Lücken, mehrere richtige Varianten mit / getrennt) und "question"; match: "pairs" (2 bis 8 Paare als [links, rechts], rechte Seiten verschieden) und "question".';
+      const system = 'Du bist eine erfahrene Lehrperson der Sekundarstufe I in der Schweiz (Schülerinnen und Schüler 13 bis 15 Jahre). Du erstellst GENAU EINE kurze Frage für eine Live-Abfrage im Unterricht. Schweizer Rechtschreibung (immer «ss», nie «ß»), einfache, altersgerechte Sprache, fachlich korrekt, mit genau einer eindeutigen Lösung (ausser Wortwolke und Ampel). Antworte AUSSCHLIESSLICH mit einem einzigen JSON-Objekt, ohne Text davor oder danach und ohne Markdown. Felder: "type" (immer der verlangte Typ), "question" (Fragetext oder Arbeitsauftrag). Zusätzlich je nach Typ: mc: "options" (3 bis 5 Möglichkeiten) und "correct" (Liste der Texte der richtigen Optionen, genau wie in options); text: "solution" (Musterlösung); tf: "correct" ("richtig" oder "falsch"); number: "correct" (Zahl), optional "tolerance" und "unit"; fix: "initialText" (Satz mit so vielen Fehlern, wie der Wunsch verlangt; ohne Angabe genau ein Fehler) und "solution" (korrigierter Satz); order: "options" (Elemente in der richtigen Reihenfolge); cloud: "maxTerms" (1 bis 5); ampel: nur "question"; gap: "gapText" (Text mit den einzusetzenden Wörtern in eckigen Klammern, 1 bis 8 Lücken, mehrere richtige Varianten mit / getrennt) und "question"; match: "pairs" (2 bis 8 Paare als [links, rechts], rechte Seiten verschieden) und "question"; rate (Selbsteinschätzung): "items" (1 bis 8 Themen als Liste) und "question".';
       const user = 'Typ: ' + type + '\nWunsch: ' + wish + (have ? '\nBestehender Fragetext (als Ausgangspunkt, darf verbessert werden): ' + have : '');
       go.disabled = true; st.textContent = 'Die KI arbeitet …';
       try {
@@ -2978,6 +3028,7 @@
         else if (d.type === 'order') { const parts = a.split(ORDER_SEP); if (parts.length === (d.options || []).length) { studentOrderItems = parts; renderStudentOrderList(); } }
         else if (d.type === 'gap') { a.split(GAP_SEP).forEach((t, i) => { const el = document.getElementById('stu-gap-' + i); if (el) el.value = t; }); }
         else if (d.type === 'match') { a.split(MULTI_SEP).forEach((t, i) => { const el = document.getElementById('stu-match-' + i); if (el) el.value = t; }); }
+        else if (d.type === 'rate') { a.split(MULTI_SEP).forEach((v, i) => { if (RATE_LABELS[v]) chooseRate(i, v); }); }
         else if (d.type === 'cloud') { splitMulti(a).forEach((t, i) => { const el = document.getElementById('stu-cloud-' + i); if (el) el.value = t; }); }
         else if (d.type === 'number') { const el = document.getElementById('stu-number'); if (el) el.value = a; }
       } catch (e) {}
@@ -3079,6 +3130,12 @@
           `<div class="flex items-center gap-2"><span class="flex-1 min-w-0 font-semibold text-sm break-words">${escapeHTML(l)}</span><span class="text-slate-400">→</span><select id="stu-match-${i}" class="flex-1 min-w-0 rounded-xl border border-slate-300 px-2 py-2.5 text-sm bg-white"><option value="">– wählen –</option>` + (data.options || []).map(o => `<option value="${escapeHTML(o)}">${escapeHTML(o)}</option>`).join('') + '</select></div>').join('');
         return;
       }
+      if (data.type === 'rate') {
+        studentRate = {};
+        area.innerHTML = `<label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Wie sicher bist du bei jedem Thema?</label>` + rateItems(data).map((t, i) =>
+          `<div class="rounded-xl border border-slate-200 p-3 space-y-2"><div class="font-semibold text-sm break-words">${escapeHTML(t)}</div><div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px">${['5', '4', '3', '2', '1'].map(k => `<button type="button" onclick="chooseRate(${i}, '${k}')" id="stu-rate-${i}-${k}" class="stu-rate-btn rounded-xl border-2 border-slate-300 py-2 px-0.5 text-center leading-tight"><div class="text-xl">${RATE_LABELS[k].split(' ')[0]}</div><div class="text-[10px] font-semibold text-slate-600">${RATE_SHORT[k]}</div></button>`).join('')}</div></div>`).join('');
+        return;
+      }
       if (data.type === 'tf') {
         area.innerHTML = `<label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Stimmt diese Aussage?</label>
           <div class="grid grid-cols-2 gap-3">
@@ -3172,6 +3229,17 @@
       document.getElementById('stu-mc-' + idx).classList.add('pill-active');
     }
 
+    let studentRate = {};
+    function chooseRate(i, k) {
+      studentRate[i] = k;
+      ['5', '4', '3', '2', '1'].forEach(x => {
+        const b = document.getElementById('stu-rate-' + i + '-' + x);
+        if (!b) return;
+        const on = x === k;
+        b.style.borderColor = on ? RATE_COL[x] : '';
+        b.style.background = on ? RATE_COL[x] + '33' : '';
+      });
+    }
     function chooseAmpel(val) {
       selectedAmpelValue = val;
       document.querySelectorAll('.stu-ampel-btn').forEach(b => b.classList.remove('pill-active'));
@@ -3204,6 +3272,11 @@
       } else if (type === 'match') {
         const vals = [...document.querySelectorAll('[id^="stu-match-"]')].map(i => i.value);
         if (vals.some(v => !v)) return toast('Bitte ordne alles zu.');
+        answer = vals.join(MULTI_SEP);
+      } else if (type === 'rate') {
+        const n = rateItems(studentSession).length;
+        const vals = Array.from({ length: n }, (_, i) => studentRate[i] || '');
+        if (vals.some(v => !v)) return toast('Bitte schätze jedes Thema ein.');
         answer = vals.join(MULTI_SEP);
       } else if (type === 'order') {
         answer = studentOrderItems.join(ORDER_SEP);
@@ -3645,6 +3718,10 @@
         if (ms.length > 1 && Math.random() < 0.4) { const i = Math.floor(Math.random() * ms.length), j = (i + 1) % ms.length; [ms[i], ms[j]] = [ms[j], ms[i]]; }
         return { answer: ms.join(MULTI_SEP), comment: '' };
       }
+      if (form.type === 'rate') {
+        const n = (form.initialText || '').split('\n').filter(Boolean).length;
+        return { answer: Array.from({ length: n }, () => String(1 + Math.floor(Math.random() * 5))).join(MULTI_SEP), comment: '' };
+      }
       if (form.type === 'order') {
         const items = Math.random() < 0.55 ? [...form.options] : shuffle(form.options);
         return { answer: items.join(ORDER_SEP), comment: '' };
@@ -3672,7 +3749,7 @@
       if (form.type === 'gap') return (sol.gaps || []).map(g => g[0]).join(GAP_SEP);
       if (form.type === 'match') return (sol.match || []).join(MULTI_SEP);
       if (form.type === 'fix') return (form.initialText || '').replace(/ (weil|obwohl|dass|als|wenn|ging)\b/gi, ', $1').replace(/^, /, '');
-      if (form.type === 'ampel') return old;
+      if (form.type === 'ampel' || form.type === 'rate') return old;
       return pick(['I have never been to London.', 'She has never seen snow.', 'We have never played golf.', 'He has never met a famous person.']);
     }
     function demoReactToReturn(respId) {
@@ -3729,7 +3806,7 @@
   </script>
 <script>
 /* Feedback: öffnet das anonyme Tally-Formular (App, Version und Gerät werden mitgegeben, keine Personendaten) */
-function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'3.0',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
+function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'3.1',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
 
 /* ===== Zurück-Geste (Handy): ein Schritt zurück statt App schliessen ===== */
 (function(){
