@@ -175,6 +175,19 @@
             <img id="question-image-preview" alt="" class="hidden mt-2 max-h-40 rounded-lg border border-slate-200" />
           </div>
 
+          <!-- KI-Feld direkt unter der Frage (nur Lehrperson) -->
+          <div id="ai-inline" class="space-y-1.5">
+            <button type="button" id="ai-inline-toggle" onclick="toggleAiInline()" class="text-xs font-semibold text-indigo-700 hover:underline">✨ Diese Frage mit KI ausfüllen</button>
+            <div id="ai-inline-box" class="hidden bg-indigo-50/60 border border-indigo-100 rounded-xl p-3 space-y-2">
+              <p class="text-[11px] text-slate-600">Beschreibe kurz, was du brauchst. Die KI füllt Frage und Lösung passend zum gewählten Fragetyp aus. Danach prüfst du alles und kannst es ändern. Keine Namen von Schülern eingeben.</p>
+              <div class="flex gap-2">
+                <input id="ai-inline-wish" type="text" maxlength="300" placeholder="z. B. Present Perfect, Signalwörter, Niveau B" class="flex-1 min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" onkeydown="if(event.key==='Enter'){event.preventDefault();runAiInline();}" />
+                <button type="button" id="ai-inline-go" onclick="runAiInline()" class="btn-primary px-3 py-2 text-sm whitespace-nowrap">Ausfüllen</button>
+              </div>
+              <div id="ai-inline-status" class="text-[11px] text-slate-500"></div>
+            </div>
+          </div>
+
           <!-- Zusatzfeld: Lückentext -->
           <div id="gap-box" class="hidden space-y-1.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
             <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Text mit Lücken</label>
@@ -684,11 +697,11 @@
       <div class="flex flex-wrap gap-3 text-sm">
         <label class="flex items-center gap-2">Typ
           <select id="ai-type" class="rounded-lg border border-slate-300 px-2 py-1">
-            <option value="auto">gemischt</option><option value="mc">Multiple Choice</option><option value="text">Kurzantwort</option><option value="tf">Richtig/Falsch</option><option value="fix">Satz-Korrektur</option><option value="order">Reihenfolge</option><option value="number">Zahl/Schätzung</option><option value="cloud">Wortwolke</option><option value="ampel">Ampel</option>
+            <option value="auto">gemischt</option><option value="mc">Multiple Choice</option><option value="text">Kurzantwort</option><option value="tf">Richtig/Falsch</option><option value="fix">Satz-Korrektur</option><option value="order">Reihenfolge</option><option value="number">Zahl/Schätzung</option><option value="cloud">Wortwolke</option><option value="ampel">Ampel</option><option value="gap">Lückentext</option><option value="match">Zuordnen</option>
           </select>
         </label>
         <label class="flex items-center gap-2">Anzahl
-          <select id="ai-count" class="rounded-lg border border-slate-300 px-2 py-1"><option>1</option><option>3</option><option selected>5</option><option>8</option></select>
+          <select id="ai-count" class="rounded-lg border border-slate-300 px-2 py-1"><option>1</option><option>3</option><option selected>5</option><option>8</option><option>10</option><option>15</option></select>
         </label>
       </div>
       <div class="flex justify-end gap-2">
@@ -2486,13 +2499,15 @@
       if(!order.length)throw new Error('Im Konto ist kein KI-Schlüssel gespeichert. Hinterlege ihn im Sek Planer (Einstellungen) mit demselben Konto.');
       return{keys,order};
     }
-    async function fetchT(url,opt,ms){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms||90000);try{return await fetch(url,Object.assign({signal:c.signal},opt));}finally{clearTimeout(t);}}
-    async function askAI(system,user){
+    async function fetchT(url,opt,ms){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms||45000);try{return await fetch(url,Object.assign({signal:c.signal},opt));}finally{clearTimeout(t);}}
+    async function askAI(system,user,onStatus){
       const {keys,order}=await loadAiKeys();const errs=[];
+      const NAMES={claude:'Claude',gemini:'Gemini',openai:'OpenAI',mistral:'Mistral'};
       for(const p of order){
+        if(onStatus)onStatus('Die KI arbeitet (Anbieter: '+NAMES[p]+') …');
         try{
           if(p==='claude'){
-            for(const m of ['claude-sonnet-5-5','claude-haiku-5-5']){
+            for(const m of ['claude-haiku-5-5','claude-sonnet-5-5']){
               try{
                 const r=await fetchT('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':keys.claude,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:m,max_tokens:6000,system,messages:[{role:'user',content:user}]})});
                 const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error((j.error&&j.error.message)||('HTTP '+r.status));
@@ -2500,15 +2515,15 @@
               }catch(e){errs.push('Claude '+m+': '+e.message);}
             }
           }else if(p==='gemini'){
-            for(const m of ['gemini-flash-latest','gemini-2.5-flash']){
+            for(const m of ['gemini-2.5-flash','gemini-flash-latest']){
               try{
-                const r=await fetchT('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':keys.gemini},body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:[{role:'user',parts:[{text:user}]}],generationConfig:{responseMimeType:'application/json'}})});
+                const r=await fetchT('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':keys.gemini},body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:[{role:'user',parts:[{text:user}]}],generationConfig:Object.assign({responseMimeType:'application/json'},m==='gemini-2.5-flash'?{thinkingConfig:{thinkingBudget:0}}:{})})});
                 const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error((j.error&&j.error.message)||('HTTP '+r.status));
                 const t=((((j.candidates||[])[0]||{}).content||{}).parts||[]).map(x=>x.text||'').join('');if(t)return t;
               }catch(e){errs.push('Gemini '+m+': '+e.message);}
             }
           }else{
-            const cfg=p==='openai'?{u:'https://api.openai.com/v1/chat/completions',m:['gpt-4o-mini']}:{u:'https://api.mistral.ai/v1/chat/completions',m:['mistral-large-latest','mistral-small-latest']};
+            const cfg=p==='openai'?{u:'https://api.openai.com/v1/chat/completions',m:['gpt-4o-mini']}:{u:'https://api.mistral.ai/v1/chat/completions',m:['mistral-small-latest','mistral-large-latest']};
             for(const m of cfg.m){
               try{
                 const r=await fetchT(cfg.u,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys[p]},body:JSON.stringify({model:m,messages:[{role:'system',content:system},{role:'user',content:user}]})});
@@ -2538,6 +2553,8 @@
       if ((type === 'text' || type === 'fix') && obj.solution) sol.accepted = [].concat(obj.solution).map(String);
       if (type === 'order') sol.order = options;
       const t = { type: TYPES.includes(type) ? type : 'text', question: String(obj.question || ''), options, initialText: String(obj.initialText || ''), multi: !!obj.multi, unit: String(obj.unit || ''), solution: sol };
+      if (type === 'gap' && obj.gapText) t.gapSource = String(obj.gapText);
+      if (type === 'match' && Array.isArray(obj.pairs)) t.matchSource = obj.pairs.map(x => Array.isArray(x) ? x.join(' = ') : (x && typeof x === 'object' ? (x.left || x.a || '') + ' = ' + (x.right || x.b || '') : String(x))).join('\n');
       if (obj.maxTerms != null && !Number.isNaN(Number(obj.maxTerms))) t.maxTerms = Number(obj.maxTerms);
       return JSON.parse(JSON.stringify(t));
     }
@@ -2550,6 +2567,8 @@
       if (t.type === 'fix') return 'Satz: ' + (t.initialText || '–') + (sol.accepted ? '<br>Lösung: ' + sol.accepted.join(' / ') : '');
       if (t.type === 'text') return sol.accepted ? 'Musterlösung: ' + sol.accepted.join(' / ') : '';
       if (t.type === 'cloud') return 'Begriffe pro Person: ' + (t.maxTerms || 3);
+      if (t.type === 'gap') return t.gapSource || '';
+      if (t.type === 'match') return (t.matchSource || '').split('\n').join('<br>');
       return '';
     }
     async function runAiQuestions() {
@@ -2559,12 +2578,12 @@
       const st = document.getElementById('ai-status'), go = document.getElementById('ai-go');
       if (!wish) return toast('Bitte beschreibe kurz, was du brauchst.');
       if (!currentUser) return toast('Bitte mit dem Lehrerkonto anmelden.');
-      go.disabled = true; st.textContent = 'Die KI arbeitet … (bis zu einer Minute)';
+      go.disabled = true; st.textContent = 'Die KI arbeitet …';
       document.getElementById('ai-result').innerHTML = ''; document.getElementById('ai-saveall').classList.add('hidden');
-      const system = 'Du bist eine erfahrene Lehrperson der Sekundarstufe I in der Schweiz (Schülerinnen und Schüler 13 bis 15 Jahre). Du erstellst kurze Fragen für eine Live-Abfrage im Unterricht. Schweizer Rechtschreibung (immer «ss», nie «ß»), einfache, altersgerechte Sprache, jede Frage fachlich korrekt und mit genau einer eindeutigen Lösung (ausser Wortwolke und Ampel). Antworte AUSSCHLIESSLICH mit einem JSON-Array, ohne Text davor oder danach und ohne Markdown. Jedes Element hat die Felder: "type" (text, mc, ampel, fix, order, tf, cloud, number), "question" (Fragetext). Zusätzlich je nach Typ: mc: "options" (3 bis 5 Antwortmöglichkeiten) und "correct" (Liste der Texte der richtigen Optionen, genau so wie in options); text: "solution" (Musterlösung als Text); tf: "correct" ("richtig" oder "falsch"); number: "correct" (Zahl) und optional "tolerance" und "unit"; fix: "initialText" (Satz mit genau einem Fehler) und "solution" (korrigierter Satz); order: "options" (Elemente in der richtigen Reihenfolge); cloud: "maxTerms" (1 bis 5); ampel: nur "question".';
+      const system = 'Du bist eine erfahrene Lehrperson der Sekundarstufe I in der Schweiz (Schülerinnen und Schüler 13 bis 15 Jahre). Du erstellst kurze Fragen für eine Live-Abfrage im Unterricht. Schweizer Rechtschreibung (immer «ss», nie «ß»), einfache, altersgerechte Sprache, jede Frage fachlich korrekt und mit genau einer eindeutigen Lösung (ausser Wortwolke und Ampel). Antworte AUSSCHLIESSLICH mit einem JSON-Array, ohne Text davor oder danach und ohne Markdown. Jedes Element hat die Felder: "type" (text, mc, ampel, fix, order, tf, cloud, number, gap, match), "question" (Fragetext). Zusätzlich je nach Typ: mc: "options" (3 bis 5 Antwortmöglichkeiten) und "correct" (Liste der Texte der richtigen Optionen, genau so wie in options); text: "solution" (Musterlösung als Text); tf: "correct" ("richtig" oder "falsch"); number: "correct" (Zahl) und optional "tolerance" und "unit"; fix: "initialText" (Satz mit genau einem Fehler) und "solution" (korrigierter Satz); order: "options" (Elemente in der richtigen Reihenfolge); cloud: "maxTerms" (1 bis 5); ampel: nur "question"; gap: "gapText" (Satz oder kurzer Text, die einzusetzenden Wörter in eckigen Klammern, 1 bis 8 Lücken, mehrere richtige Varianten mit / getrennt) und "question" (Arbeitsauftrag); match: "pairs" (Liste von 2 bis 8 Paaren als [links, rechts], die rechten Seiten verschieden) und "question".';
       const user = 'Wunsch: ' + wish + '\nAnzahl Fragen: genau ' + n + '\nTyp: ' + (type === 'auto' ? 'gemischt, passend zum Wunsch' : type);
       try {
-        const txt = await askAI(system, user);
+        const txt = await askAI(system, user, m => { st.textContent = m; });
         const i = txt.indexOf('['), j = txt.lastIndexOf(']');
         if (i < 0 || j < i) throw new Error('Die Antwort der KI war nicht lesbar. Bitte nochmals versuchen.');
         const arr = JSON.parse(txt.slice(i, j + 1));
@@ -2595,6 +2614,37 @@
       Promise.all(aiTpls.map(t => col.add({ ...t, createdAt: FV.serverTimestamp() })))
         .then(() => toast(aiTpls.length + ' Vorlagen gespeichert'))
         .catch(() => toast('Nicht alle Vorlagen konnten gespeichert werden.'));
+    }
+
+    // ---- KI-Feld direkt unter der Frage: füllt genau diese eine Frage aus ----
+    function toggleAiInline() {
+      if (IS_DEMO) return toast('In der Demo nicht verfügbar.');
+      const b = document.getElementById('ai-inline-box');
+      b.classList.toggle('hidden');
+      if (!b.classList.contains('hidden')) document.getElementById('ai-inline-wish').focus();
+    }
+    async function runAiInline() {
+      const wish = document.getElementById('ai-inline-wish').value.trim();
+      const st = document.getElementById('ai-inline-status'), go = document.getElementById('ai-inline-go');
+      if (!wish) return toast('Bitte beschreibe kurz, was du brauchst.');
+      if (!currentUser) return toast('Bitte mit dem Lehrerkonto anmelden.');
+      const type = currentQuestionType || 'text';
+      const have = document.getElementById('input-question').value.trim();
+      const system = 'Du bist eine erfahrene Lehrperson der Sekundarstufe I in der Schweiz (Schülerinnen und Schüler 13 bis 15 Jahre). Du erstellst GENAU EINE kurze Frage für eine Live-Abfrage im Unterricht. Schweizer Rechtschreibung (immer «ss», nie «ß»), einfache, altersgerechte Sprache, fachlich korrekt, mit genau einer eindeutigen Lösung (ausser Wortwolke und Ampel). Antworte AUSSCHLIESSLICH mit einem einzigen JSON-Objekt, ohne Text davor oder danach und ohne Markdown. Felder: "type" (immer der verlangte Typ), "question" (Fragetext oder Arbeitsauftrag). Zusätzlich je nach Typ: mc: "options" (3 bis 5 Möglichkeiten) und "correct" (Liste der Texte der richtigen Optionen, genau wie in options); text: "solution" (Musterlösung); tf: "correct" ("richtig" oder "falsch"); number: "correct" (Zahl), optional "tolerance" und "unit"; fix: "initialText" (Satz mit genau einem Fehler) und "solution" (korrigierter Satz); order: "options" (Elemente in der richtigen Reihenfolge); cloud: "maxTerms" (1 bis 5); ampel: nur "question"; gap: "gapText" (Text mit den einzusetzenden Wörtern in eckigen Klammern, 1 bis 8 Lücken, mehrere richtige Varianten mit / getrennt) und "question"; match: "pairs" (2 bis 8 Paare als [links, rechts], rechte Seiten verschieden) und "question".';
+      const user = 'Typ: ' + type + '\nWunsch: ' + wish + (have ? '\nBestehender Fragetext (als Ausgangspunkt, darf verbessert werden): ' + have : '');
+      go.disabled = true; st.textContent = 'Die KI arbeitet …';
+      try {
+        const txt = await askAI(system, user, m => { st.textContent = m; });
+        const i = txt.indexOf('{'), j = txt.lastIndexOf('}');
+        if (i < 0 || j < i) throw new Error('Die Antwort der KI war nicht lesbar. Bitte nochmals versuchen.');
+        const o = JSON.parse(txt.slice(i, j + 1));
+        o.type = type;
+        const tpl = aiObjToTpl(o);
+        if (!tpl.question) throw new Error('Die KI hat keine brauchbare Frage geliefert. Bitte nochmals versuchen.');
+        fillForm(tpl);
+        st.textContent = 'Ausgefüllt. Bitte Frage und Lösung vor dem Einsatz prüfen. Die KI kann sich irren.';
+      } catch (e) { st.textContent = e.message || 'Es hat nicht geklappt.'; }
+      go.disabled = false;
     }
 
     function openImportModal() { document.getElementById('import-modal').classList.remove('hidden'); }
@@ -3580,7 +3630,7 @@
   </script>
 <script>
 /* Feedback: öffnet das anonyme Tally-Formular (App, Version und Gerät werden mitgegeben, keine Personendaten) */
-function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'2.4',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
+function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'2.5',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
 
 /* ===== Zurück-Geste (Handy): ein Schritt zurück statt App schliessen ===== */
 (function(){

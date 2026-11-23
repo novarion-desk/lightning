@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 2.5 – 23.11.2026
+- Neu: «✨ Diese Frage mit KI ausfüllen» direkt unter dem Fragefeld (nur Lehrperson). Wunsch eintippen, die KI füllt genau diese eine Frage samt Lösung passend zum gewählten Fragetyp aus. Danach prüfen und ändern.
+- «Mit KI erstellen» kann jetzt auch Lückentext und Zuordnen und bis zu 15 Fragen auf einmal
+- Schneller: zuerst die schnellen Modelle (Claude Haiku, Gemini Flash ohne Denkphase, Mistral Small); im Fenster steht, welcher Anbieter gerade arbeitet; ein hängender Anbieter wird nach 45 Sekunden übersprungen
+- Keine Änderung an den Firebase-Regeln nötig
+
 ## Version 2.4 – 23.11.2026
 - Neu: «✨ Mit KI erstellen» im Lehrerbereich. Wunsch eintippen, die KI schlägt Fragen vor (alle Typen ausser Lückentext und Zuordnen). Jede Frage kann ins Formular geladen oder als Vorlage gespeichert werden, oder alle zusammen als Vorlagen. Benutzt den eigenen KI-Schlüssel aus dem Konto (wie im Sek Planer), nichts läuft über einen fremden Zwischenserver. Nicht in der Demo.
 - Keine Änderung an den Firebase-Regeln nötig
