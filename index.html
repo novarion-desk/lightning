@@ -94,7 +94,7 @@
           <h2 class="text-base font-bold text-slate-900">Deine Fragen</h2>
           <div id="session-list-open" class="space-y-2"></div>
           <div id="session-list-done-wrap" class="hidden space-y-2">
-            <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 pt-1">Heute beendet</div>
+            <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 pt-1">Beendet (letzte 30 Tage)</div>
             <div id="session-list-done" class="space-y-2"></div>
           </div>
         </div>
@@ -418,7 +418,7 @@
         <!-- Einzelne Schülerkarten -->
         <div id="live-responses-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5"></div>
 
-        <p class="text-xs text-slate-400 text-center pt-2">Antworten werden 24 Stunden nach Start der Session automatisch gelöscht. Exportiere sie vorher als CSV, wenn du sie behalten willst.</p>
+        <p class="text-xs text-slate-400 text-center pt-2">Antworten werden 30 Tage nach Start der Session automatisch gelöscht. Exportiere sie vorher als CSV, wenn du sie länger brauchst.</p>
       </div>
     </section>
 
@@ -711,7 +711,7 @@
 
     const SESSIONS = 'lightningSessions';          // öffentliche Session-Daten (Frage, Namensliste der Klasse)
     const TEACHERS = 'lightningTeachers';          // privat pro Lehrperson: Klassen, Vorlagen, Lösungen
-    const SESSION_MAX_AGE_MS = 24 * 3600 * 1000;   // danach automatisch gelöscht
+    const SESSION_MAX_AGE_MS = 30 * 24 * 3600 * 1000;   // 30 Tage, danach automatisch gelöscht
 
     // =========================================================================
     // 2. APP STATE & ROUTING
@@ -2253,7 +2253,7 @@
       const card = document.getElementById('session-list-card');
       const open = cachedSessions.filter(x => x.active !== false);
       const today = todayISO();
-      const done = cachedSessions.filter(x => x.active === false && (() => { const t = tsMillis(x.createdAt); if (!t) return false; const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === today; })());
+      const done = cachedSessions.filter(x => x.active === false && tsMillis(x.createdAt));
       card.classList.toggle('hidden', !open.length && !done.length);
       const row = (x, isOpen) => {
         const t = tsMillis(x.createdAt);
@@ -2276,7 +2276,20 @@
       };
       document.getElementById('session-list-open').innerHTML = open.length ? open.map(x => row(x, true)).join('') : '<div class="text-xs text-slate-400">Keine laufende Frage.</div>';
       document.getElementById('session-list-done-wrap').classList.toggle('hidden', !done.length);
-      document.getElementById('session-list-done').innerHTML = done.map(x => row(x, false)).join('');
+      const dayLabel = (t) => {
+        const d = new Date(t), iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const y = new Date(); y.setDate(y.getDate() - 1);
+        if (iso === today) return 'Heute';
+        if (iso === `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`) return 'Gestern';
+        return d.toLocaleDateString('de-CH', { weekday: 'short', day: 'numeric', month: 'numeric', year: 'numeric' });
+      };
+      let lastLabel = '';
+      document.getElementById('session-list-done').innerHTML = done.map(x => {
+        const lab = dayLabel(tsMillis(x.createdAt));
+        const head = lab !== lastLabel ? `<div class="text-[11px] font-semibold text-slate-400 pt-1">${escapeHTML(lab)}</div>` : '';
+        lastLabel = lab;
+        return head + row(x, false);
+      }).join('');
     }
     function openSessionFromList(code) {
       const x = cachedSessions.find(s => s.code === code);
@@ -2285,7 +2298,7 @@
       window.scrollTo({ top: 0 });
     }
     async function endSessionFromList(code) {
-      if (!confirm(`Frage ${code} beenden? Die Antworten bleiben noch 24 Stunden gespeichert.`)) return;
+      if (!confirm(`Frage ${code} beenden? Die Antworten bleiben noch 30 Tage gespeichert.`)) return;
       await sessionRef(code).update({ active: false }).catch(() => toast('Konnte nicht beendet werden.'));
       pushUndo('Beenden', () => sessionRef(code).update({ active: true }));
       if (localStorage.getItem('lightning_activeSession_' + currentUser.uid) === code) localStorage.removeItem('lightning_activeSession_' + currentUser.uid);
@@ -2365,7 +2378,7 @@
 
     async function endSession() {
       if (!currentRoomCode) return;
-      if (!confirm('Session beenden? Die Antworten bleiben noch 24 Stunden gespeichert und werden dann automatisch gelöscht. Exportiere sie vorher als CSV, wenn du sie brauchst.')) return;
+      if (!confirm('Session beenden? Die Antworten bleiben noch 30 Tage gespeichert und werden dann automatisch gelöscht. Exportiere sie vorher als CSV, wenn du sie brauchst.')) return;
       const code = currentRoomCode;
       await updateSession({ active: false });
       localStorage.removeItem('lightning_activeSession_' + currentUser.uid);
@@ -3410,7 +3423,7 @@
   </script>
 <script>
 /* Feedback: öffnet das anonyme Tally-Formular (App, Version und Gerät werden mitgegeben, keine Personendaten) */
-function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'2.2',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
+function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'2.3',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
 
 /* ===== Zurück-Geste (Handy): ein Schritt zurück statt App schliessen ===== */
 (function(){

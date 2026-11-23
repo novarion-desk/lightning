@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 2.3 – 23.11.2026
+- Neu: Sessions und Antworten bleiben 30 Tage gespeichert (vorher 24 Stunden), danach werden sie automatisch gelöscht. «Beendet» zeigt die letzten 30 Tage, nach Datum gruppiert.
+- Neu: Der Cast-Knopf erscheint nur für die angemeldete Lehrperson (nicht für Schüler, nicht in der Beamer-Ansicht).
+- Fix: «Session konnte nicht gestartet werden» bei sechsstelligen Codes, solange die Firebase-Regeln nur vierstellige erlauben; klare Fehlermeldung bei verweigerten Regeln.
+- Keine Änderung an den Firebase-Regeln nötig
+
 ## Version 2.2 – 22.11.2026
 - Neu: «🔗 Link kopieren» neben dem Code (Link mit Code für Teams oder Chat) und die kurze Adresse als Text, falls ein Schüler den QR-Code nicht scannen kann
 - Keine Änderung an den Firebase-Regeln nötig

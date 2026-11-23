@@ -38,7 +38,7 @@ Zu jeder Frage kann ein Bild hinzugefügt werden. Ergebnisse lassen sich als CSV
 - Schüler/innen können nur ihre eigene Antwort schreiben und lesen. Sperre und Timer gelten auch in der Datenbank (Serverzeit).
 - Lösungen liegen privat bei der Lehrperson (`lightningTeachers/<uid>/solutions`); die automatische Rückmeldung berechnet das Gerät der Lehrperson.
 - Feedback (✅/⚠️/❌, Kommentar) sieht nur der betroffene Schüler auf seinem Gerät. Nachbessern ist nur nach ⚠️/❌ und nur mit Erlaubnis der Lehrperson möglich – auch das prüft die Datenbank.
-- Sessions und Antworten werden 24 Stunden nach dem Start automatisch gelöscht (beim nächsten Login der Lehrperson).
+- Sessions und Antworten werden 30 Tage nach dem Start automatisch gelöscht (beim nächsten Login der Lehrperson).
 - Nur Vornamen oder Kürzel speichern.
 
 ## Feedback zur App
