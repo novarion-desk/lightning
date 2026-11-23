@@ -1,5 +1,8 @@
 # Changelog
 
+## Version 2.8 – 23.11.2026
+- Fix: «Mit KI erstellen» meldete bei Satz-Korrektur «keine brauchbaren Fragen», wenn die KI keinen Fragetext mitlieferte. Fehlt er, wird ein passender Auftrag ergänzt. Bei einer unlesbaren Antwort steht jetzt der Anfang der KI-Antwort in der Meldung.
+
 ## Version 2.7 – 23.11.2026
 - «Mit KI erstellen»: Voreinstellung sind jetzt 3 Fragen (statt 5)
 

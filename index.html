@@ -2558,9 +2558,10 @@
       if (type === 'mc' && corr.length) sol.mcCorrect = corr.map(c => typeof c === 'number' ? options[c] : String(c)).filter(Boolean);
       if (type === 'tf' && obj.correct != null) sol.tf = /^(true|richtig|wahr|r|1)$/i.test(String(obj.correct)) ? 'true' : 'false';
       if (type === 'number' && obj.correct != null) { const n = parseNum(obj.correct); if (n !== null && !Number.isNaN(n)) sol.num = n; if (obj.tolerance != null) sol.tol = Math.abs(parseNum(obj.tolerance) || 0); }
-      if ((type === 'text' || type === 'fix') && obj.solution) sol.accepted = [].concat(obj.solution).map(String);
+      if ((type === 'text' || type === 'fix') && (obj.solution || obj.correct)) sol.accepted = [].concat(obj.solution || obj.correct).map(String);
       if (type === 'order') sol.order = options;
-      const t = { type: TYPES.includes(type) ? type : 'text', question: String(obj.question || ''), options, initialText: String(obj.initialText || ''), multi: !!obj.multi, unit: String(obj.unit || ''), solution: sol };
+      const t = { type: TYPES.includes(type) ? type : 'text', question: String(obj.question || obj.frage || obj.prompt || obj.task || obj.aufgabe || ''), options, initialText: String(obj.initialText || obj.sentence || obj.satz || ''), multi: !!obj.multi, unit: String(obj.unit || ''), solution: sol };
+      if (!t.question) { if (t.type === 'fix' && t.initialText) t.question = 'Korrigiere den Fehler im Satz.'; else if (t.type === 'gap') t.question = 'Setze die fehlenden Wörter ein.'; else if (t.type === 'match') t.question = 'Ordne richtig zu.'; }
       if (type === 'gap' && obj.gapText) t.gapSource = String(obj.gapText);
       if (type === 'match' && Array.isArray(obj.pairs)) t.matchSource = obj.pairs.map(x => Array.isArray(x) ? x.join(' = ') : (x && typeof x === 'object' ? (x.left || x.a || '') + ' = ' + (x.right || x.b || '') : String(x))).join('\n');
       if (obj.maxTerms != null && !Number.isNaN(Number(obj.maxTerms))) t.maxTerms = Number(obj.maxTerms);
@@ -2579,7 +2580,7 @@
       if (t.type === 'match') return (t.matchSource || '').split('\n').join('<br>');
       return '';
     }
-    const AI_SYS_LIST = 'Du bist eine erfahrene Lehrperson der Sekundarstufe I in der Schweiz (Schülerinnen und Schüler 13 bis 15 Jahre). Du erstellst kurze Fragen für eine Live-Abfrage im Unterricht. Schweizer Rechtschreibung (immer «ss», nie «ß»), einfache, altersgerechte Sprache, jede Frage fachlich korrekt und mit genau einer eindeutigen Lösung (ausser Wortwolke und Ampel). Antworte AUSSCHLIESSLICH mit einem JSON-Array, ohne Text davor oder danach und ohne Markdown. Jedes Element hat die Felder: "type" (text, mc, ampel, fix, order, tf, cloud, number, gap, match), "question" (Fragetext). Zusätzlich je nach Typ: mc: "options" (3 bis 5 Antwortmöglichkeiten) und "correct" (Liste der Texte der richtigen Optionen, genau so wie in options); text: "solution" (Musterlösung als Text); tf: "correct" ("richtig" oder "falsch"); number: "correct" (Zahl) und optional "tolerance" und "unit"; fix: "initialText" (Satz mit genau einem Fehler) und "solution" (korrigierter Satz); order: "options" (Elemente in der richtigen Reihenfolge); cloud: "maxTerms" (1 bis 5); ampel: nur "question"; gap: "gapText" (Satz oder kurzer Text, die einzusetzenden Wörter in eckigen Klammern, 1 bis 8 Lücken, mehrere richtige Varianten mit / getrennt) und "question" (Arbeitsauftrag); match: "pairs" (Liste von 2 bis 8 Paaren als [links, rechts], die rechten Seiten verschieden) und "question".';
+    const AI_SYS_LIST = 'Du bist eine erfahrene Lehrperson der Sekundarstufe I in der Schweiz (Schülerinnen und Schüler 13 bis 15 Jahre). Du erstellst kurze Fragen für eine Live-Abfrage im Unterricht. Schweizer Rechtschreibung (immer «ss», nie «ß»), einfache, altersgerechte Sprache, jede Frage fachlich korrekt und mit genau einer eindeutigen Lösung (ausser Wortwolke und Ampel). Antworte AUSSCHLIESSLICH mit einem JSON-Array, ohne Text davor oder danach und ohne Markdown. Jedes Element hat die Felder: "type" (text, mc, ampel, fix, order, tf, cloud, number, gap, match), "question" (Fragetext oder Arbeitsauftrag, bei JEDEM Typ Pflicht; bei fix zum Beispiel «Korrigiere den Fehler im Satz.»). Zusätzlich je nach Typ: mc: "options" (3 bis 5 Antwortmöglichkeiten) und "correct" (Liste der Texte der richtigen Optionen, genau so wie in options); text: "solution" (Musterlösung als Text); tf: "correct" ("richtig" oder "falsch"); number: "correct" (Zahl) und optional "tolerance" und "unit"; fix: "initialText" (Satz mit genau einem Fehler) und "solution" (korrigierter Satz); order: "options" (Elemente in der richtigen Reihenfolge); cloud: "maxTerms" (1 bis 5); ampel: nur "question"; gap: "gapText" (Satz oder kurzer Text, die einzusetzenden Wörter in eckigen Klammern, 1 bis 8 Lücken, mehrere richtige Varianten mit / getrennt) und "question" (Arbeitsauftrag); match: "pairs" (Liste von 2 bis 8 Paaren als [links, rechts], die rechten Seiten verschieden) und "question".';
     let aiLastRaw = '';
     function renderAiResult() {
         document.getElementById('ai-result').innerHTML = aiTpls.map((t, k) => `
@@ -2604,7 +2605,7 @@
         if (i < 0 || j < i) throw new Error('Die Antwort der KI war nicht lesbar. Bitte nochmals versuchen.');
         const arr = JSON.parse(txt.slice(i, j + 1));
         const tpls = (Array.isArray(arr) ? arr : []).map(aiObjToTpl).filter(t => t.question);
-        if (!tpls.length) throw new Error('Die KI hat keine brauchbaren Fragen geliefert. Bitte nochmals versuchen.');
+        if (!tpls.length) throw new Error('Die KI hat keine brauchbaren Fragen geliefert. Bitte nochmals versuchen. [' + txt.slice(0, 100).replace(/\s+/g, ' ') + ']');
         aiTpls = tpls; aiLastRaw = txt.slice(i, j + 1);
         renderAiResult();
         document.getElementById('ai-refine-wish').value = '';
@@ -2629,7 +2630,7 @@
         if (i < 0 || j < i) throw new Error('Die Antwort der KI war nicht lesbar. Bitte nochmals versuchen.');
         const arr = JSON.parse(txt.slice(i, j + 1));
         aiTpls = (Array.isArray(arr) ? arr : []).map(aiObjToTpl).filter(t => t.question);
-        if (!aiTpls.length) throw new Error('Die KI hat keine brauchbaren Fragen geliefert. Bitte nochmals versuchen.');
+        if (!aiTpls.length) throw new Error('Die KI hat keine brauchbaren Fragen geliefert. Bitte nochmals versuchen. [' + txt.slice(0, 100).replace(/\s+/g, ' ') + ']');
         renderAiResult();
         aiLastRaw = txt.slice(i, j + 1);
         document.getElementById('ai-saveall').classList.remove('hidden');
@@ -3667,7 +3668,7 @@
   </script>
 <script>
 /* Feedback: öffnet das anonyme Tally-Formular (App, Version und Gerät werden mitgegeben, keine Personendaten) */
-function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'2.7',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
+function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'2.8',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
 
 /* ===== Zurück-Geste (Handy): ein Schritt zurück statt App schliessen ===== */
 (function(){
