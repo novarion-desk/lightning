@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 3.4 – 24.11.2026
+- Besser: Meldungen im Cast-Fenster sind gross und gut lesbar und nennen den Grund samt Tipp für das Galaxy Tab
+- Neu: Tipp bei der Live-Ansicht: Beamer-Ansicht (2. Gerät) auf dem Handy öffnen und per Smart View spiegeln, so sehen die Schüler QR-Code und Frage, du behältst den Lehrerbereich
+
 ## Version 3.3 – 23.11.2026
 - Neu: Gemeinsamer KI-Zugang (Mistral). «Mit KI erstellen» funktioniert auch ohne eigenen Schlüssel im Konto, mit Tageslimit. Eigene Schlüssel haben Vorrang
 
