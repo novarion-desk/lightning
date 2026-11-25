@@ -1,5 +1,8 @@
 # Changelog
 
+## Version 3.6 – 25.11.2026
+- Neu: **Offline-Start.** Die App wird beim ersten Öffnen zwischengespeichert und öffnet danach auch ohne Netz (Demo vollständig). Mit Netz kommt immer die neueste Version. Anmelden, Live-Checks mit Schülern (Cloud), KI, Drive-Sicherung und Feedback brauchen weiterhin Netz.
+
 ## Version 3.5 – 24.11.2026
 - Besser: Bei Multiple Choice mit Mehrfachauswahl zeigt jede Schülerkarte alle Optionen untereinander mit Haken (✅ angekreuzt, ☐ nicht angekreuzt). Mit hinterlegter Lösung: grün = richtig, rot = falsch angekreuzt oder fehlt. Gilt auch in der Demo
 
