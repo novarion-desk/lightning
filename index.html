@@ -116,6 +116,11 @@
             </div>
           </div>
 
+          <div id="edit-bar" class="hidden rounded-xl border-2 border-amber-400 bg-amber-50 p-3" style="scroll-margin-top:130px">
+            <div id="edit-title" class="text-sm font-bold text-amber-900"></div>
+            <div id="edit-hint" class="text-xs text-amber-900 mt-0.5"></div>
+          </div>
+
           <!-- 1. Fragetyp wählen (5 Modi) -->
           <div>
             <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">1. Fragetyp wählen</label>
@@ -163,6 +168,10 @@
               <button type="button" onclick="selectType('rate')" id="type-rate" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
                 <div class="font-semibold text-xs sm:text-sm">📏 Selbsteinschätzung</div>
                 <div class="text-[11px] text-slate-500 mt-0.5">Mehrere Themen, 5 Stufen</div>
+              </button>
+              <button type="button" onclick="selectType('round')" id="type-round" class="type-btn border border-slate-200 rounded-xl p-2.5 text-left transition">
+                <div class="font-semibold text-xs sm:text-sm">🎯 Schätzrunde</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Mehrere Fragen mit Regler</div>
               </button>
             </div>
           </div>
@@ -269,6 +278,14 @@
             <p class="text-[11px] text-slate-500">Am Beamer entsteht eine Wortwolke – häufige Begriffe erscheinen grösser.</p>
           </div>
 
+          <!-- Zusatzfeld: Schätzrunde -->
+          <div id="round-box" class="hidden space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <p class="text-[11px] text-slate-500">Oben bei «Frage» steht der Titel der Runde. Hier kommen bis zu 10 Fragen. «Regler von/bis» bestimmen auch die Skala der Grafik. Die Schüler scannen nur einmal, du schaltest mit «Weiter». Mit «Als Vorlage speichern» bleibt die Runde erhalten.</p>
+            <button type="button" onclick="loadRoundExample()" class="text-xs px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-semibold">🕰️ Beispiel laden: Erster Weltkrieg (5 Fragen)</button>
+            <div id="round-list" class="space-y-3"></div>
+            <button type="button" id="round-add" onclick="addRoundStep()" class="text-xs px-3 py-1.5 rounded-lg border border-indigo-300 bg-white text-indigo-700 font-semibold">＋ Frage hinzufügen</button>
+          </div>
+
           <!-- Zusatzfeld: Zahl/Schätzung -->
           <div id="number-box" class="hidden space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
             <div class="grid grid-cols-3 gap-2">
@@ -330,9 +347,16 @@
           </div>
 
           <!-- Aktionen -->
-          <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+          <div id="edit-actions" class="hidden flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+            <button type="button" onclick="cancelEdit()" class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-sm font-medium">Abbrechen</button>
+            <button type="button" id="edit-save" onclick="saveEdit()" class="btn-primary px-6 py-3 text-base shadow-sm">Speichern</button>
+          </div>
+          <div id="normal-actions" class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
             <button type="button" onclick="saveTemplate()" class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50">
               ☁️ Als Vorlage speichern
+            </button>
+            <button type="button" id="btn-save-flow" onclick="saveAndAddToFlow()" class="px-4 py-2.5 rounded-xl border border-indigo-300 bg-white text-indigo-700 text-sm font-semibold">
+              💾 Speichern + in den Ablauf
             </button>
             <button type="button" id="btn-start-session" onclick="startSession()" class="btn-primary px-6 py-3 text-base shadow-sm flex items-center gap-2">
               <span>⚡ Live-Session starten</span>
@@ -348,7 +372,21 @@
               <span id="template-count" class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">0</span>
             </div>
             <p class="text-xs text-slate-500 mb-4">Synchronisiert zwischen deinen Geräten.</p>
-            <div id="template-list" class="space-y-2 max-h-[26rem] overflow-y-auto pr-1">
+            <button type="button" onclick="openNewFlow()" class="w-full mb-3 text-sm py-2 rounded-lg border border-indigo-300 bg-white text-indigo-700 font-semibold">▶ Neuen Ablauf erstellen</button>
+          <div id="flow-box" class="hidden space-y-2 rounded-xl border-2 border-indigo-200 bg-indigo-50/40 p-3 mb-3">
+            <div class="text-xs font-bold uppercase tracking-wider text-indigo-700">▶ Ablauf zusammenstellen</div>
+            <p class="text-[11px] text-slate-500">Bei Vorlagen auf «＋ Ablauf» tippen oder hier eine neue Frage anlegen.</p>
+            <input type="text" id="flow-name" maxlength="100" placeholder="Name, z. B. Einstieg 1. Weltkrieg" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" />
+            <div id="flow-list" class="space-y-1.5"></div>
+            <button type="button" onclick="newFlowItem()" class="w-full text-sm py-2 rounded-lg border-2 border-dashed border-indigo-300 bg-white text-indigo-700 font-semibold">＋ Neue Frage</button>
+            <p class="text-[11px] text-slate-500">Klasse, Countdown und Feedback-Optionen aus dem Formular gelten für den ganzen Ablauf. Änderungen an einer Vorlage (✏️) übernimmt der Ablauf automatisch.</p>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" onclick="startFlow()" class="btn-primary text-sm" style="padding:9px 18px">▶ Ablauf starten</button>
+              <button type="button" onclick="saveFlow()" class="text-xs px-3 py-2 rounded-lg border border-slate-300 bg-white font-semibold">☁️ Ablauf speichern</button>
+              <button type="button" onclick="clearFlow()" class="text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600">Schliessen</button>
+            </div>
+          </div>
+          <div id="template-list" class="space-y-2 max-h-[26rem] overflow-y-auto pr-1">
               <div class="text-xs text-slate-400 italic">Noch keine Vorlagen gespeichert.</div>
             </div>
           </div>
@@ -423,6 +461,14 @@
               Beenden
             </button>
           </div>
+        </div>
+
+        <!-- Schätzrunde: Navigation -->
+        <div id="round-nav" class="hidden card p-3 flex flex-wrap items-center justify-center gap-3 border-indigo-200">
+          <button type="button" onclick="roundGo(-1)" class="round-prev px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-semibold">← Zurück</button>
+          <span class="round-pos text-sm font-bold text-slate-700"></span>
+          <button type="button" onclick="toggleRevealSolution()" id="round-reveal" class="px-4 py-2.5 rounded-xl border border-emerald-400 bg-emerald-50 text-sm font-semibold">💡 Lösung</button>
+          <button type="button" onclick="roundGo(1)" class="round-next btn-primary text-sm" style="padding:10px 22px">Weiter →</button>
         </div>
 
         <!-- Klassen-Statusleiste (wer fehlt noch?) -->
@@ -574,6 +620,11 @@
   <!-- STEUERLEISTE PROJEKTIONSMODUS (ohne Namen) -->
   <div id="projection-bar" class="hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-slate-200 px-3 py-2.5 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
     <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-center gap-2">
+      <div id="pj-round" class="hidden w-full flex items-center justify-center gap-3">
+        <button type="button" onclick="roundGo(-1)" class="round-prev px-4 py-2 rounded-xl border border-slate-300 bg-white text-sm font-semibold">← Zurück</button>
+        <span class="round-pos text-sm font-bold text-slate-700"></span>
+        <button type="button" onclick="roundGo(1)" class="round-next btn-primary text-sm" style="padding:8px 22px">Weiter →</button>
+      </div>
       <span id="pj-status" class="text-xs font-semibold text-slate-500 px-2"></span>
       <button onclick="toggleBeamerResults()" id="pj-results" class="px-3 py-2 rounded-xl border border-indigo-300 bg-white text-indigo-700 text-xs sm:text-sm font-semibold">👁️ Ergebnisse zeigen</button>
       <button onclick="toggleBeamerNames()" id="pj-names" class="px-3 py-2 rounded-xl border border-indigo-300 bg-white text-indigo-700 text-xs sm:text-sm font-semibold">👤 Namen zeigen</button>
@@ -1002,7 +1053,7 @@
         renderSavedClassesModal();
       }, () => toast('Klassen konnten nicht geladen werden.')));
       teacherUnsubs.push(teacherRef().collection('templates').onSnapshot((snap) => {
-        cachedTemplates = snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) }));
+        cachedTemplates = snap.docs.map(d => unpackTemplate({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) }));
         cachedTemplates.sort((a, b) => tsMillis(b.createdAt) - tsMillis(a.createdAt));
         renderTemplates();
       }, () => toast('Vorlagen konnten nicht geladen werden.')));
@@ -1057,7 +1108,7 @@
     // =========================================================================
     // 5. LEHRPERSON: FRAGE ERSTELLEN & SESSION STARTEN
     // =========================================================================
-    const TYPES = ['text', 'mc', 'ampel', 'fix', 'order', 'tf', 'cloud', 'number', 'gap', 'match', 'rate'];
+    const TYPES = ['text', 'mc', 'ampel', 'fix', 'order', 'tf', 'cloud', 'number', 'gap', 'match', 'rate', 'round'];
     const GAP_SEP = ' | ';
     let questionImage = '';
 
@@ -1142,6 +1193,8 @@
       document.getElementById('solution-hint').textContent = type === 'fix'
         ? 'Stimmt eine Antwort genau überein (Leerzeichen und Gross-/Kleinschreibung egal, Satzzeichen zählen), gibt es automatisch ✅. Sonst entscheidest du.'
         : 'Stimmt eine Antwort genau überein (Gross-/Kleinschreibung, Leerzeichen und Schlusspunkt egal), gibt es automatisch ✅. Sonst entscheidest du.';
+      document.getElementById('round-box').classList.toggle('hidden', type !== 'round');
+      if (type === 'round') renderRoundEditor();
       if (type === 'mc') renderMcEditor();
       if (type === 'order') renderOrderEditor();
       if (type === 'tf') setTfSolution(tfSolution);
@@ -1233,6 +1286,7 @@
       document.getElementById('match-text').value = '';
       document.getElementById('rate-text').value = '';
       setQuestionImage('');
+      roundDraft = [emptyStep()];
       ['num-correct', 'num-tol', 'num-unit'].forEach(id => { document.getElementById(id).value = ''; });
       renderMcEditor();
       renderOrderEditor();
@@ -1265,6 +1319,7 @@
         document.getElementById('num-tol').value = sol.tol ? String(sol.tol) : '';
         document.getElementById('num-unit').value = t.unit || '';
       }
+      if (type === 'round' && Array.isArray(t.roundSteps) && t.roundSteps.length) roundDraft = t.roundSteps.slice(0, ROUND_MAX).map(toDraft);
       if (type === 'gap') document.getElementById('gap-text').value = t.gapSource || '';
       if (type === 'match') document.getElementById('match-text').value = t.matchSource || '';
       if (type === 'rate') document.getElementById('rate-text').value = t.initialText || '';
@@ -1311,6 +1366,10 @@
         if (n !== null) form.solution.num = n;
         if (tol !== null && !Number.isNaN(tol)) form.solution.tol = Math.abs(tol);
       }
+      if (type === 'round') {
+        form.roundSteps = collectRoundSteps();
+        if (form.roundSteps.length) form.solution.round = form.roundSteps;
+      }
       if (type === 'gap') {
         const raw = document.getElementById('gap-text').value.trim();
         const pg = parseGapSource(raw);
@@ -1356,20 +1415,29 @@
       return a;
     }
 
-    async function startSession() {
-      const form = collectFormData();
-      if (!form.question) return toast('Bitte gib zuerst eine Frage ein.');
-      if (form.type === 'mc' && form.options.length < 2) return toast('Bitte mindestens 2 Antwortmöglichkeiten eingeben.');
-      if (form.type === 'number' && Number.isNaN(form.solution.num)) return toast('Die richtige Zahl ist keine gültige Zahl.');
-      if (form.type === 'mc' && new Set(form.options).size !== form.options.length) return toast('Die Antwortmöglichkeiten müssen verschieden sein.');
-      if (form.type === 'fix' && !form.initialText) return toast('Bitte gib den fehlerhaften Ausgangssatz ein.');
-      if (form.type === 'order' && form.options.length < 3) return toast('Bitte mindestens 3 Elemente zum Sortieren eingeben.');
-      if (form.type === 'order' && new Set(form.options).size !== form.options.length) return toast('Die Elemente müssen verschieden sein.');
+    function formError(form) {
+      if (!form.question) return ('Bitte gib zuerst eine Frage ein.');
+      if (form.type === 'mc' && form.options.length < 2) return ('Bitte mindestens 2 Antwortmöglichkeiten eingeben.');
+      if (form.type === 'number' && Number.isNaN(form.solution.num)) return ('Die richtige Zahl ist keine gültige Zahl.');
+      if (form.type === 'mc' && new Set(form.options).size !== form.options.length) return ('Die Antwortmöglichkeiten müssen verschieden sein.');
+      if (form.type === 'fix' && !form.initialText) return ('Bitte gib den fehlerhaften Ausgangssatz ein.');
+      if (form.type === 'order' && form.options.length < 3) return ('Bitte mindestens 3 Elemente zum Sortieren eingeben.');
+      if (form.type === 'order' && new Set(form.options).size !== form.options.length) return ('Die Elemente müssen verschieden sein.');
 
-      if (form.type === 'gap' && (!form.gapCount || form.gapCount > 8)) return toast('Bitte 1 bis 8 Lücken in eckige Klammern setzen, z. B. I [have] lived here.');
-      if (form.type === 'rate' && (form.initialText.split('\n').filter(Boolean).length < 1 || form.initialText.split('\n').length > 8)) return toast('Bitte 1 bis 8 Themen eingeben (eine Zeile pro Thema).');
-      if (form.type === 'match' && (form.pairs.length < 2 || form.pairs.length > 8)) return toast('Bitte 2 bis 8 Paare eingeben (links = rechts).');
-      if (form.type === 'match' && new Set(form.options).size !== form.options.length) return toast('Die rechten Seiten müssen verschieden sein.');
+      if (form.type === 'gap' && (!form.gapCount || form.gapCount > 8)) return ('Bitte 1 bis 8 Lücken in eckige Klammern setzen, z. B. I [have] lived here.');
+      if (form.type === 'rate' && (form.initialText.split('\n').filter(Boolean).length < 1 || form.initialText.split('\n').length > 8)) return ('Bitte 1 bis 8 Themen eingeben (eine Zeile pro Thema).');
+      if (form.type === 'match' && (form.pairs.length < 2 || form.pairs.length > 8)) return ('Bitte 2 bis 8 Paare eingeben (links = rechts).');
+      if (form.type === 'match' && new Set(form.options).size !== form.options.length) return ('Die rechten Seiten müssen verschieden sein.');
+
+      if (form.type === 'round') { const err = roundError(form.roundSteps); if (err) return err; }
+      return '';
+    }
+
+    async function startSession(flowRun) {
+      const flow = flowRun && flowRun.steps ? flowRun : null;
+      const form = flow ? flow.steps[0] : collectFormData();
+      const problem = flow ? '' : formError(form);
+      if (problem) return toast(problem);
 
       const classId = document.getElementById('select-session-class').value;
       const cls = classId ? cachedClasses[classId] : null;
@@ -1379,10 +1447,11 @@
       const base = {
         ownerUid: currentUser.uid,
         type: form.type,
-        question: form.question,
+        question: form.type === 'round' ? form.roundSteps[0].q : form.question,
+        ...(form.type === 'round' ? { roundTitle: form.question, round: roundPublic(form.roundSteps, 0, newDeviceId().slice(0, 12), []) } : {}),
         // Bei «Reihenfolge» bekommen die Schüler nur die gemischten Elemente – die Lösung bleibt privat
         options: form.type === 'order' ? shuffleDifferent(form.options) : (form.type === 'match' ? shuffle(form.options) : (form.type === 'mc' ? form.options : [])),
-        image: form.image || null,
+        image: form.type === 'round' ? null : (form.image || null),
         initialText: form.initialText,
         roster: cls ? presentStudents(classId) : null,
         classId: cls ? classId : null,
@@ -1402,6 +1471,11 @@
         spotlightNotice: document.getElementById('opt-spotlight-notice').checked,
         createdAt: FV.serverTimestamp()
       };
+      if (flow) {
+        const id = newDeviceId().slice(0, 12);
+        Object.assign(base, flowPublic(form, id), { flow: { id, i: 0, n: flow.steps.length, done: [], title: flow.title } });
+        delete base.roundTitle;
+      }
 
       const btn = document.getElementById('btn-start-session');
       btn.disabled = true;
@@ -1424,12 +1498,13 @@
         }
         if (!code) { const er = new Error('Kein freier Code gefunden.'); er.denied = denied > 0; throw er; }
         // Lösung bleibt privat bei der Lehrperson (Schüler können sie nicht lesen)
-        if (Object.keys(form.solution).length) {
-          await teacherRef().collection('solutions').doc(code).set({ ...form.solution, createdAt: FV.serverTimestamp() });
+        const secret = flow ? { flowJson: JSON.stringify(flow.steps) } : form.solution;
+        if (Object.keys(secret).length) {
+          await teacherRef().collection('solutions').doc(code).set({ ...packSolution(secret), createdAt: FV.serverTimestamp() });
         }
         if (!IS_DEMO) localStorage.setItem('lightning_activeSession_' + currentUser.uid, code);
         showTeacherLiveDashboard(code);
-        if (IS_DEMO) startDemoBots(code, form);
+        if (IS_DEMO) startDemoBots(code, flow ? demoFormFor(flow.steps, 0) : form.type === 'round' ? { type: 'round', steps: form.roundSteps, i: 0 } : form);
       } catch (e) {
         console.error('Session starten:', e);
         const no = e && (e.denied || e.code === 'permission-denied');
@@ -1437,6 +1512,360 @@
       } finally {
         btn.disabled = false;
       }
+    }
+
+    // =========================================================================
+    // 5b. SCHÄTZRUNDE: mehrere Schätzfragen nacheinander mit einem Code
+    // =========================================================================
+    const ROUND_MAX = 10;
+    const WW1_ROUND = [
+      { q: 'Von wann bis wann dauerte der Erste Weltkrieg?', kind: 'range', min: 1850, max: 1960, step: 1, unit: '', sol: 1914, sol2: 1918 },
+      { q: 'Wie viele Menschen lebten 1914 ungefähr auf der Welt?', kind: 'one', min: 0.5, max: 8, step: 0.1, unit: 'Milliarden', sol: 1.8, sol2: null },
+      { q: 'Wie viele Menschen starben durch den Ersten Weltkrieg?', kind: 'one', min: 0, max: 100, step: 1, unit: 'Millionen', sol: 15, sol2: null },
+      { q: 'Wie viele Staaten waren am Krieg beteiligt?', kind: 'one', min: 2, max: 80, step: 1, unit: 'Staaten', sol: 38, sol2: null },
+      { q: 'Wie viele Soldaten kämpften ungefähr in diesem Krieg?', kind: 'one', min: 0, max: 150, step: 1, unit: 'Millionen', sol: 65, sol2: null }
+    ];
+    const emptyStep = () => ({ q: '', kind: 'one', input: 'both', min: '0', max: '100', step: '1', unit: '', sol: '', sol2: '' });
+    let roundDraft = [emptyStep()];
+
+    function toDraft(s) { const o = emptyStep(); Object.keys(o).forEach(k => { if (s[k] != null) o[k] = String(s[k]); }); return o; }
+
+    function renderRoundEditor() {
+      const inp = (i, k, label, extra) => `<label class="block text-[11px] font-semibold text-slate-500">${label}<input type="text" ${extra || ''} value="${escapeHTML(roundDraft[i][k])}" oninput="roundDraft[${i}].${k}=this.value" class="mt-0.5 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm bg-white text-slate-900" /></label>`;
+      document.getElementById('round-list').innerHTML = roundDraft.map((s, i) => `
+        <div class="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+          <div class="flex items-center justify-between gap-2"><span class="text-xs font-bold text-indigo-700">Frage ${i + 1}</span>
+            <span class="flex gap-1">
+              <button type="button" onclick="moveRoundStep(${i},-1)" class="text-xs px-2 py-1 rounded border border-slate-200" aria-label="nach oben">↑</button>
+              <button type="button" onclick="moveRoundStep(${i},1)" class="text-xs px-2 py-1 rounded border border-slate-200" aria-label="nach unten">↓</button>
+              <button type="button" onclick="removeRoundStep(${i})" class="text-xs px-2 py-1 rounded border border-slate-200" aria-label="Frage entfernen">✕</button>
+            </span></div>
+          ${inp(i, 'q', 'Frage', 'maxlength="300"')}
+          <select onchange="roundDraft[${i}].kind=this.value;renderRoundEditor()" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm bg-white">
+            <option value="one"${s.kind === 'one' ? ' selected' : ''}>Eine Zahl schätzen</option>
+            <option value="range"${s.kind === 'range' ? ' selected' : ''}>Bereich schätzen (von – bis)</option>
+          </select>
+          <select onchange="roundDraft[${i}].input=this.value" aria-label="Eingabe der Schüler" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm bg-white">
+            <option value="both"${s.input === 'both' ? ' selected' : ''}>Eingabe: Regler und Eintippen</option>
+            <option value="slider"${s.input === 'slider' ? ' selected' : ''}>Eingabe: nur Regler</option>
+            <option value="type"${s.input === 'type' ? ' selected' : ''}>Eingabe: nur Eintippen</option>
+          </select>
+          <div class="grid grid-cols-3 gap-2">${inp(i, 'min', 'Regler von', 'inputmode="decimal"')}${inp(i, 'max', 'Regler bis', 'inputmode="decimal"')}${inp(i, 'step', 'Schritt', 'inputmode="decimal"')}</div>
+          <div class="grid grid-cols-3 gap-2">${inp(i, 'sol', s.kind === 'range' ? 'Lösung von' : 'Lösung', 'inputmode="decimal"')}${s.kind === 'range' ? inp(i, 'sol2', 'Lösung bis', 'inputmode="decimal"') : ''}${inp(i, 'unit', 'Einheit', 'maxlength="20"')}</div>
+        </div>`).join('');
+      document.getElementById('round-add').classList.toggle('hidden', roundDraft.length >= ROUND_MAX);
+    }
+    function addRoundStep() { if (roundDraft.length < ROUND_MAX) { roundDraft.push(emptyStep()); renderRoundEditor(); } }
+    function removeRoundStep(i) { roundDraft.splice(i, 1); if (!roundDraft.length) roundDraft = [emptyStep()]; renderRoundEditor(); }
+    function moveRoundStep(i, d) { const j = i + d; if (j < 0 || j >= roundDraft.length) return; [roundDraft[i], roundDraft[j]] = [roundDraft[j], roundDraft[i]]; renderRoundEditor(); }
+    function loadRoundExample() {
+      if (roundDraft.some(s => s.q.trim()) && !confirm('Die jetzigen Fragen durch das Beispiel ersetzen?')) return;
+      roundDraft = WW1_ROUND.map(toDraft);
+      document.getElementById('input-question').value = 'Schätzrunde: Erster Weltkrieg';
+      renderRoundEditor();
+    }
+
+    // Formular → bereinigte Fragen (leere Karten fallen weg)
+    function collectRoundSteps() {
+      const num = (v) => { const n = parseNum(v); return n === null || Number.isNaN(n) ? null : n; };
+      return roundDraft.filter(s => s.q.trim()).map(s => ({ q: s.q.trim(), kind: s.kind === 'range' ? 'range' : 'one', input: ['slider', 'type'].includes(s.input) ? s.input : 'both', min: num(s.min), max: num(s.max), step: num(s.step), unit: s.unit.trim(), sol: num(s.sol), sol2: s.kind === 'range' ? num(s.sol2) : null }));
+    }
+    function roundError(steps) {
+      if (!steps || !steps.length) return 'Bitte mindestens eine Frage eingeben.';
+      for (let i = 0; i < steps.length; i++) {
+        const s = steps[i], n = 'Frage ' + (i + 1) + ': ';
+        if (s.min === null || s.max === null || s.max <= s.min) return n + '«Regler bis» muss grösser sein als «Regler von».';
+        if (!(s.step > 0) || (s.max - s.min) / s.step > 100000) return n + 'Bitte einen passenden Schritt eingeben, z. B. 1 oder 0,1.';
+        if (s.kind === 'range' && (s.sol === null) !== (s.sol2 === null)) return n + 'Bitte beide Lösungen eingeben oder keine.';
+        if (s.kind === 'range' && s.sol !== null && s.sol2 < s.sol) return n + '«Lösung bis» ist kleiner als «Lösung von».';
+      }
+      return '';
+    }
+    // Öffentlicher Teil einer Frage (ohne Lösung)
+    function roundPublic(steps, i, id, done) {
+      const s = steps[i];
+      return { id, i, n: steps.length, kind: s.kind, input: s.input || 'both', min: s.min, max: s.max, step: s.step, unit: s.unit, done: done || [] };
+    }
+
+    const roundNum = (n) => fmtNum(Number(n));
+    const roundText = (v, unit) => (v[0] === v[1] ? roundNum(v[0]) : roundNum(v[0]) + ' – ' + roundNum(v[1])) + (unit ? ' ' + unit : '');
+    // Alle Antworten eines Geräts stehen in EINEM Antwortdokument: {"0":[1914,1918],"1":[2,2]}
+    function roundAll(answer) { try { const o = JSON.parse(answer); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; } }
+    function roundValue(answer, i) { const v = roundAll(answer)[i]; return Array.isArray(v) && v.length === 2 && v.every(Number.isFinite) ? v : null; }
+    function roundFilter(data, responses) { return data && data.type === 'round' && data.round ? responses.filter(r => roundValue(r.answer, data.round.i)) : responses; }
+    function roundStepSolution(data, sol) {
+      const s = sol && sol.round && data.round ? sol.round[data.round.i] : null;
+      return s && s.sol !== null && s.sol !== undefined ? [s.sol, s.kind === 'range' ? s.sol2 : s.sol] : null;
+    }
+
+    // Grafik «Wo lagen wir?» – die Lösung erscheint erst nach «Lösung zeigen»
+    function roundSummaryHTML(data, entries, sol) {
+      const r = data.round;
+      const items = entries.map(e => ({ name: e.name, v: roundValue(e.answer, r.i) })).filter(x => x.v);
+      const solution = data.revealed ? roundStepSolution(data, sol) : null;
+      if (!items.length && !solution) return '<div class="text-sm text-slate-400">Noch keine Schätzungen.</div>';
+      const all = items.reduce((a, x) => a.concat(x.v), [r.min, r.max].concat(solution || []));
+      const lo = Math.min.apply(null, all), hi = Math.max.apply(null, all);
+      const pos = (v) => ((v - lo) / ((hi - lo) || 1)) * 100;
+      const median = (arr) => { const a = arr.slice().sort((x, y) => x - y), m = Math.floor(a.length / 2); const raw = a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; return Math.round(Math.round(raw / r.step) * r.step * 1000) / 1000; };
+      const band = solution ? `<div style="position:absolute;top:0;bottom:0;left:${pos(solution[0])}%;width:${pos(solution[1]) - pos(solution[0])}%;min-width:4px;margin-left:-2px;background:rgba(16,185,129,.3);border-left:3px solid #059669;border-right:${solution[0] === solution[1] ? '0' : '3px solid #059669'}"></div>` : '';
+      let head = `<span><b>${items.length}</b> Schätzungen</span>`;
+      if (items.length) head += `<span>Mitte der Klasse (Median): <b>${escapeHTML(roundText(r.kind === 'range' ? [median(items.map(x => x.v[0])), median(items.map(x => x.v[1]))] : [median(items.map(x => x.v[0])), median(items.map(x => x.v[0]))], r.unit))}</b></span>`;
+      if (solution) head += `<span class="text-emerald-700">✓ Lösung: <b>${escapeHTML(roundText(solution, r.unit))}</b></span>`;
+      const names = data.showNamesOnBeamer === true || (!projectionOn && !document.getElementById('view-teacher').classList.contains('hidden') && showNamesInTeacherView);
+      let plot = '';
+      if (r.kind === 'range') {
+        plot = items.slice().sort((a, b) => a.v[0] - b.v[0] || a.v[1] - b.v[1]).map(x => `
+          <div class="flex items-center gap-2 text-xs sm:text-sm">
+            ${names ? `<span class="shrink-0 truncate font-semibold text-slate-700" style="width:5rem">${escapeHTML(x.name || '')}</span>` : ''}
+            <div style="position:relative;flex:1;height:18px" class="bg-slate-100 rounded">${band}<div style="position:absolute;top:5px;height:8px;border-radius:4px;background:#4f46e5;left:${pos(x.v[0])}%;width:${pos(x.v[1]) - pos(x.v[0])}%;min-width:8px"></div></div>
+            <span class="shrink-0 text-right tabular-nums" style="width:6rem">${escapeHTML(roundText(x.v, ''))}</span>
+          </div>`).join('');
+      } else {
+        const stack = {};
+        let top = 1;
+        const dots = items.slice().sort((a, b) => a.v[0] - b.v[0]).map(x => {
+          const slot = Math.round(pos(x.v[0]) / 2.5);
+          const k = stack[slot] = (stack[slot] || 0) + 1;
+          top = Math.max(top, k);
+          return `<div title="${escapeHTML((names ? x.name + ': ' : '') + roundText([x.v[0], x.v[0]], r.unit))}" style="position:absolute;bottom:${4 + (k - 1) * 20}px;left:${pos(x.v[0])}%;width:17px;height:17px;margin-left:-8px;border-radius:50%;background:#4f46e5;border:2px solid #fff"></div>`;
+        }).join('');
+        plot = `<div style="margin:0 10px"><div style="position:relative;height:${Math.max(90, top * 20 + 14)}px;border-bottom:3px solid #94a3b8">${band}${dots}</div></div>`;
+        if (names) plot += `<div class="flex flex-wrap gap-1.5 pt-3">${items.slice().sort((a, b) => a.v[0] - b.v[0]).map(x => `<span class="text-xs bg-slate-100 rounded-full px-2.5 py-1"><b>${escapeHTML(x.name || '')}</b> ${escapeHTML(roundText(x.v, ''))}</span>`).join('')}</div>`;
+      }
+      const pad = r.kind === 'range' ? `padding-left:${names ? 88 : 0}px;padding-right:104px` : '';
+      return `<div class="flex flex-wrap gap-x-5 gap-y-1 text-sm sm:text-base">${head}</div><div class="space-y-1.5">${plot}</div>
+        <div style="${pad}" class="flex justify-between text-xs text-slate-500"><span>${roundNum(lo)}</span><span>${roundNum(Math.round((lo + hi) / 2 * 10) / 10)}</span><span>${roundNum(hi)}</span></div>`;
+    }
+
+    // Lehrperson: Zurück / Weiter
+    function renderRoundNav() {
+      const d = currentSessionData;
+      const on = !!(d && (d.flow || (d.type === 'round' && d.round)) && d.active !== false);
+      ['round-nav', 'pj-round'].forEach(id => document.getElementById(id).classList.toggle('hidden', !on));
+      if (!on) return;
+      const at = d.flow || d.round;
+      document.querySelectorAll('.round-pos').forEach(e => { e.textContent = (d.flow ? 'Schritt ' : 'Frage ') + (at.i + 1) + ' von ' + at.n; });
+      document.getElementById('round-reveal').classList.toggle('hidden', !(d.revealed || solutionLabel(d, currentSolution)));
+      document.querySelectorAll('.round-prev').forEach(b => { b.disabled = at.i === 0; b.classList.toggle('opacity-40', b.disabled); });
+      document.querySelectorAll('.round-next').forEach(b => { b.disabled = at.i >= at.n - 1; b.classList.toggle('opacity-40', b.disabled); });
+    }
+    let roundBusy = false;
+    async function roundGo(delta) {
+      const d = currentSessionData;
+      if (d && d.flow) return flowGo(delta);
+      if (!d || d.type !== 'round' || roundBusy) return;
+      const steps = currentSolution && currentSolution.round;
+      if (!steps) return toast('Die Fragen sind noch nicht geladen. Bitte kurz warten.');
+      const i = d.round.i + delta;
+      if (i < 0 || i >= steps.length) return;
+      roundBusy = true;
+      const seen = (d.round.done || []).includes(i);   // schon aufgelöst → Lösung bleibt sichtbar, Eingabe zu
+      const next = { ...d, round: roundPublic(steps, i, d.round.id, d.round.done) };
+      try {
+        await updateSession({ question: steps[i].q, round: next.round, revealed: seen ? solutionLabel(next, currentSolution) : null, locked: seen, showOnBeamer: seen, startedAt: FV.serverTimestamp() }, true);
+        if (IS_DEMO && !seen) startDemoBots(currentRoomCode, { type: 'round', steps, i });
+      } finally { roundBusy = false; }
+    }
+    function revealRoundStep() {
+      const d = currentSessionData;
+      if (d.revealed) return updateSession({ revealed: null }, true);
+      const label = solutionLabel(d, currentSolution);
+      if (!label) return toast('Für diese Frage ist keine Lösung hinterlegt.');
+      const done = [...new Set([...(d.round.done || []), d.round.i])];
+      updateSession({ revealed: label, locked: true, showOnBeamer: true, round: { ...d.round, done } }, true);
+    }
+
+    // Schüler: Regler und Zahlenfeld sind gekoppelt. Nichts ist vorausgefüllt (kein «Anker»).
+    function renderRoundInput(area, data) {
+      const r = data.round;
+      const mine = studentResp ? roundValue(studentResp.answer, r.i) : null;
+      const mode = r.input || 'both';
+      const row = (k, label) => {
+        const val = mine ? String(mine[k]) : '';
+        return `<div class="space-y-1">
+          <div class="flex items-center justify-between gap-3"><label for="stu-round-${k}" class="text-sm font-bold text-slate-700">${label}</label>
+            <span class="flex items-center gap-1.5"><input type="text" inputmode="decimal" id="stu-round-${k}" value="${escapeHTML(val)}" maxlength="12" placeholder="?"${mode === 'slider' ? ' readonly tabindex="-1"' : ''} oninput="roundSync(${k},'num')" class="text-center text-2xl font-bold rounded-xl border-2 border-indigo-300 bg-white px-2 py-1.5" style="width:7rem" />${r.unit ? `<span class="text-sm text-slate-600">${escapeHTML(r.unit)}</span>` : ''}</span></div>
+          ${mode === 'type' ? '' : `<input type="range" id="stu-slide-${k}" min="${Number(r.min)}" max="${Number(r.max)}" step="${Number(r.step)}" value="${val === '' ? (Number(r.min) + Number(r.max)) / 2 : Number(val)}" oninput="roundSync(${k},'slide')" onpointerup="roundSync(${k},'slide')" aria-label="${label} (Schieberegler)" style="width:100%;height:40px;accent-color:#4f46e5" />
+          <div class="flex justify-between text-xs text-slate-500"><span>${roundNum(r.min)}</span><span>${roundNum(r.max)}</span></div>`}</div>`;
+      };
+      area.innerHTML = `<p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Frage ${r.i + 1} von ${r.n} · ${mode === 'slider' ? 'Regler schieben' : (mode === 'type' ? 'Zahl eintippen' : 'Schieben oder eintippen')}</p>` + (r.kind === 'range' ? row(0, 'Von') + row(1, 'Bis') : row(0, 'Deine Schätzung'));
+    }
+    function roundSync(k, from) {
+      const num = document.getElementById('stu-round-' + k), slide = document.getElementById('stu-slide-' + k);
+      if (!slide) return;
+      if (from === 'slide') num.value = String(Number(slide.value));
+      else { const n = parseNum(num.value); if (n !== null && !Number.isNaN(n)) slide.value = n; }
+    }
+    function readRoundAnswer() {
+      const r = studentSession.round;
+      const read = (k) => parseNum(document.getElementById('stu-round-' + k).value);
+      const a = read(0), b = r.kind === 'range' ? read(1) : a;
+      if (a === null || b === null || Number.isNaN(a) || Number.isNaN(b)) { toast(r.kind === 'range' ? 'Bitte gib «von» und «bis» an.' : ({ slider: 'Bitte schiebe den Regler.', type: 'Bitte tippe eine Zahl ein.' }[r.input] || 'Bitte schiebe den Regler oder tippe eine Zahl ein.')); return null; }
+      if (b < a) { toast('«Bis» darf nicht kleiner sein als «Von».'); return null; }
+      const all = studentResp ? roundAll(studentResp.answer) : {};
+      all[r.i] = [a, b];
+      const out = JSON.stringify(all);
+      if (out.length > 1000) { toast('Die Zahl ist zu lang.'); return null; }
+      return out;
+    }
+    function roundSentState() {
+      if (!studentSession || studentSession.type !== 'round') return;
+      const has = !!(studentResp && roundValue(studentResp.answer, studentSession.round.i));
+      document.getElementById('student-sent-banner').classList.toggle('hidden', !has);
+      document.getElementById('btn-student-submit').textContent = has ? 'Schätzung ändern' : 'Schätzung senden';
+    }
+
+    // =========================================================================
+    // 5c. ABLAUF: mehrere Vorlagen nacheinander mit einem Code
+    // =========================================================================
+    const FLOW_MAX = 30;
+    let flowDraft = [];          // Kopien der gewählten Vorlagen
+    let flowDraftId = null;      // gespeicherter Ablauf, der gerade bearbeitet wird
+    let flowSteps = null;        // laufende Session (Lehrperson): alle Schritte inkl. Lösungen
+    let flowStepShown = null;
+    let allResponses = [];
+
+    // Jede Person hat pro Schritt ein eigenes Antwortdokument. So bleiben ✅/❌ und Kommentare je Frage getrennt.
+    const flowSuffix = (i) => 'q' + String(i).padStart(2, '0') + 'x';
+    const flowRid = (base, i) => base.slice(0, 34) + flowSuffix(i);
+    function flowFilter(data, list) { return data && data.flow ? list.filter(r => r.id.endsWith(flowSuffix(data.flow.i))) : list; }
+
+    function renderFlowBuilder() {
+      const box = document.getElementById('flow-box');
+      flowDraft = flowDraft.map(resolveFlowItem);
+      box.classList.toggle('hidden', !flowDraft.length && !flowOpen);
+      document.getElementById('flow-list').innerHTML = flowDraft.map((t, i) => `
+        <div class="flex items-start gap-2 rounded-lg border border-slate-200 bg-white p-2">
+          <span class="text-sm font-bold text-indigo-700">${i + 1}.</span>
+          <span class="flex-1 min-w-0"><span class="block text-[10px] font-bold uppercase tracking-wider text-indigo-600">${escapeHTML(TYPE_LABELS[t.type] || t.type)}${t.type === 'round' ? ' · ' + (t.roundSteps || []).length + ' Fragen' : ''}${t.tplId ? '' : ' · nur im Ablauf'}</span><span class="block text-xs text-slate-800">${escapeHTML(t.question || '')}</span></span>
+          <span class="flex flex-wrap justify-end gap-1" style="max-width:7.5rem">
+          <button type="button" onclick="editFlowItem(${i})" class="text-xs px-2 py-1 rounded border border-slate-200" aria-label="bearbeiten" title="Bearbeiten">✏️</button>
+          <button type="button" onclick="newFlowItem(${i})" class="text-xs px-2 py-1 rounded border border-slate-200" aria-label="neue Frage danach einfügen" title="Neue Frage danach">＋</button>
+          <button type="button" onclick="moveFlowItem(${i},-1)" class="text-xs px-2 py-1 rounded border border-slate-200" aria-label="nach oben">↑</button>
+          <button type="button" onclick="moveFlowItem(${i},1)" class="text-xs px-2 py-1 rounded border border-slate-200" aria-label="nach unten">↓</button>
+          <button type="button" onclick="removeFlowItem(${i})" class="text-xs px-2 py-1 rounded border border-slate-200" aria-label="aus dem Ablauf entfernen">✕</button>
+          </span>
+        </div>`).join('');
+    }
+    function addToFlow(id) {
+      const t = cachedTemplates.find(x => x.id === id);
+      if (!t || t.type === 'flow') return;
+      if (flowDraft.length >= FLOW_MAX) return toast('Ein Ablauf kann höchstens ' + FLOW_MAX + ' Vorlagen enthalten.');
+      flowDraft.push({ ...stripMeta(t), tplId: id });
+      flowOpen = true;
+      renderFlowBuilder();
+      toast('Zum Ablauf hinzugefügt (Nr. ' + flowDraft.length + ')');
+    }
+    function moveFlowItem(i, d) { const j = i + d; if (j < 0 || j >= flowDraft.length) return; [flowDraft[i], flowDraft[j]] = [flowDraft[j], flowDraft[i]]; renderFlowBuilder(); }
+    function removeFlowItem(i) { flowDraft.splice(i, 1); renderFlowBuilder(); }
+    function clearFlow() { if (editState && editState.kind !== 'template') cancelEdit(); flowDraft = []; flowDraftId = null; flowOpen = false; document.getElementById('flow-name').value = ''; renderFlowBuilder(); }
+    function loadFlow(t) {
+      if (editState && editState.kind !== 'template') cancelEdit();
+      flowOpen = true;
+      try { flowDraft = JSON.parse(t.flowJson); } catch (e) { return toast('Dieser Ablauf konnte nicht gelesen werden.'); }
+      flowDraftId = t.id;
+      document.getElementById('flow-name').value = t.question || '';
+      renderFlowBuilder();
+      document.getElementById('flow-box').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    function saveFlow(asCopy) {
+      const name = document.getElementById('flow-name').value.trim();
+      if (!name) return toast('Bitte gib dem Ablauf einen Namen.');
+      if (!flowDraft.length) return toast('Der Ablauf ist noch leer.');
+      const json = JSON.stringify(flowDraft);
+      if (json.length > 900000) return toast('Der Ablauf ist zu gross zum Speichern (zu viele Bilder).');
+      const doc = { type: 'flow', question: name, flowJson: json, createdAt: FV.serverTimestamp() };
+      const col = teacherRef().collection('templates');
+      const job = flowDraftId && !asCopy ? col.doc(flowDraftId).set(doc) : col.add(doc).then(ref => { flowDraftId = ref && ref.id ? ref.id : null; });
+      job.then(() => toast('Ablauf gespeichert')).catch(() => toast('Ablauf konnte nicht gespeichert werden.'));
+    }
+
+    // Vorlagen → einzelne Schritte. Eine Schätzrunde wird zu einem Schritt pro Frage.
+    function buildFlowSteps(items) {
+      const keepType = currentQuestionType;
+      const keep = collectFormData();
+      const steps = [];
+      let error = '';
+      items.forEach((t, nr) => {
+        fillForm(t);
+        const f = collectFormData();
+        const err = formError(f);
+        if (err && !error) error = 'Vorlage ' + (nr + 1) + ' («' + (t.question || '') + '»): ' + err;
+        if (f.type === 'round') (f.roundSteps || []).forEach((s, k) => steps.push({ type: 'round', question: s.q, options: [], initialText: '', image: '', solution: { round: f.roundSteps }, roundSteps: f.roundSteps, k }));
+        else {
+          // einmal mischen, damit die Reihenfolge beim Zurückblättern gleich bleibt
+          f.publicOptions = f.type === 'order' ? shuffleDifferent(f.options) : (f.type === 'match' ? shuffle(f.options) : (f.type === 'mc' ? f.options : []));
+          steps.push(f);
+        }
+      });
+      fillForm({ ...keep, type: keepType });
+      return { steps, error };
+    }
+    function flowPublic(f, id) {
+      return {
+        type: f.type, question: f.question, options: f.publicOptions || [], image: f.image || null, initialText: f.initialText || '',
+        multi: f.type === 'mc' && !!f.multi, maxTerms: f.type === 'cloud' ? (f.maxTerms || 3) : null,
+        unit: f.type === 'number' ? (f.unit || '') : '', round: f.type === 'round' ? roundPublic(f.roundSteps, f.k, id, []) : null
+      };
+    }
+    function startFlow() {
+      if (!flowDraft.length) return toast('Füge zuerst Vorlagen oder neue Fragen hinzu.');
+      if (editState) return toast('Speichere oder verwirf zuerst deine Bearbeitung.');
+      const built = buildFlowSteps(flowDraft);
+      if (built.error) return toast(built.error);
+      if (JSON.stringify(built.steps).length > 900000) return toast('Der Ablauf ist zu gross (zu viele Bilder).');
+      startSession({ title: document.getElementById('flow-name').value.trim() || 'Ablauf', steps: built.steps });
+    }
+    function demoFormFor(steps, i) { const f = steps[i]; return f.type === 'round' ? { type: 'round', steps: f.roundSteps, i: f.k, flowStep: i } : { ...f, flowStep: i }; }
+
+    // Lösung und Antworten passend zum aktuellen Schritt wählen
+    function flowSync() {
+      const d = currentSessionData;
+      currentResponses = d ? flowFilter(d, allResponses) : [];
+      if (!d || !d.flow) return;
+      if (flowSteps && flowSteps[d.flow.i]) currentSolution = flowSteps[d.flow.i].solution || {};
+      else currentSolution = null;
+      if (flowStepShown !== d.flow.i) { flowStepShown = d.flow.i; undoStack = []; updateUndoBtn(); }
+    }
+    async function flowGo(delta) {
+      const d = currentSessionData;
+      if (!d || !d.flow || roundBusy) return;
+      if (!flowSteps) return toast('Die Fragen sind noch nicht geladen. Bitte kurz warten.');
+      const i = d.flow.i + delta;
+      if (i < 0 || i >= flowSteps.length) return;
+      roundBusy = true;
+      const seen = (d.flow.done || []).includes(i);
+      const pub = flowPublic(flowSteps[i], d.flow.id);
+      const label = seen ? solutionLabel(pub, flowSteps[i].solution || {}) : '';
+      try {
+        stopDemoBots();
+        await updateSession({ ...pub, flow: { ...d.flow, i }, revealed: label ? label.slice(0, 600) : null, locked: seen, showOnBeamer: seen, spotlightKey: null, startedAt: FV.serverTimestamp() }, true);
+        if (IS_DEMO && !seen) startDemoBots(currentRoomCode, demoFormFor(flowSteps, i));
+      } finally { roundBusy = false; }
+    }
+    function revealFlowStep() {
+      const d = currentSessionData;
+      if (d.revealed) return updateSession({ revealed: null }, true);
+      const label = solutionLabel(d, currentSolution);
+      if (!label) return toast('Für diese Frage ist keine Lösung hinterlegt.');
+      const done = [...new Set([...(d.flow.done || []), d.flow.i])];
+      updateSession({ revealed: label.slice(0, 600), locked: true, showOnBeamer: true, flow: { ...d.flow, done } }, true);
+    }
+    function exportFlowCSV() {
+      const q = (s) => `"${String(s || '').replace(/"/g, '""')}"`;
+      const marks = { good: 'Richtig', warn: 'Fast', bad: 'Noch nicht' };
+      const rows = [['Schritt', 'Frage', 'Name', 'Antwort', 'Zusatzkommentar', 'Bewertung', 'Kommentar Lehrperson']];
+      (flowSteps || []).forEach((f, i) => {
+        const data = flowPublic(f, currentSessionData.flow.id);
+        allResponses.filter(r => r.id.endsWith(flowSuffix(i))).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'))
+          .forEach(r => rows.push([i + 1, f.question, r.name, displayAnswer(data, r), r.comment, marks[r.mark] || '', r.feedback || '']));
+      });
+      if (rows.length === 1) return toast('Keine Antworten vorhanden.');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob(['﻿' + rows.map(l => l.map(q).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+      a.download = `lightning_ablauf_${currentRoomCode}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
     }
 
     // =========================================================================
@@ -1454,6 +1883,9 @@
       currentSessionData = null;
       currentResponses = [];
       currentSolution = null;
+      allResponses = [];
+      flowSteps = null;
+      flowStepShown = null;
 
       document.getElementById('teacher-setup').classList.add('hidden');
       document.getElementById('teacher-live').classList.remove('hidden');
@@ -1464,18 +1896,23 @@
       liveUnsubs.push(sessionRef(code).onSnapshot((snap) => {
         if (!snap.exists) { backToSetup(); return; }
         currentSessionData = snap.data({ serverTimestamps: 'estimate' });
+        flowSync();
         renderLiveSession();
+        if (currentSessionData.flow) { ensureHashes(currentResponses.map(r => r.id), renderLiveResponses); autoEvaluate(); }
       }, () => toast('Verbindung zur Session unterbrochen.')));
 
       liveUnsubs.push(sessionRef(code).collection('responses').onSnapshot((snap) => {
-        currentResponses = snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) }));
+        allResponses = snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) }));
+        currentResponses = flowFilter(currentSessionData, allResponses);
         renderLiveResponses();
         ensureHashes(currentResponses.map(r => r.id), renderLiveResponses);
         autoEvaluate();
       }, () => toast('Antworten konnten nicht geladen werden.')));
 
       teacherRef().collection('solutions').doc(code).get().then((s) => {
-        currentSolution = s.exists ? s.data() : null;
+        const secret = s.exists ? unpackSolution(s.data()) : null;
+        if (secret && secret.flowJson) { try { flowSteps = JSON.parse(secret.flowJson); } catch (e) { flowSteps = null; } flowSync(); renderRoundNav(); }
+        else currentSolution = secret;
         renderLiveResponses();
         updateRevealButtonUI();
         autoEvaluate();
@@ -1503,6 +1940,7 @@
       document.getElementById('btn-clear-spotlight').classList.toggle('hidden', !data.spotlightKey);
       updateRevealButtonUI();
       updateReviseButtonUI(data.allowRevise === true);
+      renderRoundNav();
       startCountdown('teacher-timer-badge', data, () => { updateLockButtonUI(isInputClosed(data)); renderProjectionBar(); });
       if (projectionOn) startCountdown('beamer-timer-badge', data);
       renderLiveResponses();
@@ -1510,8 +1948,9 @@
 
     function renderLiveResponses() {
       if (!currentSessionData) return;
-      renderMissingStudents(currentSessionData, currentResponses);
-      renderTeacherResponses(currentSessionData, currentResponses);
+      const shown = roundFilter(currentSessionData, currentResponses);
+      renderMissingStudents(currentSessionData, shown);
+      renderTeacherResponses(currentSessionData, shown);
       syncProjection();
     }
 
@@ -1559,11 +1998,13 @@
 
     function renderProjectionBar() {
       if (!projectionOn || !currentSessionData) return;
+      renderRoundNav();
       const d = currentSessionData;
       const roster = Array.isArray(d.roster) ? d.roster : null;
-      let status = `${currentResponses.length} Antworten`;
+      const answered = roundFilter(d, currentResponses);
+      let status = `${answered.length} Antworten`;
       if (roster && roster.length) {
-        const names = new Set(currentResponses.map(r => (r.name || '').trim().toLowerCase()));
+        const names = new Set(answered.map(r => (r.name || '').trim().toLowerCase()));
         status = `${roster.filter(n => names.has(n.toLowerCase())).length} / ${roster.length} abgegeben`;
       }
       document.getElementById('pj-status').textContent = status;
@@ -1736,6 +2177,7 @@
       }
 
       const grid = document.getElementById('live-responses-grid');
+      if (data.type === 'round') { grid.innerHTML = ''; return; }   // Auswertung steht in der Grafik, keine ✅/❌-Karten
       if (entries.length === 0) {
         grid.innerHTML = '<div class="col-span-full text-center py-8 text-sm text-slate-400">Warte auf erste Antworten der Klasse...</div>';
         return;
@@ -1811,7 +2253,7 @@
       }).join('');
     }
 
-    const SUMMARY_TYPES = ['mc', 'ampel', 'order', 'tf', 'cloud', 'number', 'gap', 'match', 'rate'];
+    const SUMMARY_TYPES = ['mc', 'ampel', 'order', 'tf', 'cloud', 'number', 'gap', 'match', 'rate', 'round'];
     const RATE_LABELS = { '5': '😄 Sehr sicher', '4': '🙂 Sicher', '3': '😐 Geht so', '2': '😕 Unsicher', '1': '😣 Gar nicht' };
     const RATE_SHORT = { '5': 'Sehr sicher', '4': 'Sicher', '3': 'Geht so', '2': 'Unsicher', '1': 'Gar nicht' };
     const RATE_COL = { '5': '#059669', '4': '#84cc16', '3': '#facc15', '2': '#fb923c', '1': '#e11d48' };
@@ -1827,6 +2269,7 @@
       if (data.type === 'cloud') return splitMulti(a).join(', ');
       if (data.type === 'match') return String(a || '').split(MULTI_SEP).join(' | ');
       if (data.type === 'rate') { const v = String(a || '').split(MULTI_SEP); return rateItems(data).map((t, i) => t + ': ' + (RATE_SHORT[v[i]] || '–')).join(' | '); }
+      if (data.type === 'round') { const v = roundValue(a, data.round.i); return v ? roundText(v, data.round.unit) : '–'; }
       if (data.type === 'tf') return a === 'Richtig' ? '✅ Richtig' : a === 'Falsch' ? '❌ Falsch' : a;
       if (data.type === 'number') { const n = parseNum(a); return (n === null || Number.isNaN(n) ? a : fmtNum(n)) + (data.unit ? ' ' + data.unit : ''); }
       return a;
@@ -1908,6 +2351,7 @@
     }
 
     function buildSummaryHTML(data, entries, sol) {
+      if (data.type === 'round') return roundSummaryHTML(data, entries, sol);
       const total = entries.length;
       if (data.type === 'order') {
         const order = sol && sol.order;
@@ -2032,6 +2476,7 @@
     // ---------- Lösung zeigen ----------
     function solutionLabel(data, sol) {
       if (!data || !sol) return '';
+      if (data.type === 'round') { const v = roundStepSolution(data, sol); return v ? roundText(v, data.round.unit) : ''; }
       if (data.type === 'mc' && sol.mcCorrect && sol.mcCorrect.length) return sol.mcCorrect.join(', ');
       if (data.type === 'tf' && sol.tf) return sol.tf === 'true' ? 'Richtig' : 'Falsch';
       if (data.type === 'number' && typeof sol.num === 'number') return fmtNum(sol.num) + (data.unit ? ' ' + data.unit : '') + (sol.tol ? ' (±' + fmtNum(sol.tol) + ')' : '');
@@ -2044,6 +2489,8 @@
     function toggleRevealSolution() {
       const d = currentSessionData;
       if (!d) return;
+      if (d.flow) return revealFlowStep();
+      if (d.type === 'round') return revealRoundStep();
       const label = solutionLabel(d, currentSolution);
       if (!label && !d.revealed) return toast('Für diese Frage ist keine Lösung hinterlegt.');
       updateSession({ revealed: d.revealed ? null : label.slice(0, 600) });
@@ -2491,8 +2938,20 @@
     }
 
     function exportCSV() {
+      if (currentSessionData && currentSessionData.flow) return exportFlowCSV();
       if (!currentResponses.length) return toast('Keine Antworten vorhanden.');
       const q = (s) => `"${String(s || '').replace(/"/g, '""')}"`;
+      if (currentSessionData.type === 'round') {
+        const steps = (currentSolution && currentSolution.round) || [];
+        const head = ['Name', ...Array.from({ length: currentSessionData.round.n }, (_, i) => steps[i] ? steps[i].q : 'Frage ' + (i + 1))];
+        const lines = [head, ...[...currentResponses].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de')).map(x => [x.name, ...head.slice(1).map((_, i) => { const v = roundValue(x.answer, i); return v ? roundText(v, steps[i] ? steps[i].unit : '') : ''; })])];
+        const file = new Blob(['\ufeff' + lines.map(l => l.map(q).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(file);
+        a.download = `lightning_${currentRoomCode}.csv`;
+        document.body.appendChild(a); a.click(); a.remove();
+        return;
+      }
       const markLabels = { good: 'Richtig', warn: 'Fast', bad: 'Noch nicht', none: '' };
       const rows = [['Name', 'Antwort', 'Zusatzkommentar', 'Feedback', 'Kommentar Lehrperson', 'Nachgebessert', 'Zeit'].map(q).join(';')];
       const sorted = [...currentResponses].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
@@ -2538,18 +2997,159 @@
     // =========================================================================
     // 7. VORLAGEN & KI-IMPORT
     // =========================================================================
+    // ---------- Vorlagen bearbeiten & neue Frage direkt im Ablauf ----------
+    let editState = null;     // {kind:'template', id} | {kind:'item', item} | {kind:'new', after}
+    let flowOpen = false;
+
+    const stripMeta = (t) => { const c = { ...t }; delete c.id; delete c.createdAt; delete c.tplId; return c; };
+    // Verknüpfte Schritte zeigen immer den aktuellen Stand der Vorlage. Gibt es sie nicht mehr, bleibt die Kopie.
+    function resolveFlowItem(it) {
+      const t = it.tplId && cachedTemplates.find(x => x.id === it.tplId && x.type !== 'flow');
+      if (!t) return it;
+      const fresh = { ...stripMeta(t), tplId: it.tplId };
+      Object.keys(it).forEach(k => delete it[k]);
+      return Object.assign(it, fresh);
+    }
+    const stable = (v) => JSON.stringify(v, (k, x) => x && typeof x === 'object' && !Array.isArray(x) ? Object.keys(x).sort().reduce((o, key) => (o[key] = x[key], o), {}) : x);
+    // Speichert die Frage als Vorlage (eine identische wird wiederverwendet) und fügt sie verknüpft in den Ablauf ein.
+    let flowSaving = false;
+    async function saveIntoFlow(form, after) {
+      if (flowSaving) return false;
+      if (flowDraft.length >= FLOW_MAX) { toast('Ein Ablauf kann höchstens ' + FLOW_MAX + ' Fragen enthalten.'); return false; }
+      flowSaving = true;
+      try {
+        const key = stable(form);
+        const same = cachedTemplates.find(t => t.type !== 'flow' && stable(stripMeta(t)) === key);
+        const id = same ? same.id : (await teacherRef().collection('templates').add({ ...packTemplate(form), createdAt: FV.serverTimestamp() })).id;
+        const item = { ...form, tplId: id };
+        const i = after ? flowDraft.indexOf(after) : -1;
+        if (i < 0) flowDraft.push(item); else flowDraft.splice(i + 1, 0, item);
+        flowOpen = true;
+        renderFlowBuilder();
+        return true;
+      } catch (e) { toast('Vorlage konnte nicht gespeichert werden.'); return false; }
+      finally { flowSaving = false; }
+    }
+    async function saveAndAddToFlow() {
+      const form = collectFormData();
+      const err = formError(form);
+      if (err) return toast(err);
+      if (!(await saveIntoFlow(form, null))) return;
+      clearForm();
+      selectType(currentQuestionType);
+      toast('Gespeichert und als Nr. ' + flowDraft.length + ' im Ablauf – Ablauf noch speichern');
+    }
+    function openNewFlow() {
+      if (flowDraft.length && !confirm('Den angezeigten Ablauf schliessen und einen neuen beginnen? Nicht gespeicherte Änderungen gehen verloren.')) return;
+      clearFlow();
+      flowOpen = true;
+      renderFlowBuilder();
+      document.getElementById('flow-box').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    function showEditBar() {
+      const on = !!editState;
+      document.getElementById('edit-bar').classList.toggle('hidden', !on);
+      document.getElementById('edit-actions').classList.toggle('hidden', !on);
+      document.getElementById('normal-actions').classList.toggle('hidden', on);
+      if (!on) return;
+      document.getElementById('edit-title').textContent = editState.kind === 'new' ? '➕ Neue Frage für den Ablauf' : (editState.kind === 'item' ? '✏️ Du bearbeitest eine Frage im Ablauf' : '✏️ Du bearbeitest eine gespeicherte Vorlage');
+      document.getElementById('edit-hint').textContent = editState.kind === 'template' ? 'Die Änderung gilt auch in allen Abläufen, die diese Vorlage verwenden. Laufende Sitzungen bleiben unverändert.' : (editState.kind === 'new' ? 'Die Frage wird auch als Vorlage gespeichert. Vergiss nicht, den Ablauf zu speichern.' : 'Diese Frage gehört nur zum Ablauf. Vergiss nicht, den Ablauf zu speichern.');
+      document.getElementById('edit-save').textContent = editState.kind === 'new' ? '💾 Speichern + in den Ablauf' : '💾 Änderungen speichern';
+    }
+    function beginEdit(state, source) {
+      if (document.getElementById('input-question').value.trim() && !confirm('Das Formular wird überschrieben. Nicht gespeicherte Eingaben gehen verloren. Weiter?')) return;
+      editState = state;
+      if (source) fillForm(source); else { clearForm(); selectType(currentQuestionType); }
+      showEditBar();
+      document.getElementById('edit-bar').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    function cancelEdit() {
+      if (!editState) return;
+      editState = null;
+      clearForm();
+      selectType(currentQuestionType);
+      showEditBar();
+    }
+    function editTemplate(id) {
+      const t = cachedTemplates.find(x => x.id === id);
+      if (t && t.type !== 'flow') beginEdit({ kind: 'template', id }, t);
+    }
+    function editFlowItem(i) {
+      const it = flowDraft[i];
+      if (!it) return;
+      if (it.tplId && cachedTemplates.some(x => x.id === it.tplId)) return editTemplate(it.tplId);
+      beginEdit({ kind: 'item', item: it }, it);
+    }
+    function newFlowItem(after) {
+      if (flowDraft.length >= FLOW_MAX) return toast('Ein Ablauf kann höchstens ' + FLOW_MAX + ' Vorlagen enthalten.');
+      beginEdit({ kind: 'new', after: after === undefined ? null : flowDraft[after] }, null);
+    }
+    async function saveEdit() {
+      const state = editState;
+      if (!state) return;
+      const form = collectFormData();
+      const err = formError(form);
+      if (err) return toast(err);
+      if (state.kind === 'template') {
+        const old = cachedTemplates.find(x => x.id === state.id);
+        if (!old) return toast('Diese Vorlage gibt es nicht mehr.');
+        try {
+          const col = teacherRef().collection('templates');
+          await col.doc(state.id).set({ ...packTemplate(form), createdAt: old.createdAt || FV.serverTimestamp() });
+          // Kopien in gespeicherten Abläufen nachführen (gilt auch, falls die Vorlage später gelöscht wird)
+          const fresh = { ...form, tplId: state.id };
+          for (const f of cachedTemplates.filter(x => x.type === 'flow')) {
+            let items; try { items = JSON.parse(f.flowJson); } catch (e) { continue; }
+            if (!items.some(x => x.tplId === state.id)) continue;
+            const json = JSON.stringify(items.map(x => x.tplId === state.id ? fresh : x));
+            if (json.length > 900000) { toast('Ablauf «' + f.question + '» ist zu gross und konnte nicht nachgeführt werden.'); continue; }
+            await col.doc(f.id).set({ type: 'flow', question: f.question, flowJson: json, createdAt: f.createdAt || FV.serverTimestamp() });
+          }
+          flowDraft = flowDraft.map(x => x.tplId === state.id ? { ...fresh } : x);
+        } catch (e) { return toast('Änderung konnte nicht gespeichert werden.'); }
+        toast('Vorlage geändert');
+      } else if (state.kind === 'item') {
+        const i = flowDraft.indexOf(state.item);
+        if (i < 0) flowDraft.push(form); else flowDraft[i] = form;
+        toast('Frage im Ablauf geändert – Ablauf noch speichern');
+      } else {
+        if (!(await saveIntoFlow(form, state.after))) return;
+        toast('Gespeichert und in den Ablauf eingefügt – Ablauf noch speichern');
+      }
+      cancelEdit();
+      renderFlowBuilder();
+    }
+
+    // Firestore erlaubt keine Listen in Listen. Lücken werden darum verpackt gespeichert,
+    // die Paare beim Zuordnen gar nicht (sie entstehen neu aus «matchSource»).
+    function packSolution(sol) {
+      if (!sol || !Array.isArray(sol.gaps)) return sol;
+      const out = { ...sol, gapList: sol.gaps.map(g => ({ words: g })) };
+      delete out.gaps;
+      return out;
+    }
+    function unpackSolution(sol) {
+      if (!sol || !Array.isArray(sol.gapList)) return sol;
+      const out = { ...sol, gaps: sol.gapList.map(g => g.words) };
+      delete out.gapList;
+      return out;
+    }
+    function packTemplate(t) { const out = { ...t }; delete out.pairs; if (out.solution) out.solution = packSolution(out.solution); return out; }
+    function unpackTemplate(t) { if (t.solution) t.solution = unpackSolution(t.solution); return t; }
+
     function saveTemplate() {
       const form = collectFormData();
       if (!form.question) return toast('Bitte zuerst eine Frage eingeben.');
-      teacherRef().collection('templates').add({ ...form, createdAt: FV.serverTimestamp() })
+      teacherRef().collection('templates').add({ ...packTemplate(form), createdAt: FV.serverTimestamp() })
         .then(() => toast('Vorlage gespeichert'))
         .catch(() => toast('Vorlage konnte nicht gespeichert werden.'));
     }
 
-    const TYPE_LABELS = { text: 'Kurzantwort', mc: 'Multiple Choice', ampel: 'Ampel', fix: 'Satz-Korrektur', order: 'Reihenfolge', tf: 'Richtig/Falsch', cloud: 'Wortwolke', gap: 'Lückentext', match: 'Zuordnen', number: 'Zahl/Schätzung', rate: 'Selbsteinschätzung' };
+    const TYPE_LABELS = { text: 'Kurzantwort', mc: 'Multiple Choice', ampel: 'Ampel', fix: 'Satz-Korrektur', order: 'Reihenfolge', tf: 'Richtig/Falsch', cloud: 'Wortwolke', gap: 'Lückentext', match: 'Zuordnen', number: 'Zahl/Schätzung', rate: 'Selbsteinschätzung', round: 'Schätzrunde', flow: '▶ Ablauf' };
 
     function renderTemplates() {
       document.getElementById('template-count').textContent = cachedTemplates.length;
+      renderFlowBuilder();
       const list = document.getElementById('template-list');
       if (cachedTemplates.length === 0) {
         list.innerHTML = '<div class="text-xs text-slate-400 italic">Noch keine Vorlagen gespeichert.</div>';
@@ -2561,6 +3161,8 @@
             <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-600">${escapeHTML(TYPE_LABELS[t.type] || t.type)}</span>
             <p class="text-xs font-medium text-slate-800 line-clamp-2 mt-0.5">${escapeHTML(t.question)}</p>
           </button>
+          ${t.type === 'flow' ? '' : `<button onclick="addToFlow('${t.id}')" class="text-[11px] font-semibold text-indigo-700 border border-indigo-200 bg-white rounded-lg px-2 py-1 whitespace-nowrap">＋ Ablauf</button>`}
+          ${t.type === 'flow' ? '' : `<button onclick="editTemplate('${t.id}')" class="text-xs px-1" aria-label="Vorlage bearbeiten" title="Vorlage bearbeiten">✏️</button>`}
           <button onclick="deleteTemplate('${t.id}')" class="text-xs text-slate-400 hover:text-rose-600 px-1">✕</button>
         </div>
       `).join('');
@@ -2569,6 +3171,8 @@
     function applyTemplate(id) {
       const tpl = cachedTemplates.find(t => t.id === id);
       if (!tpl) return;
+      if (tpl.type === 'flow') return loadFlow(tpl);
+      cancelEdit();   // sonst würde die falsche Vorlage überschrieben
       fillForm(tpl);
     }
 
@@ -2996,12 +3600,15 @@
           return;
         }
         studentSession = data;
+        watchMyResponse(code);
         document.getElementById('student-closed-box').classList.add('hidden');
         document.getElementById('student-answer-box').classList.remove('hidden');
         document.getElementById('student-question-text').textContent = data.question;
         showQuestionImage('student-question-text', data.image);
         setupStudentNameInput(data);
         renderStudentInputFields(data);
+        if (data.type === 'round') roundSentState();
+        else if (studentHasSubmitted) showSentState();
         startCountdown('student-timer-pill', data, () => { updateStudentLockState(); renderStudentFeedback(); });
         updateStudentLockState();
         renderStudentFeedback();
@@ -3009,15 +3616,37 @@
         showStudentClosed('Keine Verbindung', 'Die Session konnte nicht geladen werden. Bitte Seite neu laden.');
       });
 
-      // Eigene Antwort beobachten: Abgabe nach Neuladen erkennen und Feedback der Lehrperson anzeigen
+      // Eigene Antwort beobachten (im Ablauf: pro Schritt ein Dokument)
       if (studentRespUnsub) { studentRespUnsub(); studentRespUnsub = null; }
       studentResp = null;
       lastFeedbackSig = null;
-      hashId(deviceId).then(() => renderStudentFeedback());
-      studentRespUnsub = sessionRef(code).collection('responses').doc(deviceId).onSnapshot((s) => {
-        if (studentRoomCode !== code) return;
+      studentRid = null;
+    }
+
+    let studentRid = null;
+    const myRid = () => studentSession && studentSession.flow ? flowRid(deviceId, studentSession.flow.i) : deviceId;
+    function watchMyResponse(code) {
+      const rid = myRid();
+      if (studentRid === rid) return;
+      if (studentRespUnsub) { studentRespUnsub(); studentRespUnsub = null; }
+      studentRid = rid;
+      studentResp = null;
+      studentHasSubmitted = false;
+      lastFeedbackSig = null;
+      prefilledFor = null;
+      document.getElementById('student-sent-banner').classList.add('hidden');
+      document.getElementById('btn-student-submit').textContent = 'Antwort absenden';
+      let first = true;
+      hashId(rid).then(() => renderStudentFeedback());
+      studentRespUnsub = sessionRef(code).collection('responses').doc(rid).onSnapshot((s) => {
+        if (studentRoomCode !== code || studentRid !== rid) return;
         studentResp = s.exists ? s.data() : null;
+        // Nach dem Neuladen: eigene Schätzung wieder in die Felder setzen
+        if (studentResp && studentSession && studentSession.type === 'round') { const f = document.getElementById('stu-round-0'); if (f && !f.value) renderRoundInput(document.getElementById('student-input-area'), studentSession); }
         if (s.exists) { studentHasSubmitted = true; showSentState(); }
+        // Beim Zurückblättern die eigene frühere Antwort wieder anzeigen
+        if (first && s.exists && studentSession && studentSession.flow && studentSession.type !== 'round') prefillStudentAnswer(s.data());
+        first = false;
         renderStudentFeedback();
         updateStudentLockState();
       }, () => {});
@@ -3064,7 +3693,7 @@
       const r = studentResp;
       const mark = r && r.mark && r.mark !== 'none' ? r.mark : null;
       const fbText = r && r.feedback ? r.feedback : '';
-      const spot = !!(studentSession && studentSession.spotlightNotice === true && studentSession.spotlightKey && spotHash[deviceId] === studentSession.spotlightKey && r);
+      const spot = !!(studentSession && studentSession.spotlightNotice === true && studentSession.spotlightKey && spotHash[myRid()] === studentSession.spotlightKey && r);
       note.classList.toggle('hidden', !spot);
       if (isReturned()) {
         box.className = 'rounded-xl border-2 p-4 space-y-1.5 border-sky-400 bg-sky-50 text-sky-900';
@@ -3130,7 +3759,7 @@
 
     function renderStudentInputFields(data) {
       const area = document.getElementById('student-input-area');
-      const signature = JSON.stringify([data.type, data.question, data.initialText || '', data.options || [], !!data.multi, data.maxTerms || 0, data.unit || '']);
+      const signature = JSON.stringify([data.type, data.question, data.initialText || '', data.options || [], !!data.multi, data.maxTerms || 0, data.unit || '', data.round ? data.round.id + ':' + data.round.i : '', data.flow ? data.flow.id + ':' + data.flow.i : '']);
       if (area.dataset.signature === signature) return;
       area.dataset.signature = signature;
       area.dataset.type = data.type;
@@ -3139,6 +3768,7 @@
       selectedMcSet = new Set();
       selectedTf = null;
 
+      if (data.type === 'round') { renderRoundInput(area, data); return; }
       if (data.type === 'gap') {
         const parts = String(data.initialText || '').split('___');
         area.innerHTML = `<label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Setze die fehlenden Wörter ein</label>
@@ -3271,6 +3901,7 @@
       document.getElementById('student-sent-banner').classList.remove('hidden');
       document.getElementById('btn-student-submit').textContent = 'Antwort aktualisieren';
       document.getElementById('btn-handover').classList.toggle('hidden', isTeacherUser(currentUser));
+      roundSentState();
     }
 
     async function submitStudentAnswer() {
@@ -3283,7 +3914,10 @@
       let answer = '';
       let comment = '';
       const type = studentSession.type;
-      if (type === 'text' || type === 'fix') {
+      if (type === 'round') {
+        answer = readRoundAnswer();
+        if (answer === null) return;
+      } else if (type === 'text' || type === 'fix') {
         answer = document.getElementById('student-text-answer').value.trim();
         if (!answer) return toast('Bitte gib eine Antwort ein.');
       } else if (type === 'gap') {
@@ -3326,7 +3960,7 @@
       }
 
       localStorage.setItem('lightning_student_name', name);
-      const ref = sessionRef(studentRoomCode).collection('responses').doc(deviceId);
+      const ref = sessionRef(studentRoomCode).collection('responses').doc(myRid());
       const payload = { name, answer, comment, updatedAt: FV.serverTimestamp() };
       // Nachbessern nach ⚠️/❌: Bewertung zurücksetzen, damit die Lehrperson die neue Version sieht
       if (studentResp && (studentResp.mark === 'warn' || studentResp.mark === 'bad')) { payload.mark = 'none'; payload.revised = true; }
@@ -3394,22 +4028,31 @@
       document.getElementById('beamer-code').textContent = code;
       renderQR('qr-beamer', `${getBaseUrl()}?code=${code}`);
 
+      let all = {}, secret = null, steps = null;
+      const sync = () => {
+        const f = beamerSession && beamerSession.flow;
+        beamerResponses = f ? Object.fromEntries(Object.entries(all).filter(([id]) => id.endsWith(flowSuffix(f.i)))) : all;
+        beamerSolution = f ? (steps && steps[f.i] ? steps[f.i].solution || {} : null) : secret;
+      };
+
       sessionRef(code).onSnapshot((snap) => {
         if (!snap.exists) { beamerSession = null; renderBeamer(); return; }
         beamerSession = snap.data({ serverTimestamps: 'estimate' });
         startCountdown('beamer-timer-badge', beamerSession);
+        sync();
         renderBeamer();
       }, () => toast('Keine Berechtigung für diese Session.'));
 
       sessionRef(code).collection('responses').onSnapshot((snap) => {
-        beamerResponses = {};
-        snap.forEach(d => { beamerResponses[d.id] = d.data(); });
+        all = {};
+        snap.forEach(d => { all[d.id] = d.data(); });
+        sync();
         renderBeamer();
-        ensureHashes(Object.keys(beamerResponses), renderBeamer);
+        ensureHashes(Object.keys(all), renderBeamer);
       }, () => {});
 
       db.collection(TEACHERS).doc(currentUser.uid).collection('solutions').doc(code).get()
-        .then(s => { beamerSolution = s.exists ? s.data() : null; renderBeamer(); })
+        .then(s => { secret = s.exists ? unpackSolution(s.data()) : null; if (secret && secret.flowJson) { try { steps = JSON.parse(secret.flowJson); } catch (e) { steps = null; } } sync(); renderBeamer(); })
         .catch(() => {});
     }
 
@@ -3428,7 +4071,7 @@
       const solEl = document.getElementById('beamer-solution');
       solEl.classList.toggle('hidden', !data.revealed || data.active === false);
       solEl.textContent = data.revealed ? '💡 Lösung: ' + data.revealed : '';
-      const entries = Object.values(beamerResponses);
+      const entries = roundFilter(data, Object.values(beamerResponses));
       document.getElementById('beamer-count').textContent = entries.length;
       if (closed) return;
 
@@ -3684,11 +4327,23 @@
         { type: 'cloud', question: 'Was fällt dir zum Thema Ferien ein?', options: [], initialText: '', maxTerms: 3, solution: {} },
         { type: 'number', question: 'In welchem Jahr wurde die Eidgenossenschaft gegründet?', options: [], initialText: '', unit: '', solution: { num: 1291, tol: 0 } },
         { type: 'mc', question: 'Welche Wörter sind Signalwörter für das Present Perfect?', options: ['since', 'yesterday', 'already', 'last year', 'never'], initialText: '', multi: true, solution: { mcCorrect: ['since', 'already', 'never'] } }
+        , { type: 'round', question: 'Schätzrunde: Erster Weltkrieg', options: [], initialText: '', roundSteps: WW1_ROUND, solution: { round: WW1_ROUND } }
       ].forEach((tpl, i) => t.collection('templates').doc('demo' + i).set({ ...tpl, createdAt: Date.now() - i * 1000 }));
+      t.collection('templates').doc('demoflow').set({ type: 'flow', question: 'Einstieg 1. Weltkrieg', flowJson: JSON.stringify([
+        { type: 'round', question: 'Schätzrunde: Erster Weltkrieg', options: [], initialText: '', roundSteps: WW1_ROUND, solution: { round: WW1_ROUND } },
+        { type: 'cloud', question: 'Was weisst du schon über den Ersten Weltkrieg?', options: [], initialText: '', maxTerms: 3, solution: {} },
+        { type: 'text', question: 'Warum könnte es zu diesem Krieg gekommen sein?', options: [], initialText: '', solution: {} }
+      ]), createdAt: Date.now() + 1000 });
       // Lösung der ersten Vorlage markieren
       t.collection('templates').doc('demo0').set({ type: 'mc', question: 'Welches Signalwort passt zum Present Perfect?', options: ['yesterday', 'since 2022', 'last week', 'ago'], initialText: '', solution: { mcCorrect: ['since 2022'] }, createdAt: Date.now() });
     }
 
+    function demoRoundGuess(s) {
+      const span = (s.max - s.min) / 5;
+      const near = (t) => { const base = t === null || t === undefined ? (s.min + s.max) / 2 : t; const small = s.kind === 'range' ? s.step * 8 : span; const v = base + (Math.random() - 0.5) * small; return Math.round(Math.min(s.max, Math.max(s.min, Math.round(v / s.step) * s.step)) * 1000) / 1000; };
+      const a = near(s.sol);
+      return s.kind === 'range' ? [a, Math.max(a, near(s.sol2))] : [a, a];
+    }
     let demoBotTimers = [];
     function stopDemoBots() {
       demoBotTimers.forEach(clearTimeout);
@@ -3802,7 +4457,7 @@
       demoForm = form;
       const classId = document.getElementById('select-session-class').value;
       const roster = cachedClasses[classId] ? presentStudents(classId) : null;
-      const names = shuffle(roster || DEMO_NAMES.slice(0, 8));
+      const names = form.type === 'round' ? (roster || DEMO_NAMES.slice(0, 8)) : shuffle(roster || DEMO_NAMES.slice(0, 8));
       // etwa 80 % antworten, die übrigen «fehlen» noch
       const count = Math.max(1, Math.round(names.length * 0.8));
       names.slice(0, count).forEach((name, i) => {
@@ -3811,8 +4466,21 @@
           const snap = await sessionRef(code).get();
           const d = snap.exists ? snap.data() : null;
           if (!d || isInputClosed(d)) return;   // gleiche Regel wie in der echten Datenbank
+          const stepOk = d.flow ? form.flowStep === d.flow.i : true;
+          if (!stepOk) return;
+          const rid = (base) => d.flow ? flowRid(base, d.flow.i) : base;
+          if (form.type === 'round') {
+            // Ein Dokument pro Person, die neue Schätzung kommt dazu
+            if (!d.round || d.round.i !== form.i) return;
+            const ref = sessionRef(code).collection('responses').doc(rid('botround' + String(i).padStart(16, '0')));
+            const old = await ref.get();
+            const all = old.exists ? roundAll(old.data().answer) : {};
+            all[form.i] = demoRoundGuess(form.steps[form.i]);
+            ref.set({ name, answer: JSON.stringify(all), comment: '', updatedAt: FV.serverTimestamp(), mark: 'none' });
+            return;
+          }
           const { answer, comment } = demoAnswerFor(form);
-          sessionRef(code).collection('responses').doc('bot' + i + newDeviceId().slice(0, 18)).set({ name, answer, comment, updatedAt: FV.serverTimestamp(), mark: 'none' });
+          sessionRef(code).collection('responses').doc(rid(d.flow ? 'bot' + String(i).padStart(18, '0') : 'bot' + i + newDeviceId().slice(0, 18))).set({ name, answer, comment, updatedAt: FV.serverTimestamp(), mark: 'none' });
         }, delay));
       });
     }
@@ -3839,7 +4507,7 @@
         var classes={},templates=[];
         var cs=await teacherRef().collection('classes').get(); cs.forEach(function(d){classes[d.id]=d.data();});
         var ts=await teacherRef().collection('templates').get(); ts.forEach(function(d){templates.push(Object.assign({id:d.id},d.data()));});
-        var payload={app:'lightning',appVersion:'3.5',exportedAt:new Date().toISOString(),account:currentUser.email,classes:classes,templates:templates};
+        var payload={app:'lightning',appVersion:'3.7',exportedAt:new Date().toISOString(),account:currentUser.email,classes:classes,templates:templates};
         var blob=new Blob([JSON.stringify(payload)],{type:'application/json'});
         var d=new Date();
         return {blob:blob,name:'lightning-backup-'+d.toISOString().slice(0,10)+'.json',info:Object.keys(classes).length+' Klassen, '+templates.length+' Vorlagen'};
@@ -3848,7 +4516,7 @@
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',go);else go();
 })();
 
-function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'3.6',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
+function openAppFeedback(){var q=new URLSearchParams({app:'lightning',version:'3.7',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
 
 /* ===== Zurück-Geste (Handy): ein Schritt zurück statt App schliessen ===== */
 (function(){

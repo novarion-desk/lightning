@@ -1,7 +1,7 @@
-// Service Worker Lightning (Version 3.6): macht die App installierbar UND offline nutzbar.
+// Service Worker Lightning (Version 3.7): macht die App installierbar UND offline nutzbar.
 // Strategie: zuerst Netz (immer frische Version, wenn online), bei Ausfall oder langsamem Netz (4 s) der Zwischenspeicher.
 // Beim Erhöhen der App-Version hier VERSION mitändern, damit der Update-Hinweis erscheint.
-const VERSION = '3.6';
+const VERSION = '3.7';
 const CACHE = 'lightning-' + VERSION;
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'drive-backup.js', 'shared-ki.js', 'vendor/app.css', 'vendor/firebase-app-compat.js', 'vendor/firebase-auth-compat.js', 'vendor/firebase-firestore-compat.js', 'vendor/qrcode.js', 'icons/icon.svg', 'icons/favicon-32.png', 'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-192.png', 'icons/icon-maskable-512.png'];
 const SCOPE = self.registration.scope;

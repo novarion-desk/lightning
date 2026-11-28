@@ -1,5 +1,14 @@
 # Changelog
 
+## Version 3.7 – 28.11.2026
+- Neu: Fragetyp «🎯 Schätzrunde»: bis zu 10 Schätzfragen nacheinander mit einem Code, Antwort per Schieberegler oder Eintippen, auch als Bereich von – bis. «Weiter/Zurück», Grafik «Wo lagen wir?», Beispiel Erster Weltkrieg. Auch in der Demo
+- Neu: «▶ Ablauf»: gespeicherte Vorlagen (auch Schätzrunden) in eine Reihenfolge bringen, speichern und mit einem Code durcharbeiten. Antworten und Bewertungen je Schritt getrennt, CSV für den ganzen Ablauf
+- Neu: Schätzrunde pro Frage mit «Regler und Eintippen», «nur Regler» oder «nur Eintippen»
+- Neu: Vorlagen bearbeiten (✏️), Abläufe übernehmen Änderungen automatisch. Neue Fragen direkt im Ablauf anlegen
+- Neu: «Speichern + in den Ablauf» speichert die Frage als Vorlage und hängt sie an den Ablauf an
+- Fix: Lückentext und Zuordnen liessen sich nicht in der Datenbank speichern (verschachtelte Listen)
+- Keine Änderung an den Firebase-Regeln nötig
+
 ## Version 3.6 – 25.11.2026
 - Neu: **Offline-Start.** Die App wird beim ersten Öffnen zwischengespeichert und öffnet danach auch ohne Netz (Demo vollständig). Mit Netz kommt immer die neueste Version. Anmelden, Live-Checks mit Schülern (Cloud), KI, Drive-Sicherung und Feedback brauchen weiterhin Netz.
 

@@ -17,7 +17,7 @@ die Schüler/innen scannen den QR-Code (ohne Login) und antworten mit dem Handy 
 
 ## Fragetypen
 
-Kurzantwort · Multiple Choice · Ampel (1–4 + Rückfrage) · Satz-Korrektur · Reihenfolge · Richtig/Falsch · Wortwolke · Zahl/Schätzung · Lückentext · Zuordnen
+Kurzantwort · Multiple Choice · Ampel (1–4 + Rückfrage) · Satz-Korrektur · Reihenfolge · Richtig/Falsch · Wortwolke · Zahl/Schätzung · Lückentext · Zuordnen · Selbsteinschätzung · Schätzrunde
 
 Zu jeder Frage kann ein Bild hinzugefügt werden. Ergebnisse lassen sich als CSV exportieren (öffnet in Excel/Numbers).
 
